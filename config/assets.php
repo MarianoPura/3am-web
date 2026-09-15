@@ -55,7 +55,7 @@ return [
      */
     'brand' => [
         // Triangle cluster only — used in the navigation bar.
-        'mark' => null,          // e.g. 'media/logo-mark.svg'
+        'mark' => 'media/logo-mark.png',          // e.g. 'media/logo-mark.svg'
 
         // Full horizontal lockup — used in the footer. Needs a light-on-dark
         // version, since the footer sits on near-black navy.
@@ -101,8 +101,8 @@ return [
         'channel.ventures' => [
             'ratio' => '4x3',
             'label' => 'Ventures',
-            'src' => 'media/work5.jpg',
-            'alt' => 'Outdoor festival stage beneath bright green, orange and yellow canopies with a broadcast camera in the foreground',
+            'src' => 'media/ventures-overview.jpg',
+            'alt' => 'Two cameras recording an outdoor interview at a garden table',
         ],
 
         // ── Track record ──────────────────────────────────────────────────
@@ -154,68 +154,68 @@ return [
             'label' => 'Project 01',
             'src' => 'media/work1.jpg',
             'alt' => 'Video switcher and multiview monitors covering a speaker on a red-lit ballroom stage',
-            'video' => 'media/showreel-1.mp4',
+            'video' => null,
         ],
         'media.work2' => [
             'ratio' => '16x9',
             'label' => 'Project 02',
             'src' => 'media/work2.jpg',
             'alt' => 'Live production monitors showing a presenter and slides above an illuminated video switcher',
-            'video' => 'media/showreel-2.mp4',
+            'video' => null,
         ],
         'media.work3' => [
             'ratio' => '16x9',
             'label' => 'Project 03',
             'src' => 'media/work3.jpg',
             'alt' => 'Professional video camera filming a band performing on a brightly lit ballroom stage',
-            'video' => 'media/showreel-1.mp4',
+            'video' => null,
         ],
         'media.work4' => [
             'ratio' => '16x9',
             'label' => 'Project 04',
             'src' => 'media/work4.jpg',
             'alt' => 'Camera operator filming two event hosts on stage beside seated banquet guests',
-            'video' => 'media/showreel-2.mp4',
+            'video' => null,
         ],
         'media.work5' => [
             'ratio' => '16x9',
             'label' => 'Project 05',
             'src' => 'media/work5.jpg',
             'alt' => 'Broadcast camera aimed at an outdoor festival stage beneath colorful fabric canopies',
-            'video' => 'media/showreel-1.mp4',
+            'video' => null,
         ],
         'media.work6' => [
             'ratio' => '16x9',
             'label' => 'Project 06',
             'src' => 'media/work6.jpg',
             'alt' => 'Camera operator using a handheld gimbal to film a woman outdoors',
-            'video' => 'media/showreel-2.mp4',
+            'video' => null,
         ],
 
         // ── Ventures ──────────────────────────────────────────────────────
         'venture.studio' => [
             'ratio' => '4x3',
             'label' => 'Studio Setup',
-            'src' => 'media/control-room.jpg',
-            'alt' => 'Production monitors displaying multiple camera feeds of musicians and event guests',
+            'src' => 'media/studio-production.jpg',
+            'alt' => 'Production operator switching camera feeds of a singer across multiple monitors',
         ],
         'venture.stage' => [
             'ratio' => '4x3',
             'label' => 'Stage Setup',
-            'src' => 'media/work5.jpg',
-            'alt' => 'Outdoor festival stage with lighting trusses beneath colorful fabric canopies',
+            'src' => 'media/stage-production.jpg',
+            'alt' => 'Broadcast camera facing an event stage with LED screens and lighting trusses',
         ],
         'venture.events' => [
             'ratio' => '4x3',
             'label' => 'Event Management',
-            'src' => 'media/work4.jpg',
-            'alt' => 'Event hosts on a ballroom stage with a camera operator and seated banquet guests',
+            'src' => 'media/event-management.jpg',
+            'alt' => 'Production crew monitoring a ballroom event with live music and seated guests',
         ],
         'venture.rentals' => [
             'ratio' => '4x3',
             'label' => 'Rentals',
-            'src' => 'media/work3.jpg',
-            'alt' => 'Professional video camera with a wireless transmitter filming a live band',
+            'src' => 'media/equipment-rentals.jpg',
+            'alt' => 'Professional video camera and wireless transmitter set up in a conference room',
         ],
 
         // ── Technology products — product shot or UI screenshot ────────────

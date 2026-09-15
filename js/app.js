@@ -176,8 +176,12 @@
 
     const setOpen = (open) => {
       toggle.setAttribute('aria-expanded', String(open));
+      toggle.querySelector('.sr-only').textContent = open ? 'Close menu' : 'Menu';
       panel.hidden = !open;
       root.classList.toggle('is-nav-open', open);
+      document.querySelector('main').inert = open;
+      document.querySelector('.footer').inert = open;
+      nav.querySelector('.nav__mark').inert = open;
     };
 
     toggle.addEventListener('click', () => {
@@ -187,25 +191,56 @@
     // Close on selection, and on Escape — a full-screen overlay with no
     // keyboard exit is a trap.
     panel.addEventListener('click', (e) => {
-      if (e.target.tagName === 'A') setOpen(false);
+      if (e.target.closest('a')) setOpen(false);
     });
 
     document.addEventListener('keydown', (e) => {
+      if (e.key === 'Tab' && !panel.hidden) {
+        const controls = [toggle, ...panel.querySelectorAll('a[href]')];
+        const first = controls[0];
+        const last = controls[controls.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
       if (e.key === 'Escape' && toggle.getAttribute('aria-expanded') === 'true') {
         setOpen(false);
         toggle.focus();
       }
     });
+    window.matchMedia('(min-width: 1101px)').addEventListener('change', (e) => {
+      if (e.matches) setOpen(false);
+    });
   };
 
   // ── Smooth anchor scrolling ────────────────────────────────
   const setupAnchors = () => {
-    document.querySelectorAll('a[href^="#"]').forEach((link) => {
+    // A cross-page hash must settle after images and fonts reserve their space.
+    const landOnSection = async () => {
+      await document.fonts.ready;
+      if (hasGsap) ScrollTrigger.refresh();
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        const target = document.getElementById(decodeURIComponent(location.hash.slice(1)));
+        if (target) target.scrollIntoView({ behavior: 'instant', block: 'start' });
+      }));
+    };
+    if (location.hash) {
+      if (document.readyState === 'complete') landOnSection();
+      else window.addEventListener('load', landOnSection, { once: true });
+    }
+    document.querySelectorAll('a[href]').forEach((link) => {
       link.addEventListener('click', (e) => {
-        const id = link.getAttribute('href');
+        if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+        const destination = new URL(link.href, location.href);
+        if (destination.origin !== location.origin || destination.pathname !== location.pathname || destination.search !== location.search) return;
+        const id = destination.hash;
         if (id === '#' || id.length < 2) return;
 
-        const target = document.querySelector(id);
+        const target = document.getElementById(decodeURIComponent(id.slice(1)));
         if (!target) return;
 
         e.preventDefault();

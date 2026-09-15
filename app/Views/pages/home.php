@@ -8,9 +8,8 @@
  *   #capabilities    Capabilities — Media / Technology / Events
  *   #track-record    Proof — verifiable facts, reel request
  *   #media           Media — capabilities + work gallery
- *   #technology      Technology — signal path, products
+ *   #technology      Technology — signal path
  *   #ventures        Ventures — studio, stage, events, rentals
- *   #sectors         Sectors
  *   #contact         Contact
  *
  * CONTENT STILL NEEDED FROM THE CLIENT — see README "Placeholders"
@@ -32,8 +31,6 @@
  * @var array $sectionTech
  * @var array $sectionVentures
  * @var array $mediaWork      Six gallery entries; blanks render placeholders
- * @var array $techProducts  JustBump, Remember.Me - shown under Systems
- * @var array $sectors
  * @var array $company
  */
 
@@ -139,7 +136,7 @@ $this->extend('layouts.base');
       the same team.
     </p>
 
-    <div class="rack">
+    <div class="rack" tabindex="0" role="region" aria-label="Capabilities">
       <?php $unit = 1; foreach ($capabilities as $capKey => $group): ?>
         <article class="rack__unit" id="capability-<?= e_attr($capKey) ?>" data-reveal>
           <header class="rack__head">
@@ -223,20 +220,17 @@ $this->extend('layouts.base');
     <h2 id="media-heading" class="section__title" data-reveal><?= e($sectionMedia['headline']) ?></h2>
     <p class="section__lede" data-reveal><?= e($sectionMedia['subhead']) ?></p>
 
-    <ul class="tags" data-reveal>
+    <ul class="tags" data-reveal tabindex="0" aria-label="Services">
       <?php foreach ($sectionMedia['tags'] as $tag): ?>
         <li class="tag mono"><?= e($tag) ?></li>
       <?php endforeach ?>
     </ul>
 
-    <div class="work-grid">
+    <div class="work-grid" tabindex="0" role="region" aria-label="Media work gallery">
       <?php foreach ($mediaWork as $i => $item): ?>
         <article class="work-card" data-reveal>
           <?= $this->partial('partials.frame', [
               'slot'  => 'media.work' . ($i + 1),
-              'src'   => $item['image'] ?? null,
-              'alt'   => $item['alt'] ?? '',
-              'video' => $item['video'] ?? null,
           ]) ?>
           <div class="work-card__body">
             <span class="tag tag--cat mono"><?= e($item['category'] ?? 'Broadcast') ?></span>
@@ -255,9 +249,7 @@ $this->extend('layouts.base');
 </section>
 
 
-<?php /* TECHNOLOGY ============================================
-         Signal-path diagram as proof of the systems claim; the two
-         shipped products as proof the technology arm is real. */ ?>
+<?php /* TECHNOLOGY — signal-path diagram and production imagery. */ ?>
 <section class="section systems" id="technology" data-theme="dark"
          aria-labelledby="technology-heading">
   <div class="shell">
@@ -265,7 +257,7 @@ $this->extend('layouts.base');
     <h2 id="technology-heading" class="section__title" data-reveal><?= e($sectionTech['headline']) ?></h2>
     <p class="section__lede" data-reveal><?= e($sectionTech['subhead']) ?></p>
 
-    <ul class="tags" data-reveal>
+    <ul class="tags" data-reveal tabindex="0" aria-label="Services">
       <?php foreach ($sectionTech['tags'] as $tag): ?>
         <li class="tag mono"><?= e($tag) ?></li>
       <?php endforeach ?>
@@ -314,28 +306,6 @@ $this->extend('layouts.base');
       </div>
     </div>
 
-    <div class="products" data-reveal>
-      <p class="mono products__label">Products we build and ship ourselves</p>
-
-      <?php foreach ($techProducts as $product): ?>
-        <article class="product">
-          <?= $this->partial('partials.frame', ['slot' => $product['slot'], 'ratio' => '1x1']) ?>
-          <div class="product__body">
-            <h3 class="product__name"><?= e($product['name']) ?></h3>
-            <p class="mono product__tagline"><?= e($product['tagline']) ?></p>
-            <p class="product__text"><?= e($product['body']) ?></p>
-            <?php if (!empty($product['url'])): ?>
-              <a class="product__link mono" href="<?= e_attr($product['url']) ?>">
-                Visit <?= e($product['name']) ?> &rarr;
-              </a>
-            <?php else: ?>
-              <span class="badge mono"><?= e($product['status']) ?></span>
-            <?php endif ?>
-          </div>
-        </article>
-      <?php endforeach ?>
-    </div>
-
     <div class="section__cta" data-reveal>
       <a class="btn" href="<?= e_attr(url('start/technology')) ?>">Start a tech project</a>
     </div>
@@ -354,7 +324,7 @@ $this->extend('layouts.base');
     <h2 id="ventures-heading" class="section__title" data-reveal><?= e($sectionVentures['headline']) ?></h2>
     <p class="section__lede" data-reveal><?= e($sectionVentures['subhead']) ?></p>
 
-    <div class="ventures">
+    <div class="ventures" tabindex="0" role="region" aria-label="Ventures">
       <?php foreach ($ventures as $venture): ?>
         <article class="venture-card" data-reveal>
           <?= $this->partial('partials.frame', ['slot' => $venture['slot']]) ?>
@@ -368,32 +338,6 @@ $this->extend('layouts.base');
 
     <div class="section__cta" data-reveal>
       <a class="btn" href="<?= e_attr(url('start/ventures')) ?>"><?= e($sectionVentures['cta']) ?></a>
-    </div>
-  </div>
-</section>
-
-
-<?php /* ══ 07 · SECTORS ════════════════════════════════════════
-         Capability framing, not a client list. Real logos arrive
-         once written clearances exist. */ ?>
-<section class="section section--tight" id="sectors" data-theme="dark"
-         aria-labelledby="sectors-heading">
-  <div class="shell">
-    <p class="mono section__label" data-reveal>Sectors</p>
-    <h2 id="sectors-heading" class="section__title section__title--sm" data-reveal>
-      Built for demanding rooms.
-    </h2>
-  </div>
-
-  <div class="marquee" data-marquee aria-label="Sectors we work in">
-    <div class="marquee__track">
-      <?php for ($pass = 0; $pass < 2; $pass++): ?>
-        <ul class="marquee__group" <?= $pass ? 'aria-hidden="true"' : '' ?>>
-          <?php foreach ($sectors as $sector): ?>
-            <li><span class="mono"><?= e($sector) ?></span></li>
-          <?php endforeach ?>
-        </ul>
-      <?php endfor ?>
     </div>
   </div>
 </section>
@@ -418,10 +362,6 @@ $this->extend('layouts.base');
     <div class="cta__actions" data-reveal>
       <a class="btn btn--invert" href="<?= e_attr(url('start/media')) ?>">Start a media project</a>
       <a class="btn btn--invert" href="<?= e_attr(url('start/technology')) ?>">Start a tech project</a>
-      <p class="cta__note">
-        <?= e($company['address']['street']) ?>,<br>
-        <?= e($company['address']['locality']) ?>, <?= e($company['address']['region']) ?>
-      </p>
     </div>
   </div>
 </section>
