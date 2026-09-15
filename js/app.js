@@ -122,7 +122,6 @@
     // scroll position exactly rather than running on its own clock.
     gsap.to(hero.querySelector('.shell'), {
       y: -60,
-      opacity: 0.3,
       ease: 'none',
       scrollTrigger: {
         trigger: hero,
