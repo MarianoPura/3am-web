@@ -1,0 +1,197 @@
+/**
+ * 3AM — Design Tokens
+ * ===================
+ * The single source of truth for the "SIGNAL / CONTROL ROOM" direction.
+ * Nothing below this file in the cascade may hard-code a colour, a duration,
+ * or a type size. If a value is needed that is not here, it belongs here.
+ *
+ * ⚠ COLOUR VALUES ARE PROVISIONAL
+ * The navy is sampled from the supplied raster logo render. Replace with values
+ * taken from the source vector (/brand/*.svg|ai|eps) before build sign-off.
+ */
+
+:root {
+  /* ─────────────────────────────────────────────────────────
+     COLOUR — Navy scale, derived from the logo
+     ───────────────────────────────────────────────────────── */
+  --c-ink:        #152B45;  /* Logo navy. Body text on light. 13:1 on white. */
+  --c-void:       #0B1622;  /* Near-black navy. Primary dark ground.         */
+  --c-surface:    #101C2C;  /* Cards and panels on dark                      */
+  --c-surface-2:  #17273A;  /* Elevated / hover on dark                      */
+  --c-slate:      #2E4763;  /* Secondary text on dark, heavy borders         */
+  --c-muted:      #8296AC;  /* Metadata, captions, disabled                  */
+  --c-paper:      #F5F7FA;  /* Light ground                                  */
+  --c-white:      #FFFFFF;
+
+  --c-line:       rgb(255 255 255 / 8%);   /* The technical hairline grid, dark */
+  --c-line-lt:    #E3E8EE;                 /* …and light                        */
+
+  /* ─────────────────────────────────────────────────────────
+     COLOUR — Accents
+     ───────────────────────────────────────────────────────── */
+
+  /* Tally amber. The lamp that says a camera is live, and the colour of a
+     streetlight at 3AM. Chosen over the obvious navy+cyan specifically because
+     that pairing would make a distinctive logo look generic. */
+  --c-tally:      #FFB300;
+  --c-tally-dim:  #C98B00;   /* Pressed / active                             */
+
+  /* Signal cyan. RESTRICTED — technical contexts only: the signal-chain
+     diagram, the LED grid, code and data treatments. Kept rare on purpose so
+     that it still means something when it appears. */
+  --c-signal:     #35E0F0;
+
+  --c-alert:      #FF4438;   /* REC state, destructive actions, form errors  */
+  --c-success:    #2ECC8F;
+
+  /* ⚠ CONTRAST RULE — enforced in review, not by the compiler.
+     --c-tally on --c-paper/--c-white is ~1.9:1 and MUST NOT be used for text
+     on a light ground. Permitted uses of amber: a fill with navy type on top,
+     hairlines and rules, small mono labels ON DARK ONLY, focus rings, and the
+     tally dot. On --c-void it exceeds 11:1 and is safe at any size. */
+
+  /* ─────────────────────────────────────────────────────────
+     SEMANTIC ROLES — light theme (the default)
+     Components reference these, never the raw scale above. Theming is then a
+     matter of reassigning a dozen values rather than auditing every rule.
+     ───────────────────────────────────────────────────────── */
+  --bg:            var(--c-paper);
+  --bg-elevated:   var(--c-white);
+  --fg:            var(--c-ink);
+  --fg-muted:      #5A6B7F;
+  --fg-subtle:     #5A6B7F;   /* light theme: 4.9:1 on --paper */
+  --border:        var(--c-line-lt);
+  --accent:        var(--c-tally);
+  --accent-fg:     var(--c-ink);      /* type ON amber is always navy */
+  --focus-ring:    var(--c-ink);
+
+  /* ─────────────────────────────────────────────────────────
+     TYPE
+     ───────────────────────────────────────────────────────── */
+  --f-display: 'Archivo', 'Archivo Expanded', system-ui, sans-serif;
+  --f-body:    'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --f-mono:    'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  /* Fluid scale. Ratio ~1.25 at mobile widening to ~1.333 at desktop, so
+     headings gain hierarchy on large screens without body text drifting.
+
+     Revised down from the first pass. The original hero topped out at 160px,
+     which filled an entire desktop viewport with three words and pushed
+     everything else below the fold — it read as shouting rather than as
+     confident. Scale now tops out at 88px, and hierarchy is carried by the
+     mono label layer and by whitespace instead of by sheer size. */
+  --t-hero:     clamp(2.5rem, 6.5vw, 5.5rem);
+  --t-display:  clamp(1.875rem, 3.6vw, 3.25rem);
+  --t-h1:       clamp(1.75rem, 2.8vw, 2.5rem);
+  --t-h2:       clamp(1.5rem, 2.2vw, 1.875rem);
+  --t-h3:       clamp(1.125rem, 1.5vw, 1.375rem);
+  --t-h4:       1.125rem;
+  --t-body-lg:  1.125rem;
+  --t-body:     1rem;      /* never smaller for running text */
+  --t-small:    0.875rem;
+  --t-mono:     0.6875rem;
+
+  --lh-tight:   0.95;      /* hero and display only */
+  --lh-heading: 1.1;
+  --lh-body:    1.6;
+
+  --ls-hero:    -0.03em;   /* large type needs negative tracking to look right */
+  --ls-display: -0.02em;
+  --ls-body:    0;
+  --ls-mono:    0.15em;    /* echoes the logo's letterspaced support line */
+
+  /* ─────────────────────────────────────────────────────────
+     SPACE — 8px base
+     ───────────────────────────────────────────────────────── */
+  --s-1: 0.25rem;  --s-2: 0.5rem;   --s-3: 0.75rem;  --s-4: 1rem;
+  --s-6: 1.5rem;   --s-8: 2rem;     --s-12: 3rem;    --s-16: 4rem;
+  --s-24: 6rem;    --s-32: 8rem;    --s-48: 12rem;
+
+  --section-y: clamp(4rem, 10vw, 12rem);   /* vertical rhythm between sections */
+
+  /* ─────────────────────────────────────────────────────────
+     LAYOUT
+     ───────────────────────────────────────────────────────── */
+  --w-content: 1440px;
+  --w-bleed:   1920px;
+  --w-prose:   68ch;        /* measure for running text */
+  --gutter:    clamp(1rem, 4vw, 1.5rem);
+
+  --radius-sm: 2px;
+  --radius:    4px;         /* the brand is engineered, not soft — stay tight */
+  --radius-lg: 8px;
+
+  /* ─────────────────────────────────────────────────────────
+     MOTION
+     A grammar, not a collection of effects. One house curve does almost
+     everything, which is what gives the site a single consistent feel.
+     ───────────────────────────────────────────────────────── */
+  --m-micro:   120ms;   /* button press, chip toggle          */
+  --m-ui:      240ms;   /* hover, nav, accordion              */
+  --m-reveal:  600ms;   /* scroll-in reveals                  */
+  --m-cinema:  1000ms;  /* hero, section transitions          */
+  --m-page:    500ms;   /* page transitions                   */
+
+  --ease:      cubic-bezier(0.16, 1, 0.3, 1);  /* house curve: fast in, long settle */
+  --ease-out:  cubic-bezier(0.33, 1, 0.68, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+
+  --reveal-rise:    40px;
+  --reveal-stagger: 60ms;
+
+  /* ─────────────────────────────────────────────────────────
+     Z-INDEX — named, so no one ever writes z-index: 9999
+     ───────────────────────────────────────────────────────── */
+  --z-base: 0;     --z-raised: 10;   --z-sticky: 100;
+  --z-nav: 200;    --z-overlay: 300; --z-modal: 400;
+  --z-cursor: 500; --z-preloader: 600;
+}
+
+/* ───────────────────────────────────────────────────────────
+   DARK SECTIONS
+   Applied per-section rather than per-document. Most of this site is dark;
+   light sections are the exception, and both must be first-class.
+   ─────────────────────────────────────────────────────────── */
+[data-theme='dark'] {
+  --bg:          var(--c-void);
+  --bg-elevated: var(--c-surface);
+  --fg:          var(--c-paper);
+  --fg-muted:    #9BAABC;
+  --fg-subtle:   var(--c-muted);   /* dark theme: 6.00:1 on --void */
+  --border:      var(--c-line);
+  --accent:      var(--c-tally);
+  --accent-fg:   var(--c-ink);
+  --focus-ring:  var(--c-tally);
+}
+
+/* ───────────────────────────────────────────────────────────
+   REDUCED MOTION
+   Honoured from the OS setting AND from the footer toggle, which writes
+   data-motion="reduced" onto the root. A site this motion-forward should
+   offer the control openly rather than only obeying a system preference.
+
+   Every animation collapses to a 200ms opacity fade. No transforms, no
+   parallax, no scrubbing, no preloader, no marquee, no canvas grid.
+   ─────────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --m-micro: 0ms; --m-ui: 120ms; --m-reveal: 200ms;
+    --m-cinema: 200ms; --m-page: 0ms;
+    --reveal-rise: 0px; --reveal-stagger: 0ms;
+  }
+}
+
+:root[data-motion='reduced'] {
+  --m-micro: 0ms; --m-ui: 120ms; --m-reveal: 200ms;
+  --m-cinema: 200ms; --m-page: 0ms;
+  --reveal-rise: 0px; --reveal-stagger: 0ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

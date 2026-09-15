@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="3AM">
+  <!--
+    The triangle cluster from the 3AM mark, used alone.
+
+    The full lockup is illegible at 16px, so the favicon takes only the three
+    triangles — which are the most recognisable part of the identity and read
+    as "3" at any size. Geometry and the 1-over-2 arrangement match the logo.
+
+    Rounded corners are produced with stroke-linejoin on a stroke of the same
+    colour as the fill, matching the mark's rounded terminals without needing
+    a path with arc segments.
+
+    Colour is the logo navy (provisional — resample from the source vector).
+    currentColor is not used: this file is referenced from <link rel="icon">,
+    where it renders outside any inheriting context.
+  -->
+  <g fill="#152B45" stroke="#152B45" stroke-width="7" stroke-linejoin="round">
+    <polygon points="50,12 70,45 30,45"/>
+    <polygon points="29,54 49,87 9,87"/>
+    <polygon points="71,54 91,87 51,87"/>
+  </g>
+</svg>

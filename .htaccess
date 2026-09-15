@@ -1,0 +1,172 @@
+# 3AM — /var/www/html/web/.htaccess
+# =================================
+# Drop-in configuration. No vhost changes, no /etc/httpd/conf.d edits.
+# Serves the site at 3ammediatech.com/web the same way /armonyx is served.
+#
+# ⚠ READ THIS ⚠
+# The application source (app/, config/, storage/, .env) lives INSIDE the
+# document root, so it is reachable by URL. The ONLY thing preventing that is
+# the deny rules in this file. If Apache is not reading .htaccess — because
+# AllowOverride is None for /var/www/html — these rules do nothing and your
+# database credentials become a public URL.
+#
+# VERIFY BEFORE TRUSTING IT:
+#     curl -s -o /dev/null -w '%{http_code}\n' https://3ammediatech.com/web/.env
+#     curl -s -o /dev/null -w '%{http_code}\n' https://3ammediatech.com/web/config/app.php
+# Both MUST return 403. A 200 or an empty 500 means .htaccess is being ignored
+# and the site must come down until it is fixed.
+#
+# There is a second layer: each sensitive directory carries its own .htaccess
+# with "Require all denied". Both layers depend on AllowOverride being enabled.
+
+# ── Never list directory contents ────────────────────────────
+# This is what produced the file listing at /web. Off, always.
+Options -Indexes
+Options +FollowSymLinks
+
+# ── Default charset ──────────────────────────────────────────
+AddDefaultCharset UTF-8
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # If routing 404s on every path except /web/ itself, uncomment this.
+    # Some Apache configurations need the base stated explicitly under a
+    # subdirectory.
+    # RewriteBase /web/
+
+    # ─────────────────────────────────────────────────────────
+    # 1. BLOCK THE APPLICATION SOURCE  ★ most important rules here ★
+    #
+    # These come FIRST, before the front controller rule, because every one of
+    # these paths is a real file on disk. The front controller rule below only
+    # catches requests that do NOT match a real file — so without these, Apache
+    # would happily serve app/Core/Database.php as plain text.
+    # ─────────────────────────────────────────────────────────
+    RewriteRule ^(app|config|routes|storage|bin|docs|vendor|node_modules|tests|database|resources)(/|$) - [F,L]
+
+    RewriteRule ^(bootstrap\.php|composer\.(json|lock)|package(-lock)?\.json|vite\.config\.js|README\.md|phpunit\.xml)$ - [F,L]
+
+    # Dotfiles: .env, .git, .gitignore, .htaccess itself
+    RewriteRule (^|/)\. - [F,L]
+
+    # ─────────────────────────────────────────────────────────
+    # 2. Normalise URLs
+    # ─────────────────────────────────────────────────────────
+    # Strip a trailing slash so /work/ and /work are one URL, not two with
+    # duplicate content. 301 because this is genuinely permanent.
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_URI} (.+)/$
+    RewriteRule ^ %1 [L,R=301]
+
+    # Authorization header does not reach PHP under CGI/FastCGI without this.
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+    # ─────────────────────────────────────────────────────────
+    # 3. Front controller
+    # Anything that is not a real file or directory goes to index.php.
+    # ─────────────────────────────────────────────────────────
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^ index.php [L]
+</IfModule>
+
+# ── Second layer: block by filename, independent of mod_rewrite ──
+# If mod_rewrite were disabled, section 1 above silently does nothing.
+# These directives do not depend on it.
+<FilesMatch "^\.">
+    Require all denied
+</FilesMatch>
+
+<FilesMatch "\.(env|ini|log|sql|sh|bak|dist|lock|md|yml|yaml|twig|tpl)$">
+    Require all denied
+</FilesMatch>
+
+<Files "bootstrap.php">
+    Require all denied
+</Files>
+
+<Files "composer.json">
+    Require all denied
+</Files>
+
+<Files "composer.lock">
+    Require all denied
+</Files>
+
+# ── Uploads must never execute ───────────────────────────────
+# A file that arrives as an "image" and leaves as PHP is the classic upload
+# escalation. Belt and braces alongside the MIME validation in the upload code.
+<IfModule mod_rewrite.c>
+    RewriteRule ^uploads/.*\.(php|phtml|php[0-9]|phar|pl|py|cgi|asp|jsp|sh)$ - [F,L]
+</IfModule>
+
+# ── Caching ──────────────────────────────────────────────────
+#
+# ⚠ A long cache lifetime is only safe on a CONTENT-HASHED filename.
+#
+# css/app.css and js/app.js are not hashed yet — Vite is not wired up — so a
+# far-future expiry on them means an edit stays invisible to every returning
+# visitor until the cache expires. That is not a theoretical problem: it is
+# exactly what happened on this project, and it looks identical to "the deploy
+# did not work".
+#
+# So: unhashed assets revalidate on every request. With ETag and Last-Modified
+# in play that is a 304 with an empty body — a few hundred bytes, not a real
+# cost — and a change is live the moment it is uploaded. Once Vite emits
+# app.4f3a9c21.css, the FilesMatch block below takes over and those get the
+# full year.
+
+<IfModule mod_expires.c>
+    ExpiresActive On
+
+    # Fonts and images are effectively immutable in practice — a replacement
+    # gets a new filename rather than overwriting an existing one.
+    ExpiresByType font/woff2             "access plus 1 year"
+    ExpiresByType image/webp             "access plus 6 months"
+    ExpiresByType image/avif             "access plus 6 months"
+    ExpiresByType image/jpeg             "access plus 6 months"
+    ExpiresByType image/png              "access plus 6 months"
+
+    # HTML is dynamic — always revalidate.
+    ExpiresByType text/html              "access plus 0 seconds"
+</IfModule>
+
+<IfModule mod_headers.c>
+    # Content-hashed build assets: cache effectively forever, because a change
+    # ships as a different filename.
+    <FilesMatch "\.[0-9a-f]{8,}\.(css|js|woff2|jpg|jpeg|png|webp|avif|svg)$">
+        Header set Cache-Control "public, max-age=31536000, immutable"
+    </FilesMatch>
+
+    # Unhashed CSS, JS and SVG: revalidate every time.
+    # "no-cache" does NOT mean "do not store" — it means "ask before reusing",
+    # which is exactly what an unhashed asset needs.
+    <FilesMatch "\.(css|js|svg)$">
+        Header set Cache-Control "no-cache, must-revalidate"
+        Header unset Expires
+    </FilesMatch>
+
+    # …but let a hashed filename win, since FilesMatch blocks apply in order.
+    <FilesMatch "\.[0-9a-f]{8,}\.(css|js|svg)$">
+        Header set Cache-Control "public, max-age=31536000, immutable"
+    </FilesMatch>
+
+    # Do not advertise the stack.
+    Header always unset X-Powered-By
+    Header unset X-Powered-By
+</IfModule>
+
+# ── Compression ──────────────────────────────────────────────
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/css text/plain text/xml \
+        application/javascript application/json application/xml \
+        image/svg+xml
+</IfModule>
+
+# ── PHP hardening (applies only under mod_php; ignored under PHP-FPM) ──
+<IfModule mod_php.c>
+    php_flag display_errors off
+    php_flag expose_php off
+</IfModule>

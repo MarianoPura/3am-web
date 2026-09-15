@@ -1,0 +1,252 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * ┌───────────────────────────────────────────────────────────────────────┐
+ * │  MEDIA REGISTRY — the only file you edit to add photos, video or the  │
+ * │  logo to this site.                                                   │
+ * └───────────────────────────────────────────────────────────────────────┘
+ *
+ * HOW TO ADD AN IMAGE OR VIDEO
+ * ============================
+ *   1. Upload the file to the  media/  folder on the server.
+ *   2. Find its slot below and fill in 'src'.
+ *   3. Fill in 'alt' — a short description of what is IN the picture.
+ *      Leave 'src' as null and the slot keeps its designed placeholder.
+ *
+ *   Example:
+ *       'hero.showreel' => [
+ *           'src' => 'media/showreel-poster.jpg',
+ *           'alt' => 'Camera operator at a live conference broadcast',
+ *       ],
+ *
+ * PATHS
+ * =====
+ *   'media/file.jpg'                 → a file in the media/ folder  (usual case)
+ *   'https://example.com/file.jpg'   → a full URL, used as-is
+ *
+ * VIDEO
+ * =====
+ *   'video'  — a Vimeo or YouTube URL for the play button to open.
+ *   'src'    — the poster image shown before anyone presses play.
+ *
+ *   Always set a poster. Without one the frame is blank until the viewer
+ *   clicks, and the video itself is never downloaded before then — which is
+ *   deliberate: a third-party player costs 500KB-1MB before the visitor has
+ *   decided to watch anything.
+ *
+ * WHAT NOT TO CHANGE
+ * ==================
+ *   'ratio' and 'label' set the layout. Changing 'ratio' will change the shape
+ *   of the box and can break the grid it sits in. Supply the image at the ratio
+ *   listed and it will fit without cropping surprises.
+ *
+ * @see app/Views/partials/frame.php — renders these
+ * @see README.md "Placeholders"     — the same list as a checklist
+ */
+
+return [
+
+    /*
+     * ── BRAND ────────────────────────────────────────────────────────────
+     * Until 'mark' is set, the navigation draws the triangle cluster in CSS.
+     * The full lockup is artwork and is never substituted with typed text.
+     */
+    'brand' => [
+        // Triangle cluster only — used in the navigation bar.
+        'mark' => null,          // e.g. 'media/logo-mark.svg'
+
+        // Full horizontal lockup — used in the footer. Needs a light-on-dark
+        // version, since the footer sits on near-black navy.
+        'lockup' => null,        // e.g. 'media/logo-lockup-white.svg'
+
+        // Social share image. 1200x630. Shown when the site is linked in
+        // Facebook, LinkedIn, Viber, Messenger or Slack.
+        'og_image' => null,      // e.g. 'media/og-share.jpg'
+    ],
+
+    /*
+     * ── MEDIA SLOTS ──────────────────────────────────────────────────────
+     * Every image and video position on the site, in page order.
+     */
+    'slots' => [
+
+        // ── Hero ──────────────────────────────────────────────────────────
+        // The single highest-impact asset on the site. This is the first thing
+        // a visitor sees and it is what makes the page read as a media
+        // company's rather than a text document.
+        'hero.showreel' => [
+            'ratio' => '16x9',
+            'label' => 'Showreel',
+            'src'   => null,
+            'alt'   => '',
+            'video' => null,     // Vimeo/YouTube URL
+            'meta'  => '● REC  TC 03:00:00:00',
+        ],
+
+        // ── What We Do — one representative still per channel ─────────────
+        'channel.media' => [
+            'ratio' => '4x3',
+            'label' => 'Media',
+            'src'   => null,
+            'alt'   => '',
+        ],
+        'channel.technology' => [
+            'ratio' => '4x3',
+            'label' => 'Technology',
+            'src'   => null,
+            'alt'   => '',
+        ],
+        'channel.ventures' => [
+            'ratio' => '4x3',
+            'label' => 'Ventures',
+            'src'   => null,
+            'alt'   => '',
+        ],
+
+        // ── Track record ──────────────────────────────────────────────────
+        'track.featured' => [
+            'ratio' => '21x9',
+            'label' => 'Featured project',
+            'src'   => null,
+            'alt'   => '',
+            'video' => null,
+        ],
+        'track.broadcast' => [
+            'ratio' => '16x9',
+            'label' => 'Broadcast',
+            'src'   => null,
+            'alt'   => '',
+        ],
+        'track.events' => [
+            'ratio' => '16x9',
+            'label' => 'Events',
+            'src'   => null,
+            'alt'   => '',
+        ],
+        'track.digital' => [
+            'ratio' => '16x9',
+            'label' => 'Digital',
+            'src'   => null,
+            'alt'   => '',
+        ],
+        'track.stills' => [
+            'ratio' => '16x9',
+            'label' => 'Stills',
+            'src'   => null,
+            'alt'   => '',
+        ],
+
+        // ── Systems ───────────────────────────────────────────────────────
+        'systems.control_room' => [
+            'ratio' => '16x9',
+            'label' => 'Control room',
+            'src'   => null,
+            'alt'   => '',
+        ],
+
+        // ── Media section — work gallery ──────────────────────────────────
+        // Six cards. Fill what you have; a slot with no src keeps its
+        // placeholder, so a half-filled gallery still looks deliberate.
+        'media.work1' => [
+            'ratio' => '16x9',
+            'label' => 'Project 01',
+            'src'   => null,
+            'alt'   => '',
+            'video' => null,
+        ],
+        'media.work2' => [
+            'ratio' => '16x9',
+            'label' => 'Project 02',
+            'src'   => null,
+            'alt'   => '',
+            'video' => null,
+        ],
+        'media.work3' => [
+            'ratio' => '16x9',
+            'label' => 'Project 03',
+            'src'   => null,
+            'alt'   => '',
+            'video' => null,
+        ],
+        'media.work4' => [
+            'ratio' => '16x9',
+            'label' => 'Project 04',
+            'src'   => null,
+            'alt'   => '',
+            'video' => null,
+        ],
+        'media.work5' => [
+            'ratio' => '16x9',
+            'label' => 'Project 05',
+            'src'   => null,
+            'alt'   => '',
+            'video' => null,
+        ],
+        'media.work6' => [
+            'ratio' => '16x9',
+            'label' => 'Project 06',
+            'src'   => null,
+            'alt'   => '',
+            'video' => null,
+        ],
+
+        // ── Ventures ──────────────────────────────────────────────────────
+        'venture.studio' => [
+            'ratio' => '4x3',
+            'label' => 'Studio Setup',
+            'src'   => null,
+            'alt'   => '',
+        ],
+        'venture.stage' => [
+            'ratio' => '4x3',
+            'label' => 'Stage Setup',
+            'src'   => null,
+            'alt'   => '',
+        ],
+        'venture.events' => [
+            'ratio' => '4x3',
+            'label' => 'Event Management',
+            'src'   => null,
+            'alt'   => '',
+        ],
+        'venture.rentals' => [
+            'ratio' => '4x3',
+            'label' => 'Rentals',
+            'src'   => null,
+            'alt'   => '',
+        ],
+
+        // ── Technology products — product shot or UI screenshot ────────────
+        'product.justbump' => [
+            'ratio' => '4x3',
+            'label' => 'JustBump',
+            'src'   => null,
+            'alt'   => '',
+        ],
+        'product.rememberme' => [
+            'ratio' => '4x3',
+            'label' => 'Remember.Me',
+            'src'   => null,
+            'alt'   => '',
+        ],
+    ],
+
+    /*
+     * ── SIZE GUIDANCE ────────────────────────────────────────────────────
+     * Export at roughly these pixel widths. Larger is wasted — nothing on the
+     * page is displayed above 1600px — and costs load time on the Philippine
+     * mobile connections most visitors will be on.
+     *
+     *   21:9   1680 × 720     4:3    1200 × 900
+     *   16:9   1600 × 900     1:1    1000 × 1000
+     *
+     * Save as JPEG at ~80% quality, or WebP. Aim to keep each file under
+     * 300KB; the hero image under 200KB.
+     *
+     * Automatic WebP/AVIF conversion and responsive sizes arrive with the
+     * media pipeline in Phase 3 — until then, what is uploaded is what is
+     * served, so export sensibly.
+     */
+];

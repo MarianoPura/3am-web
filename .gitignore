@@ -1,0 +1,55 @@
+# ── Secrets ──────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+auth.json
+
+# ── Dependencies ─────────────────────────────────────────────
+/node_modules/
+
+# NOTE: /vendor is deliberately NOT ignored on the deploy branch.
+# Composer install does not run on the server — releases ship complete so a
+# deploy is an atomic symlink swap with no network dependency and no partial
+# state. Uncomment for a CI-built pipeline that vendors at build time.
+# /vendor/
+
+# ── Build output ─────────────────────────────────────────────
+/public/build/
+/public/hot
+
+# ── Runtime ──────────────────────────────────────────────────
+/storage/logs/*
+!/storage/logs/.gitkeep
+/storage/cache/*
+!/storage/cache/.gitkeep
+/storage/sessions/*
+!/storage/sessions/.gitkeep
+/storage/tmp/*
+!/storage/tmp/.gitkeep
+/storage/smoketest/*
+!/storage/smoketest/.gitkeep
+
+# ── Local uploads (dev only; production uses S3) ─────────────
+/public/uploads/*
+!/public/uploads/.gitkeep
+
+# ── Brand source files ───────────────────────────────────────
+# Logo vectors ARE committed — the colour tokens depend on them and they must
+# travel with the codebase. Large working files are not.
+/brand/**/*.psd
+/brand/**/*.zip
+
+# ── Tooling ──────────────────────────────────────────────────
+.phpunit.result.cache
+/.phpcs-cache
+/coverage/
+
+# ── Editors / OS ─────────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini

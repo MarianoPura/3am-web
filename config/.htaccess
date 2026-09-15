@@ -1,0 +1,19 @@
+# Defence in depth.
+#
+# This directory holds application source and must never be served over HTTP.
+# It is blocked here AND by the deny rules in the root .htaccess, so a mistake
+# in one place is not enough to expose it.
+#
+# Both layers depend on AllowOverride being enabled for /var/www/html. If it is
+# not, neither works — verify with the curl checks in the root .htaccess header.
+
+<IfModule mod_authz_core.c>
+    # Apache 2.4+
+    Require all denied
+</IfModule>
+
+<IfModule !mod_authz_core.c>
+    # Apache 2.2
+    Order allow,deny
+    Deny from all
+</IfModule>

@@ -1,0 +1,38 @@
+# Uploads — serve, never execute.
+#
+# This is the one directory on the site where a member of the public can cause
+# a file to appear on disk. A file that arrives as an "image" and leaves as PHP
+# is the oldest upload escalation there is, and MIME validation in the upload
+# code is not sufficient on its own — polyglot files exist precisely to pass it.
+#
+# Three independent blocks below, because any one of them can be defeated by a
+# server configuration change that nobody connected to this directory.
+
+# 1. Refuse to serve executable extensions at all.
+<FilesMatch "\.(php|phtml|php[0-9]|phps|phar|pl|py|cgi|asp|aspx|jsp|sh|bash)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# 2. Detach any handler that would execute them, in case the match above is
+#    bypassed by an unusual extension or a double extension.
+RemoveHandler .php .phtml .php3 .php4 .php5 .php7 .php8 .phar .cgi .pl .py
+RemoveType .php .phtml .php3 .php4 .php5 .php7 .php8 .phar
+
+# 3. Turn the interpreter off outright where mod_php is in use.
+<IfModule mod_php.c>
+    php_flag engine off
+</IfModule>
+<IfModule mod_php7.c>
+    php_flag engine off
+</IfModule>
+
+Options -Indexes -ExecCGI
+
+# In production this directory should be empty: media lives on S3 behind
+# CloudFront (see config/media.php). Local uploads are a development fallback.

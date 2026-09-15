@@ -1,0 +1,43 @@
+# 3AM — Legacy paths that MUST NOT change
+# =======================================
+# Every path here is probed before and after any web-server change.
+# Populate from section 4 of the Phase 0 server audit (audit-server.sh).
+#
+# For EACH legacy app, include five kinds of path — a break in the
+# fallthrough rules shows up in the last two first:
+#
+#   1. the app root              /armonyx/
+#   2. the app root, no slash    /armonyx          <- catches redirect breakage
+#   3. a login or entry page     /armonyx/login
+#   4. a static asset            /armonyx/assets/css/app.css
+#   5. a known 404 inside it     /armonyx/__does_not_exist__
+#
+# Lines beginning with # are ignored.
+
+# ── armonyx ──────────────────────────────────────────────────
+/armonyx
+/armonyx/
+/armonyx/index.php
+# /armonyx/login
+# /armonyx/assets/css/app.css
+/armonyx/__smoketest_should_404__
+
+# ── trebl ────────────────────────────────────────────────────
+/trebl
+/trebl/
+/trebl/index.php
+# /trebl/login
+# /trebl/assets/css/app.css
+/trebl/__smoketest_should_404__
+
+# ── TODO: add remaining apps from audit §4 ───────────────────
+
+
+# ── apex behaviour (expected to CHANGE at cutover) ───────────
+# Kept here so the change is observed deliberately rather than by surprise.
+# Comment these out once the new site is live, or they will fail `verify`
+# for the right reason.
+/
+/robots.txt
+/sitemap.xml
+/__apex_should_404__
