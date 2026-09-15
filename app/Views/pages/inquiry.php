@@ -36,12 +36,23 @@ $err  = static fn (string $k): ?string => $errors[$k] ?? null;
 <?php $this->start('content') ?>
 
 <section class="section form-page" data-theme="dark" aria-labelledby="form-heading">
-  <div class="shell form-shell">
+  <div class="shell form-shell form-shell--inquiry">
+    <div class="form-intro">
 
     <p class="mono section__label"><?= e($form['kicker']) ?></p>
     <h1 id="form-heading" class="section__title"><?= e($form['title']) ?></h1>
     <p class="section__lede"><?= e($form['lede']) ?></p>
 
+    <p class="form-intro__response">We usually respond within one business day.</p>
+    <p class="form-intro__contact">
+      <a href="mailto:<?= e_attr(config('app.contact_email')) ?>"><?= e(config('app.contact_email')) ?></a>
+    </p>
+    <p class="mono form__back">
+      <a href="<?= e_attr(url('/')) ?>">&larr; Back</a>
+    </p>
+    </div>
+
+    <div class="form-fields">
     <?php if ($err('form') !== null): ?>
       <div class="form-alert" role="alert"><?= e($err('form')) ?></div>
     <?php endif ?>
@@ -141,14 +152,10 @@ $err  = static fn (string $k): ?string => $errors[$k] ?? null;
         <label class="field__label" for="details">
           Project details <span class="field__req" aria-hidden="true">*</span>
         </label>
-        <p class="field__hint" id="details-hint">
-          Please include your requirements, the location, and your dates —
-          those three things let us come back with a real answer rather than
-          another round of questions.
-        </p>
         <textarea class="field__input field__input--area" id="details" name="details"
-                  rows="7" required maxlength="5000"
-                  aria-describedby="details-hint<?= $err('details') ? ' details-error' : '' ?>"
+                  rows="4" required maxlength="5000"
+                  placeholder="Include your requirements, location and dates."
+                  <?= $err('details') ? 'aria-describedby="details-error"' : '' ?>
                   <?= $err('details') ? 'aria-invalid="true"' : '' ?>><?= e($val('details')) ?></textarea>
         <?php if ($err('details')): ?>
           <p class="field__error" id="details-error"><?= e($err('details')) ?></p>
@@ -159,10 +166,7 @@ $err  = static fn (string $k): ?string => $errors[$k] ?? null;
         <button class="btn" type="submit">Send enquiry</button>
       </div>
     </form>
-
-    <p class="mono form__back">
-      <a href="<?= e_attr(url('/')) ?>">&larr; Back</a>
-    </p>
+    </div>
 
   </div>
 </section>
