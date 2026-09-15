@@ -28,29 +28,33 @@
 // 'hero.showreel' key. Dotted slot names read better in the registry, so the
 // lookup adapts rather than the naming.
 $config = ($slot ?? null) !== null
-    ? (array) ((config('assets.slots', [])[$slot]) ?? [])
-    : [];
+  ? (array) ((config('assets.slots', [])[$slot]) ?? [])
+  : [];
 
 $ratio = $ratio ?? ($config['ratio'] ?? '16x9');
 $label = $label ?? ($config['label'] ?? 'Media');
-$src   = $src   ?? ($config['src']   ?? null);
-$alt   = $alt   ?? ($config['alt']   ?? '');
+$src = $src ?? ($config['src'] ?? null);
+$alt = $alt ?? ($config['alt'] ?? '');
 $video = $video ?? ($config['video'] ?? null);
-$meta  = $meta  ?? ($config['meta']  ?? null);
-$play  = $play  ?? ($video !== null);
+$isLocalVideo = is_string($video)
+  && preg_match('/\.(mp4|webm|ogg)(\?.*)?$/i', $video) === 1;
+
+$videoUrl = $isLocalVideo ? site_media($video) : $video;
+$meta = $meta ?? ($config['meta'] ?? null);
+$play = $play ?? ($video !== null && !$isLocalVideo);
 
 $caption = $caption ?? null;
-$url     = site_media($src);
+$url = site_media($src);
 
 // Dimensions matched to the ratio so the browser reserves the correct box
 // before the image arrives. Without these the page reflows as media loads,
 // which is the largest single contributor to a poor CLS score.
 $dimensions = [
-    '21x9' => [1680, 720],
-    '16x9' => [1600, 900],
-    '4x3'  => [1200, 900],
-    '1x1'  => [1000, 1000],
-    '4x5'  => [1000, 1250],
+  '21x9' => [1680, 720],
+  '16x9' => [1600, 900],
+  '4x3' => [1200, 900],
+  '1x1' => [1000, 1000],
+  '4x5' => [1000, 1250],
 ];
 [$w, $h] = $dimensions[$ratio] ?? $dimensions['16x9'];
 
@@ -64,24 +68,30 @@ $dimensions = [
  */
 $missingAlt = $url !== null && trim($alt) === '';
 if ($missingAlt) {
-    $url = null;
+  $url = null;
 }
 ?>
 <?php if ($missingAlt): ?>
-<!-- 3AM: image for slot "<?= e($slot ?? '?') ?>" is set but has no alt text.
+  <!-- 3AM: image for slot "<?= e($slot ?? '?') ?>" is set but has no alt text.
      Add 'alt' => '...' in config/assets.php and the image will appear. -->
 <?php endif ?>
-<figure class="frame frame--<?= e_attr($ratio) ?><?= $url ? ' is-filled' : '' ?>">
+<figure class="frame frame--<?= e_attr($ratio) ?><?= ($url || $videoUrl) ? ' is-filled' : '' ?>">
 
-  <?php if ($url !== null): ?>
-    <img src="<?= e_attr($url) ?>"
-         alt="<?= e_attr($alt) ?>"
-         width="<?= e_attr($w) ?>" height="<?= e_attr($h) ?>"
-         loading="lazy" decoding="async">
+  <?php if ($isLocalVideo && $videoUrl !== null): ?>
+
+    <video class="frame__video" autoplay muted loop playsinline preload="auto" <?php if ($url !== null): ?>
+        poster="<?= e_attr($url) ?>" <?php endif ?>>
+      <source src="<?= e_attr($videoUrl) ?>" type="video/mp4">
+    </video>
+
+  <?php elseif ($url !== null): ?>
+
+    <img src="<?= e_attr($url) ?>" alt="<?= e_attr($alt) ?>" width="<?= e_attr($w) ?>" height="<?= e_attr($h) ?>"
+      loading="lazy" decoding="async">
   <?php else: ?>
     <?php /* Empty state. aria-hidden because it describes a slot, not
-             content — a screen reader announcing "16:9 Showreel" as though
-             it were a picture would be misleading. */ ?>
+content — a screen reader announcing "16:9 Showreel" as though
+it were a picture would be misleading. */ ?>
     <span class="frame__ph" aria-hidden="true">
       <span class="frame__ph-mark"></span>
       <span class="mono frame__ph-label"><?= e($label) ?></span>
@@ -89,13 +99,11 @@ if ($missingAlt) {
     </span>
   <?php endif ?>
 
-  <?php if ($play): ?>
-    <?php if ($video !== null): ?>
+  <?php if ($play && !$isLocalVideo): ?>   <?php if ($video !== null): ?>
       <?php /* Facade load: a link, not an embedded player. The iframe costs
-               500KB-1MB and is only worth paying once someone chooses to
-               watch. Opens the video until the in-page lightbox lands. */ ?>
-      <a class="frame__play" href="<?= e_attr($video) ?>"
-         target="_blank" rel="noopener noreferrer">
+        500KB-1MB and is only worth paying once someone chooses to
+        watch. Opens the video until the in-page lightbox lands. */ ?>
+      <a class="frame__play" href="<?= e_attr($video) ?>" target="_blank" rel="noopener noreferrer">
         <span class="frame__play-tri" aria-hidden="true"></span>
         <span class="sr-only">Play <?= e($label) ?> (opens in a new tab)</span>
       </a>
