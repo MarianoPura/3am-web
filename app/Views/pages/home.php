@@ -102,6 +102,7 @@ $this->extend('layouts.base');
       Three channels, one signal.
     </h2>
 
+    <p class="section__lede"><?= e($company['legal_name']) ?> — media production, technology and event systems in <?= e($company['address']['locality']) ?>, Philippines.</p>
     <div class="channels">
       <?php foreach ($channels as $key => $channel): ?>
         <article class="channel" data-reveal data-channel="<?= e_attr($key) ?>">
@@ -146,11 +147,7 @@ $this->extend('layouts.base');
 
           <p class="rack__summary"><?= e($group['summary']) ?></p>
 
-          <ul class="rack__list">
-            <?php foreach ($group['items'] as $item): ?>
-              <li><span class="mono"><?= e($item) ?></span></li>
-            <?php endforeach ?>
-          </ul>
+          <a class="text-link" href="<?= e_attr(url('services') . '#' . $capKey) ?>">Explore <?= e($group['label']) ?> <span aria-hidden="true">↗</span></a>
 
           <p class="rack__why"><?= e($group['why']) ?></p>
         </article>
@@ -196,6 +193,23 @@ $this->extend('layouts.base');
 </section>
 
 
+<section class="section rental-preview" id="rentals" data-theme="light" aria-labelledby="rentals-heading">
+  <div class="shell editorial-split">
+    <div>
+      <p class="mono section__label">Equipment rentals</p>
+      <h2 id="rentals-heading" class="section__title">Equipment and space rentals.</h2>
+      <p class="section__lede"><?= e(config('app.ventures')[3]['body']) ?></p>
+      <div class="rental-preview__categories">
+        <?php foreach (config('rentals.categories') as $category): ?><span><?= e($category['name']) ?></span><?php endforeach ?>
+      </div>
+      <a class="btn" href="<?= e_attr(url('equipment-rentals')) ?>">Explore equipment rentals</a>
+    </div>
+    <div class="rental-preview__image" data-reveal>
+      <?= $this->partial('partials.frame', ['slot' => 'venture.rentals', 'ratio' => '16x9']) ?>
+      <p class="mono image-note">Equipment and space · Inquire for the current list</p>
+    </div>
+  </div>
+</section>
 <?php /* MEDIA =================================================
          The production and creative side. Gallery reads from
          config/projects.php; anything absent falls back to a
@@ -236,62 +250,11 @@ $this->extend('layouts.base');
 </section>
 
 
-<?php /* TECHNOLOGY — signal-path diagram and production imagery. */ ?>
+<?php /* TECHNOLOGY — services and production imagery. */ ?>
 <section class="section systems" id="technology" data-theme="light"
          aria-labelledby="technology-heading">
   <div class="shell">
-    <p class="mono section__label" data-reveal>Technology</p>
-    <h2 id="technology-heading" class="section__title" data-reveal><?= e($sectionTech['headline']) ?></h2>
-    <p class="section__lede" data-reveal><?= e($sectionTech['subhead']) ?></p>
-
-    <div class="systems__grid">
-      <div class="systems__services">
-        <?php foreach ([
-          ['Platforms & applications', ['Web Development', 'Digital Experiences', 'Application Development', 'Business Solutions']],
-          ['Event & technical systems', ['Event Technology', 'AV / Technical Systems', 'LED / Video Systems']],
-          ['Streaming infrastructure', ['Camera', 'Switcher', 'Encoder', 'CDN', 'Audience']],
-        ] as [$title, $services]): ?>
-          <article class="technology-service" data-reveal>
-            <h3><?= e($title) ?></h3>
-            <ul>
-              <?php foreach ($services as $service): ?><li><?= e($service) ?></li><?php endforeach ?>
-            </ul>
-          </article>
-        <?php endforeach ?>
-      </div>
-      <div class="systems__operations" data-reveal>
-        <?= $this->partial('partials.frame', ['slot' => 'channel.technology']) ?>
-        <p class="mono systems__caption">Technology in operation</p>
-      </div>
-    </div>
-
-    <details class="systems__detail">
-      <summary>How the live signal connects</summary>
-      <div class="systems__example">
-        <blockquote class="scenario">
-          <p>
-            A livestream is not one thing. It is a chain, and every link is a
-            place it can fail. On a hybrid conference, if the camera crew, the
-            LED vendor and the platform team are three different companies, a
-            dropped frame becomes a three-way finger-pointing exercise while
-            the room waits.
-          </p>
-          <p class="scenario__punch">Here, one team owns the whole chain.</p>
-          <ol class="signal-path" aria-label="Signal path">
-            <?php foreach (['Camera', 'Switcher', 'Encoder', 'CDN', 'Audience'] as $node): ?>
-              <li><?= e($node) ?></li>
-            <?php endforeach ?>
-          </ol>
-        </blockquote>
-        <div class="systems__shot">
-          <?= $this->partial('partials.frame', ['slot' => 'systems.control_room']) ?>
-        </div>
-      </div>
-    </details>
-    
-    <div class="section__cta" data-reveal>
-      <a class="btn" href="<?= e_attr(url('start/technology')) ?>">Start a tech project</a>
-    </div>
+    <?= $this->partial('partials.technology-panel') ?>
   </div>
 </section>
 
@@ -307,20 +270,11 @@ $this->extend('layouts.base');
     <h2 id="ventures-heading" class="section__title" data-reveal><?= e($sectionVentures['headline']) ?></h2>
     <p class="section__lede" data-reveal><?= e($sectionVentures['subhead']) ?></p>
 
-    <div class="ventures" tabindex="0" role="region" aria-label="Ventures">
-      <?php foreach ($ventures as $venture): ?>
-        <article class="venture-card" data-reveal>
-          <?= $this->partial('partials.frame', ['slot' => $venture['slot']]) ?>
-          <div class="venture-card__body">
-            <h3 class="venture-card__name"><?= e($venture['name']) ?></h3>
-            <p class="venture-card__text"><?= e($venture['body']) ?></p>
-          </div>
-        </article>
-      <?php endforeach ?>
-    </div>
-
+    <p class="venture-overview">
+      <?php foreach ($ventures as $venture): ?><span><?= e($venture['name']) ?></span><?php endforeach ?>
+    </p>
     <div class="section__cta" data-reveal>
-      <a class="btn" href="<?= e_attr(url('start/ventures')) ?>"><?= e($sectionVentures['cta']) ?></a>
+      <a class="btn" href="<?= e_attr(url('services') . '#ventures') ?>">Explore Ventures</a>
     </div>
   </div>
 </section>
