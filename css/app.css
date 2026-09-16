@@ -1034,6 +1034,10 @@ a:hover .frame__play-tri { transform: scale(1.08); }
 }
 
 @media (max-width: 720px) {
+
+  .channel__mark {
+  transform: translateY(3px);
+ }
   .nav__links { display: none; }
   .nav__inner > .btn { display: none; }
   .nav__toggle { display: flex; }
@@ -1046,7 +1050,12 @@ a:hover .frame__play-tri { transform: scale(1.08); }
 
   .product { grid-template-columns: 1fr; gap: var(--s-4); }
   .product > .frame { max-width: 140px; }
-  .scenario { padding: var(--s-5); }
+  .scenario {
+  margin-left: 0;
+  margin-right: 0;
+  padding: var(--s-4);
+  width: 100%;
+}
   .section__note { margin-top: var(--s-4); }
 
   .section__title { max-width: none; }
@@ -1407,6 +1416,7 @@ select.field__input option { background: var(--c-void); color: var(--fg); }
   .form-intro .form__back { margin-top: var(--s-4); }
 }
 @media (max-width: 720px) {
+
   .rack, #media .work-grid, .ventures {
     display: grid;
     grid-template-columns: none;
