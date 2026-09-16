@@ -263,10 +263,6 @@
     setupAnchors();
     setupReveals();
     setupHero();
-    // Expanding supporting content changes downstream reveal positions.
-    document.querySelectorAll('details').forEach((detail) => {
-      detail.addEventListener('toggle', () => { if (hasGsap) ScrollTrigger.refresh(); });
-    });
   };
 
   if (document.readyState === 'loading') {
