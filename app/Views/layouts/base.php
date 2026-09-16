@@ -108,19 +108,12 @@ $pageDesc  = $this->section('description')
 
 <footer class="footer">
   <div class="shell">
-    <div class="footer__grid">
-    <div>
     <p class="mono"><?= e($company['legal_name']) ?></p>
-    <?php if ($this->section('address-in-content') !== 'yes'): ?>
     <p style="margin-top:var(--s-2);color:var(--fg-muted)">
       <?= e($company['address']['street']) ?><br>
       <?= e($company['address']['locality']) ?>, <?= e($company['address']['region']) ?>
     </p>
-    <?php endif ?>
     <a class="footer__email" href="mailto:<?= e_attr(config('app.contact_email')) ?>"><?= e(config('app.contact_email')) ?></a>
-    </div>
-    <nav class="footer__nav" aria-label="Footer"><?= $this->partial('partials.site-links') ?></nav>
-    </div>
 
     <div class="footer__status">
       <span class="mono">&copy; <?= e(date('Y')) ?> <?= e($company['legal_name']) ?></span>

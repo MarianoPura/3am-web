@@ -23,7 +23,7 @@ return [
         'title'    => 'Start a media project',
         'kicker'   => 'Media enquiry',
         'lede'     => 'Tell us what you are making. We will come back with questions, '
-                    . 'an approach and an estimate.',
+                    . 'a approach and an estimate.',
         'types'    => [
             'Video Live Feed Coverage',
             'Video Streaming Coverage',
