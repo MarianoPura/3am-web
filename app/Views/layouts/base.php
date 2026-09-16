@@ -113,6 +113,7 @@ $pageDesc  = $this->section('description')
       <?= e($company['address']['street']) ?><br>
       <?= e($company['address']['locality']) ?>, <?= e($company['address']['region']) ?>
     </p>
+    <a class="footer__email" href="mailto:<?= e_attr(config('app.contact_email')) ?>"><?= e(config('app.contact_email')) ?></a>
 
     <div class="footer__status">
       <span class="mono">&copy; <?= e(date('Y')) ?> <?= e($company['legal_name']) ?></span>

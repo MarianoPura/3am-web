@@ -122,38 +122,12 @@
     // scroll position exactly rather than running on its own clock.
     gsap.to(hero.querySelector('.shell'), {
       y: -60,
-      opacity: 0.3,
       ease: 'none',
       scrollTrigger: {
         trigger: hero,
         start: 'top top',
         end: 'bottom top',
         scrub: 0.5,
-      },
-    });
-  };
-
-  // ── Signal chain pulse ─────────────────────────────────────
-  const setupChain = () => {
-    const pulse = document.querySelector('[data-chain-pulse]');
-    if (!pulse || reduced || !hasGsap) return;
-
-    const length = pulse.getTotalLength ? pulse.getTotalLength() : 340;
-
-    gsap.set(pulse, { strokeDasharray: `60 ${length}`, strokeDashoffset: length });
-
-    gsap.to(pulse, {
-      strokeDashoffset: -60,
-      duration: 2.4,
-      ease: 'none',
-      repeat: -1,
-      scrollTrigger: {
-        trigger: pulse,
-        start: 'top 90%',
-        end: 'bottom 10%',
-        // Only animate while it is on screen — an infinite repeat left running
-        // off-screen burns battery on a phone for something nobody can see.
-        toggleActions: 'play pause resume pause',
       },
     });
   };
@@ -174,7 +148,19 @@
 
     if (!toggle || !panel) return;
 
+    let lockedScroll = 0;
     const setOpen = (open) => {
+      if (open === !panel.hidden) return;
+      if (open) {
+        lockedScroll = window.scrollY;
+        document.body.style.position = 'fixed';
+        document.body.style.top = `-${lockedScroll}px`;
+        document.body.style.width = '100%';
+      } else {
+        document.body.style.removeProperty('position');
+        document.body.style.removeProperty('top');
+        document.body.style.removeProperty('width');
+      }
       toggle.setAttribute('aria-expanded', String(open));
       toggle.querySelector('.sr-only').textContent = open ? 'Close menu' : 'Menu';
       panel.hidden = !open;
@@ -182,6 +168,14 @@
       document.querySelector('main').inert = open;
       document.querySelector('.footer').inert = open;
       nav.querySelector('.nav__mark').inert = open;
+      document.querySelector('.skip-link').inert = open;
+      if (!open) {
+        window.scrollTo({ top: lockedScroll, behavior: 'instant' });
+        if (panel.contains(document.activeElement) || document.activeElement === toggle) {
+          (window.matchMedia('(min-width: 1101px)').matches
+            ? nav.querySelector('.nav__mark') : toggle).focus();
+        }
+      }
     };
 
     toggle.addEventListener('click', () => {
@@ -192,7 +186,7 @@
     // keyboard exit is a trap.
     panel.addEventListener('click', (e) => {
       if (e.target.closest('a')) setOpen(false);
-    });
+    }, { capture: true });
 
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Tab' && !panel.hidden) {
@@ -225,7 +219,11 @@
       if (hasGsap) ScrollTrigger.refresh();
       requestAnimationFrame(() => requestAnimationFrame(() => {
         const target = document.getElementById(decodeURIComponent(location.hash.slice(1)));
-        if (target) target.scrollIntoView({ behavior: 'instant', block: 'start' });
+        if (target) {
+          target.scrollIntoView({ behavior: 'instant', block: 'start' });
+          target.setAttribute('tabindex', '-1');
+          target.focus({ preventScroll: true });
+        }
       }));
     };
     if (location.hash) {
@@ -254,7 +252,7 @@
         target.setAttribute('tabindex', '-1');
         target.focus({ preventScroll: true });
 
-        history.replaceState(null, '', id);
+        if (location.hash !== id) history.pushState(null, '', id);
       });
     });
   };
@@ -265,7 +263,10 @@
     setupAnchors();
     setupReveals();
     setupHero();
-    setupChain();
+    // Expanding supporting content changes downstream reveal positions.
+    document.querySelectorAll('details').forEach((detail) => {
+      detail.addEventListener('toggle', () => { if (hasGsap) ScrollTrigger.refresh(); });
+    });
   };
 
   if (document.readyState === 'loading') {
