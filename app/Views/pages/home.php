@@ -94,7 +94,7 @@ $this->extend('layouts.base');
 
 
 <?php /* ══ 02 · WHAT WE DO ═════════════════════════════════════ */ ?>
-<section class="section" id="channels" data-theme="dark"
+<section class="section" id="channels" data-theme="light"
          aria-labelledby="channels-heading">
   <div class="shell">
     <p class="mono section__label" data-reveal>What we do</p>
@@ -123,7 +123,7 @@ $this->extend('layouts.base');
          Text-dense by design, for contrast against the media-heavy
          sections either side. Each unit now carries a "why it
          matters" line so the list does not read as buzzwords. */ ?>
-<section class="section" id="capabilities" data-theme="dark"
+<section class="section" id="capabilities" data-theme="light"
          aria-labelledby="capabilities-heading">
   <div class="shell">
     <p class="mono section__label" data-reveal>Capabilities</p>
@@ -188,21 +188,7 @@ $this->extend('layouts.base');
       <?= $this->partial('partials.frame', ['slot' => 'track.featured', 'play' => true]) ?>
     </div>
 
-    <div class="reel-grid">
-      <?php foreach ([
-          ['track.broadcast', 'Broadcast', 'Multi-camera, switching, live'],
-          ['track.events',    'Events',    'LED, AV, staging'],
-          ['track.digital',   'Digital',   'Web, streaming, systems'],
-          ['track.stills',    'Stills',    'Corporate, event, product'],
-      ] as [$slotKey, $title, $note]): ?>
-        <article class="reel-card" data-reveal>
-          <?= $this->partial('partials.frame', ['slot' => $slotKey]) ?>
-          <h3 class="reel-card__title"><?= e($title) ?></h3>
-          <p class="mono reel-card__note"><?= e($note) ?></p>
-        </article>
-      <?php endforeach ?>
-    </div>
-
+    <?php /* The four supporting galleries remain on /projects. */ ?>
     <div class="reel-cta" data-reveal>
       <a class="btn" href="<?= e_attr(url('projects')) ?>">Explore our projects</a>
     </div>
@@ -214,7 +200,7 @@ $this->extend('layouts.base');
          The production and creative side. Gallery reads from
          config/projects.php; anything absent falls back to a
          designed placeholder from config/assets.php. */ ?>
-<section class="section" id="media" data-theme="dark" aria-labelledby="media-heading">
+<section class="section" id="media" data-theme="light" aria-labelledby="media-heading">
   <div class="shell">
     <p class="mono section__label" data-reveal>Media</p>
     <h2 id="media-heading" class="section__title" data-reveal><?= e($sectionMedia['headline']) ?></h2>
@@ -228,14 +214,15 @@ $this->extend('layouts.base');
 
     <div class="work-grid" tabindex="0" role="region" aria-label="Media work gallery">
       <?php foreach ($mediaWork as $i => $item): ?>
+        <?php $workSlot = config('assets.slots')['media.work' . ($i + 1)]; ?>
         <article class="work-card" data-reveal>
           <?= $this->partial('partials.frame', [
               'slot'  => 'media.work' . ($i + 1),
           ]) ?>
           <div class="work-card__body">
-            <span class="tag tag--cat mono"><?= e($item['category'] ?? 'Broadcast') ?></span>
-            <h3 class="work-card__title"><?= e($item['title'] ?? 'Project slot') ?></h3>
-            <p class="work-card__note"><?= e($item['scope'] ?? 'Case study in preparation.') ?></p>
+            <?php if (!empty($item['category'])): ?><span class="tag tag--cat mono"><?= e($item['category']) ?></span><?php endif ?>
+            <h3 class="work-card__title"><?= e($item['title'] ?? $workSlot['label']) ?></h3>
+            <?php if (!empty($item['scope'])): ?><p class="work-card__note"><?= e($item['scope']) ?></p><?php endif ?>
           </div>
         </article>
       <?php endforeach ?>
@@ -250,22 +237,38 @@ $this->extend('layouts.base');
 
 
 <?php /* TECHNOLOGY — signal-path diagram and production imagery. */ ?>
-<section class="section systems" id="technology" data-theme="dark"
+<section class="section systems" id="technology" data-theme="light"
          aria-labelledby="technology-heading">
   <div class="shell">
     <p class="mono section__label" data-reveal>Technology</p>
     <h2 id="technology-heading" class="section__title" data-reveal><?= e($sectionTech['headline']) ?></h2>
     <p class="section__lede" data-reveal><?= e($sectionTech['subhead']) ?></p>
 
-    <ul class="tags" data-reveal tabindex="0" aria-label="Services">
-      <?php foreach ($sectionTech['tags'] as $tag): ?>
-        <li class="tag mono"><?= e($tag) ?></li>
-      <?php endforeach ?>
-    </ul>
-
     <div class="systems__grid">
-      <div class="systems__copy">
-        <blockquote class="scenario" data-reveal>
+      <div class="systems__services">
+        <?php foreach ([
+          ['Platforms & applications', ['Web Development', 'Digital Experiences', 'Application Development', 'Business Solutions']],
+          ['Event & technical systems', ['Event Technology', 'AV / Technical Systems', 'LED / Video Systems']],
+          ['Streaming infrastructure', ['Camera', 'Switcher', 'Encoder', 'CDN', 'Audience']],
+        ] as [$title, $services]): ?>
+          <article class="technology-service" data-reveal>
+            <h3><?= e($title) ?></h3>
+            <ul>
+              <?php foreach ($services as $service): ?><li><?= e($service) ?></li><?php endforeach ?>
+            </ul>
+          </article>
+        <?php endforeach ?>
+      </div>
+      <div class="systems__operations" data-reveal>
+        <?= $this->partial('partials.frame', ['slot' => 'channel.technology']) ?>
+        <p class="mono systems__caption">Technology in operation</p>
+      </div>
+    </div>
+
+    <details class="systems__detail">
+      <summary>How the live signal connects</summary>
+      <div class="systems__example">
+        <blockquote class="scenario">
           <p>
             A livestream is not one thing. It is a chain, and every link is a
             place it can fail. On a hybrid conference, if the camera crew, the
@@ -274,38 +277,18 @@ $this->extend('layouts.base');
             the room waits.
           </p>
           <p class="scenario__punch">Here, one team owns the whole chain.</p>
+          <ol class="signal-path" aria-label="Signal path">
+            <?php foreach (['Camera', 'Switcher', 'Encoder', 'CDN', 'Audience'] as $node): ?>
+              <li><?= e($node) ?></li>
+            <?php endforeach ?>
+          </ol>
         </blockquote>
-
-        <div class="systems__shot" data-reveal>
+        <div class="systems__shot">
           <?= $this->partial('partials.frame', ['slot' => 'systems.control_room']) ?>
         </div>
       </div>
-
-      <div class="systems__chain" data-reveal>
-        <svg viewBox="0 0 240 400" class="chain" role="img"
-             aria-label="Signal path: camera, switcher, encoder, CDN, audience">
-          <defs>
-            <linearGradient id="chain-pulse" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%"   stop-color="var(--c-signal)" stop-opacity="0"/>
-              <stop offset="50%"  stop-color="var(--c-signal)" stop-opacity="1"/>
-              <stop offset="100%" stop-color="var(--c-signal)" stop-opacity="0"/>
-            </linearGradient>
-          </defs>
-
-          <line x1="28" y1="30" x2="28" y2="370" stroke="var(--c-line)" stroke-width="1"/>
-          <line x1="28" y1="30" x2="28" y2="370" stroke="url(#chain-pulse)"
-                stroke-width="2" class="chain__pulse" data-chain-pulse/>
-
-          <?php foreach (['Camera', 'Switcher', 'Encoder', 'CDN', 'Audience'] as $i => $node):
-              $y = 30 + ($i * 85); ?>
-            <circle cx="28" cy="<?= e_attr($y) ?>" r="5"
-                    fill="var(--c-void)" stroke="var(--c-tally)" stroke-width="2"/>
-            <text x="50" y="<?= e_attr($y + 5) ?>" class="chain__label"><?= e(strtoupper($node)) ?></text>
-          <?php endforeach ?>
-        </svg>
-      </div>
-    </div>
-
+    </details>
+    
     <div class="section__cta" data-reveal>
       <a class="btn" href="<?= e_attr(url('start/technology')) ?>">Start a tech project</a>
     </div>
@@ -318,7 +301,7 @@ $this->extend('layouts.base');
          two on purpose: a day's equipment rental and a full event
          management brief are very different sales, and "Start a
          project" fits neither. */ ?>
-<section class="section" id="ventures" data-theme="dark" aria-labelledby="ventures-heading">
+<section class="section" id="ventures" data-theme="light" aria-labelledby="ventures-heading">
   <div class="shell">
     <p class="mono section__label" data-reveal>Ventures</p>
     <h2 id="ventures-heading" class="section__title" data-reveal><?= e($sectionVentures['headline']) ?></h2>

@@ -22,6 +22,11 @@
   --c-muted:      #8296AC;  /* Metadata, captions, disabled                  */
   --c-paper:      #F5F7FA;  /* Light ground                                  */
   --c-white:      #FFFFFF;
+  --c-cloud:      #F0F4F8;  /* Soft blue-white, never a stark white canvas. */
+  --c-mist:       #E5EDF5;  /* Main light surface, tinted with logo navy. */
+  --c-blue-haze:  #D7E3EE;  /* Deeper light surface for section rhythm. */
+  --c-blue-line:  #BDCDDC;  /* Visible boundaries on the light blue scale. */
+  --c-blue-text:  #4B5F73;  /* Secondary text on all three light blue surfaces. */
 
   --c-line:       rgb(255 255 255 / 8%);   /* The technical hairline grid, dark */
   --c-line-lt:    #E3E8EE;                 /* …and light                        */
@@ -78,9 +83,10 @@
      Revised down from the first pass. The original hero topped out at 160px,
      which filled an entire desktop viewport with three words and pushed
      everything else below the fold — it read as shouting rather than as
-     confident. Scale now tops out at 88px, and hierarchy is carried by the
+     confident. Scale now tops out at 72px, and hierarchy is carried by the
      mono label layer and by whitespace instead of by sheer size. */
-  --t-hero:     clamp(2.5rem, 6.5vw, 5.5rem);
+  --t-hero:     clamp(2.25rem, 5vw, 4.5rem);
+  --t-hero-mobile: clamp(2.1rem, 8.5vw, 3.5rem);
   --t-display:  clamp(1.875rem, 3.6vw, 3.25rem);
   --t-h1:       clamp(1.75rem, 2.8vw, 2.5rem);
   --t-h2:       clamp(1.5rem, 2.2vw, 1.875rem);
@@ -89,7 +95,7 @@
   --t-body-lg:  1.125rem;
   --t-body:     1rem;      /* never smaller for running text */
   --t-small:    0.875rem;
-  --t-mono:     0.6875rem;
+  --t-mono:     0.75rem;
 
   --lh-tight:   0.95;      /* hero and display only */
   --lh-heading: 1.1;
@@ -105,9 +111,10 @@
      ───────────────────────────────────────────────────────── */
   --s-1: 0.25rem;  --s-2: 0.5rem;   --s-3: 0.75rem;  --s-4: 1rem;
   --s-6: 1.5rem;   --s-8: 2rem;     --s-12: 3rem;    --s-16: 4rem;
+  --s-5: 1.25rem;  --s-10: 2.5rem;
   --s-24: 6rem;    --s-32: 8rem;    --s-48: 12rem;
 
-  --section-y: clamp(4rem, 10vw, 12rem);   /* vertical rhythm between sections */
+  --section-y: clamp(3.5rem, 6vw, 6rem);
 
   /* ─────────────────────────────────────────────────────────
      LAYOUT
@@ -115,7 +122,7 @@
   --w-content: 1440px;
   --w-bleed:   1920px;
   --w-prose:   68ch;        /* measure for running text */
-  --gutter:    clamp(1rem, 4vw, 1.5rem);
+  --gutter:    clamp(1rem, 4vw, 3rem);
 
   --radius-sm: 2px;
   --radius:    4px;         /* the brand is engineered, not soft — stay tight */
@@ -145,6 +152,18 @@
   --z-base: 0;     --z-raised: 10;   --z-sticky: 100;
   --z-nav: 200;    --z-overlay: 300; --z-modal: 400;
   --z-cursor: 500; --z-preloader: 600;
+}
+
+/* Explicit light surfaces also work inside the dark document shell. */
+[data-theme='light'] {
+  --bg: var(--c-mist);
+  --bg-elevated: var(--c-cloud);
+  --fg: var(--c-ink);
+  --fg-muted: var(--c-blue-text);
+  --fg-subtle: var(--c-blue-text);
+  --border: var(--c-blue-line);
+  --focus-ring: var(--c-ink);
+  --accent-fg: var(--c-ink);
 }
 
 /* ───────────────────────────────────────────────────────────
