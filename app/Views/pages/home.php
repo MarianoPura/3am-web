@@ -71,6 +71,19 @@ $this->extend('layouts.base');
 
     <p class="section__lede"><?= e($company['legal_name']) ?> — media production, technology and event systems in <?= e($company['address']['locality']) ?>, Philippines.</p>
     <a class="text-link" href="<?= e_attr(url('about')) ?>">About 3AM <span aria-hidden="true">↗</span></a>
+    <div class="channels">
+      <?php foreach ($channels as $key => $channel): ?>
+        <article class="channel" data-reveal data-channel="<?= e_attr($key) ?>">
+          <?= $this->partial('partials.frame', ['slot' => 'channel.' . $key]) ?>
+          <div class="channel__body">
+            <span class="channel__mark" aria-hidden="true"></span>
+            <h3 class="channel__label"><?= e($channel['label']) ?></h3>
+            <p class="channel__line"><?= e($channel['line']) ?></p>
+            <p class="channel__body-text"><?= e($channel['body']) ?></p>
+          </div>
+        </article>
+      <?php endforeach ?>
+    </div>
   </div>
 </section>
 
