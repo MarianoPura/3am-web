@@ -43,5 +43,4 @@ $company = config('app.company');
     <a class="btn btn--ghost" href="<?= e_attr(url('projects')) ?>">See our work</a>
   </div>
 </section>
-<?= $this->partial('partials.project-cta') ?>
 <?php $this->end() ?>

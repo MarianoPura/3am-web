@@ -53,16 +53,15 @@ $this->extend('layouts.base');
 
   </div>
 
-  <div class="hero__scroll mono" aria-hidden="true">
-    <span>Scroll</span>
-    <span class="hero__scroll-line"></span>
-  </div>
+
 </section>
 
 
 <?php /* ══ 02 · WHAT WE DO ═════════════════════════════════════ */ ?>
-<section class="section" id="channels" data-theme="light"
+<section class="section channels-section" id="channels" data-theme="light"
          aria-labelledby="channels-heading">
+
+
   <div class="shell">
     <p class="mono section__label" data-reveal>What we do</p>
     <h2 id="channels-heading" class="section__title" data-reveal>
@@ -71,7 +70,7 @@ $this->extend('layouts.base');
 
     <p class="section__lede"><?= e($company['legal_name']) ?> — media production, technology and event systems in <?= e($company['address']['locality']) ?>, Philippines.</p>
     <a class="text-link" href="<?= e_attr(url('about')) ?>">About 3AM <span aria-hidden="true">↗</span></a>
-    <div class="channels">
+    <div class="channels" data-carousel="Three Channels">
       <?php foreach ($channels as $key => $channel): ?>
         <article class="channel" data-reveal data-channel="<?= e_attr($key) ?>">
           <?= $this->partial('partials.frame', ['slot' => 'channel.' . $key]) ?>
@@ -102,7 +101,7 @@ $this->extend('layouts.base');
       the same team.
     </p>
 
-    <div class="rack" tabindex="0" role="region" aria-label="Capabilities">
+    <div class="rack" data-carousel="Capabilities" role="region" aria-label="Capabilities">
       <?php $unit = 1; foreach ($capabilities as $capKey => $group): ?>
         <article class="rack__unit" id="capability-<?= e_attr($capKey) ?>" data-reveal>
           <header class="rack__head">
@@ -132,8 +131,8 @@ $this->extend('layouts.base');
     <h2 id="media-heading" class="section__title" data-reveal><?= e($sectionMedia['headline']) ?></h2>
     <p class="section__lede" data-reveal><?= e($sectionMedia['subhead']) ?></p>
 
-    <div class="work-grid" tabindex="0" role="region" aria-label="Media work gallery">
-      <?php foreach ($mediaWork as $i => $item): ?>
+    <div class="work-grid" data-carousel="Selected Work" role="region" aria-label="Media work gallery">
+      <?php foreach (array_slice($mediaWork, 0, 3, true) as $i => $item): ?>
         <?php $workSlot = config('assets.slots')['media.work' . ($i + 1)]; ?>
         <article class="work-card" data-reveal>
           <?= $this->partial('partials.frame', [
@@ -159,24 +158,14 @@ $this->extend('layouts.base');
 <section class="section rental-preview" id="rentals" data-theme="light" aria-labelledby="rentals-heading">
   <div class="shell editorial-split">
     <div>
-      <p class="mono section__label">Equipment rentals</p>
+      <p class="mono section__label">Rentals</p>
       <h2 id="rentals-heading" class="section__title">Equipment and space rentals.</h2>
       <p class="section__lede"><?= e(config('app.ventures')[3]['body']) ?></p>
-      <a class="btn" href="<?= e_attr(url('equipment-rentals')) ?>">Explore equipment rentals</a>
+      <a class="btn" href="<?= e_attr(url('equipment-rentals')) ?>">Explore rentals</a>
     </div>
     <div class="rental-preview__image" data-reveal>
       <?= $this->partial('partials.frame', ['slot' => 'venture.rentals', 'ratio' => '16x9']) ?>
       <p class="mono image-note">Equipment and space · Inquire for the current list</p>
-    </div>
-  </div>
-</section>
-
-<section class="section cta" id="contact" aria-labelledby="cta-heading">
-  <div class="shell">
-    <h2 id="cta-heading" class="cta__title" data-reveal>What are you building?</h2>
-
-    <div class="cta__actions" data-reveal>
-      <a class="btn btn--invert" href="<?= e_attr(url('contact')) ?>">Start a project</a>
     </div>
   </div>
 </section>

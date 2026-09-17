@@ -12,16 +12,17 @@ $ventures = config('app.ventures_section');
     'label' => 'Services / 01', 'title' => 'The full chain, in house.',
     'description' => 'Production, technology and event systems under one roof — so the camera, the encoder, the LED wall and the platform it all lands on are handled by the same team.',
 ]) ?>
-<nav class="section-jump" data-theme="light" aria-label="Service sections">
-  <div class="shell"><a href="#media">Media</a><a href="#technology">Technology</a><a href="#events">Events</a><a href="#ventures">Ventures</a></div>
-</nav>
-<?php foreach ($capabilities as $key => $group): ?>
-<section class="section service-section" id="<?= e_attr($key) ?>" data-theme="light" aria-labelledby="<?= e_attr($key) ?>-heading">
+<?php $serviceNumber = 1; foreach ($capabilities as $key => $group): ?>
+<section class="section service-section service-section--<?= e_attr($key) ?><?= $key === 'events' ? ' service-section--reverse' : '' ?>" id="<?= e_attr($key) ?>" data-theme="<?= $key === 'technology' ? 'dark' : 'light' ?>" aria-labelledby="<?= e_attr($key) ?>-heading">
   <div class="shell">
     <?php if ($key !== 'technology'): ?>
-    <div class="service-layout">
+    <div class="service-layout<?= $key === 'events' ? ' service-layout--reverse' : '' ?>">
       <div class="service-layout__copy">
-        <p class="mono section__label"><?= e($group['label']) ?></p>
+        <div class="service-section__meta">
+          <p class="mono section__label"><?= e($group['label']) ?></p>
+          <span class="service-section__rule" aria-hidden="true"></span>
+          <span class="mono service-section__index" aria-hidden="true"><?= e(str_pad((string) $serviceNumber, 2, '0', STR_PAD_LEFT)) ?></span>
+        </div>
         <h2 id="<?= e_attr($key) ?>-heading" class="section__title"><?= e($key === 'media' ? config('app.section_media.headline') : $group['label']) ?></h2>
         <p class="section__lede"><?= e($group['summary']) ?></p>
         <ul class="service-list">
@@ -29,7 +30,6 @@ $ventures = config('app.ventures_section');
         </ul>
 
         <p class="service-why"><?= e($group['why']) ?></p>
-          <a class="btn" href="<?= e_attr(url('start/' . ($key === 'media' ? 'media' : 'ventures'))) ?>"><?= $key === 'media' ? 'Start a media project' : 'Inquire about events' ?></a>
       </div>
         <div class="service-layout__image" data-reveal>
           <?= $this->partial('partials.frame', ['slot' => $key === 'media' ? 'channel.media' : 'venture.events']) ?>
@@ -38,7 +38,10 @@ $ventures = config('app.ventures_section');
 
     </div>
     <?php else: ?>
-      <?= $this->partial('partials.technology-panel', ['summary' => $group['summary']]) ?>
+      <?= $this->partial('partials.technology-panel', [
+          'summary' => $group['summary'],
+          'index' => $serviceNumber,
+      ]) ?>
       <p class="service-why"><?= e($group['why']) ?></p>
       <div class="delivery-example">
         <blockquote class="scenario">
@@ -50,14 +53,17 @@ $ventures = config('app.ventures_section');
     <?php endif ?>
   </div>
 </section>
-<?php endforeach ?>
-<section class="section" id="ventures" data-theme="light" aria-labelledby="ventures-heading">
+<?php $serviceNumber++; endforeach ?>
+<section class="section service-section service-section--ventures" id="ventures" data-theme="light" data-service-index="04" aria-labelledby="ventures-heading">
   <div class="shell">
-    <p class="mono section__label">Ventures</p>
+    <div class="service-section__meta service-section__meta--standalone">
+      <p class="mono section__label">Ventures</p>
+      <span class="service-section__rule" aria-hidden="true"></span>
+      <span class="mono service-section__index" aria-hidden="true">04</span>
+    </div>
     <h2 id="ventures-heading" class="section__title"><?= e($ventures['headline']) ?></h2>
     <p class="section__lede"><?= e($ventures['subhead']) ?></p>
     <?= $this->partial('partials.venture-cards') ?>
   </div>
 </section>
-<?= $this->partial('partials.project-cta') ?>
 <?php $this->end() ?>

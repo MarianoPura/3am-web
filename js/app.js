@@ -139,6 +139,10 @@
     const panel = document.querySelector('[data-nav-panel]');
 
     if (nav) {
+      // Use the actual fixed header height for both clicks and direct hashes.
+      const syncHeader = () => root.style.setProperty('--header-offset', `${nav.getBoundingClientRect().height}px`);
+      new ResizeObserver(syncHeader).observe(nav);
+      syncHeader();
       const onScroll = () => {
         nav.classList.toggle('is-condensed', window.scrollY > 80);
       };
@@ -211,6 +215,125 @@
     });
   };
 
+  // One controlled card at a time below 901px; normal grids above it.
+  const setupCarousels = () => {
+    const mobile = window.matchMedia('(max-width: 900px)');
+    document.querySelectorAll('[data-carousel]').forEach((track) => {
+      const cards = [...track.children];
+      if (cards.length < 2) return;
+      let index = 0;
+      const controls = document.createElement('div');
+      controls.className = 'carousel-controls';
+      const makeButton = (direction, text) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'carousel-button';
+        button.textContent = text;
+        button.setAttribute('aria-label', `${direction} ${track.dataset.carousel} card`);
+        return button;
+      };
+      const prev = makeButton('Previous', '←');
+      const next = makeButton('Next', '→');
+      controls.append(prev, next);
+      track.after(controls);
+      cards.forEach((card, i) => {
+        card.removeAttribute('data-reveal');
+        card.classList.add('carousel-card');
+        // All copy remains available to screen readers. Focusing a link in
+        // another card also brings that card into view for keyboard users.
+        card.addEventListener('focusin', () => { index = i; update(); });
+      });
+      const update = () => {
+        track.classList.toggle('carousel-ready', mobile.matches);
+        controls.hidden = !mobile.matches;
+        cards.forEach((card, i) => card.classList.toggle('is-active', i === index));
+        prev.disabled = index === 0;
+        next.disabled = index === cards.length - 1;
+      };
+      prev.addEventListener('click', () => { index = Math.max(0, index - 1); update(); });
+      next.addEventListener('click', () => { index = Math.min(cards.length - 1, index + 1); update(); });
+      mobile.addEventListener('change', update);
+      update();
+    });
+  };
+
+  // Lightweight Rentals catalogue filtering. With JavaScript unavailable all
+  // sample options remain visible; this only adds search and category views.
+  const setupRentalCatalog = () => {
+    document.querySelectorAll('[data-rental-catalog]').forEach((catalog) => {
+      const cards = [...catalog.querySelectorAll('[data-rental-item]')];
+      const search = catalog.querySelector('[data-rental-search]');
+      const filters = [...catalog.querySelectorAll('[data-rental-filter]')];
+      const status = catalog.querySelector('[data-rental-status]');
+      const empty = catalog.querySelector('[data-rental-empty]');
+      const more = catalog.querySelector('[data-rental-more]');
+      const mobile = window.matchMedia('(max-width: 720px)');
+
+      if (cards.length === 0) return;
+
+      let activeCategory = 'all';
+      let expanded = false;
+      const update = () => {
+        const query = (search?.value || '').trim().toLowerCase();
+        const matching = cards.filter((card) => {
+          const categoryMatches = activeCategory === 'all'
+            || card.dataset.rentalCategory === activeCategory;
+          const searchable = (card.dataset.rentalSearch || card.textContent || '').toLowerCase();
+          return categoryMatches && (!query || searchable.includes(query));
+        });
+        const limit = mobile.matches ? 4 : 6;
+        const shown = expanded ? matching : matching.slice(0, limit);
+        const shownSet = new Set(shown);
+
+        cards.forEach((card) => {
+          card.hidden = !shownSet.has(card);
+        });
+
+        filters.forEach((button) => {
+          const isActive = (button.dataset.rentalFilter || 'all') === activeCategory;
+          button.classList.toggle('is-active', isActive);
+          button.setAttribute('aria-pressed', String(isActive));
+        });
+
+        if (status) {
+          const noun = matching.length === 1 ? 'option' : 'options';
+          const scope = query || activeCategory !== 'all' ? 'matching sample' : 'sample';
+          status.textContent = shown.length === matching.length
+            ? `Showing ${shown.length} ${scope} ${noun}.`
+            : `Showing ${shown.length} of ${matching.length} ${scope} ${noun}.`;
+        }
+        if (empty) empty.hidden = matching.length !== 0;
+        if (more) {
+          const remaining = matching.length - shown.length;
+          more.hidden = remaining <= 0;
+          more.textContent = expanded ? 'Show fewer options' : `Show more options (${remaining})`;
+          more.setAttribute('aria-expanded', String(expanded));
+        }
+      };
+
+      filters.forEach((button) => {
+        button.addEventListener('click', () => {
+          activeCategory = button.dataset.rentalFilter || 'all';
+          expanded = false;
+          update();
+        });
+      });
+      search?.addEventListener('input', () => {
+        expanded = false;
+        update();
+      });
+      more?.addEventListener('click', () => {
+        expanded = !expanded;
+        update();
+      });
+      mobile.addEventListener('change', () => {
+        expanded = false;
+        update();
+      });
+      update();
+    });
+  };
+
   // ── Smooth anchor scrolling ────────────────────────────────
   const setupAnchors = () => {
     // A cross-page hash must settle after images and fonts reserve their space.
@@ -260,6 +383,8 @@
   // ── Boot ───────────────────────────────────────────────────
   const init = () => {
     setupNav();
+    setupCarousels();
+    setupRentalCatalog();
     setupAnchors();
     setupReveals();
     setupHero();

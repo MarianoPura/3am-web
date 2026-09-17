@@ -114,8 +114,6 @@ it were a picture would be misleading. */ ?>
     <?php endif ?>
   <?php endif ?>
 
-
-
   <span class="frame__marks" aria-hidden="true"></span>
 
   <?php if ($caption !== null): ?>

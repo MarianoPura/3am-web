@@ -22,6 +22,21 @@
 $this->extend('layouts.base');
 
 $slug = $form['slug'];
+// A catalogue inquiry carries only a known sample option into the existing
+// form. Submitted values always win when validation returns the visitor here.
+$rentalName = null;
+if ($slug === 'ventures' && is_string($_GET['rental'] ?? null)) {
+    foreach (config('rentals.items', []) as $rental) {
+        if ($rental['name'] === $_GET['rental']) {
+            $rentalName = $rental['name'];
+            if ($old === []) {
+                $old['type'] = $rental['category'] === 'studio-space' ? 'Studio / Space Rental' : 'Equipment Rental';
+                $old['details'] = 'Rental option: ' . $rentalName . "\nDate: \nLocation: \nRequirements: ";
+            }
+            break;
+        }
+    }
+}
 $val  = static fn (string $k): string => (string) ($old[$k] ?? '');
 $err  = static fn (string $k): ?string => $errors[$k] ?? null;
 ?>
@@ -35,13 +50,16 @@ $err  = static fn (string $k): ?string => $errors[$k] ?? null;
 
 <?php $this->start('content') ?>
 
-<section class="section form-page" data-theme="dark" aria-labelledby="form-heading">
+<section class="section form-page" data-theme="light" aria-labelledby="form-heading">
   <div class="shell form-shell form-shell--inquiry">
     <div class="form-intro">
 
     <p class="mono section__label"><?= e($form['kicker']) ?></p>
     <h1 id="form-heading" class="section__title"><?= e($form['title']) ?></h1>
     <p class="section__lede"><?= e($form['lede']) ?></p>
+    <?php if ($rentalName !== null): ?>
+      <p class="rental-inquiry-note">Selected sample option: <strong><?= e($rentalName) ?></strong>. Availability and package details are confirmed on inquiry.</p>
+    <?php endif ?>
 
     <p class="form-intro__response">We usually respond within one business day.</p>
     <p class="form-intro__contact">

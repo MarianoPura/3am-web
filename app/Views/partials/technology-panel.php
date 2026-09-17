@@ -1,7 +1,12 @@
+<?php $index = $index ?? null; ?>
 <div class="systems__grid">
   <div class="systems__services">
     <div class="systems__intro">
-      <p class="mono section__label">Technology</p>
+      <div class="service-section__meta">
+        <p class="mono section__label">Technology</p>
+        <span class="service-section__rule" aria-hidden="true"></span>
+        <?php if ($index !== null): ?><span class="mono service-section__index" aria-hidden="true"><?= e(str_pad((string) $index, 2, '0', STR_PAD_LEFT)) ?></span><?php endif ?>
+      </div>
       <h2 id="technology-heading" class="section__title"><?= e(config('app.section_technology.headline')) ?></h2>
       <p class="section__lede"><?= e(config('app.section_technology.subhead')) ?></p>
       <?php if (!empty($summary)): ?><p class="service-technology-summary"><?= e($summary) ?></p><?php endif ?>
