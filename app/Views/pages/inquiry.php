@@ -1,6 +1,6 @@
 <?php
 /**
- * Project inquiry form — serves both the media and technology variants.
+ * Unified project inquiry form.
  *
  * Accessibility notes, since forms are where it usually goes wrong:
  *   - Every field has a real visible <label>. Placeholder-only labelling
@@ -21,7 +21,6 @@
 
 $this->extend('layouts.base');
 
-$slug = $form['slug'];
 $val  = static fn (string $k): string => (string) ($old[$k] ?? '');
 $err  = static fn (string $k): ?string => $errors[$k] ?? null;
 ?>
@@ -35,13 +34,14 @@ $err  = static fn (string $k): ?string => $errors[$k] ?? null;
 
 <?php $this->start('content') ?>
 
-<section class="section form-page" data-theme="dark" aria-labelledby="form-heading">
+<section class="section form-page" data-theme="light" aria-labelledby="form-heading">
   <div class="shell form-shell form-shell--inquiry">
     <div class="form-intro">
 
     <p class="mono section__label"><?= e($form['kicker']) ?></p>
     <h1 id="form-heading" class="section__title"><?= e($form['title']) ?></h1>
     <p class="section__lede"><?= e($form['lede']) ?></p>
+
 
     <p class="form-intro__response">We usually respond within one business day.</p>
     <p class="form-intro__contact">
@@ -57,7 +57,7 @@ $err  = static fn (string $k): ?string => $errors[$k] ?? null;
       <div class="form-alert" role="alert"><?= e($err('form')) ?></div>
     <?php endif ?>
 
-    <form class="form" method="post" action="<?= e_attr(url('start/' . $slug)) ?>" novalidate>
+    <form class="form" method="post" action="<?= e_attr(url('start')) ?>" novalidate>
       <?= csrf_field() ?>
 
       <?php /* Time of render. A submission faster than a human could read the
@@ -74,24 +74,27 @@ $err  = static fn (string $k): ?string => $errors[$k] ?? null;
                tabindex="-1" autocomplete="off">
       </div>
 
-      <!-- Project type -->
-      <div class="field">
-        <label class="field__label" for="type">
-          Type of project <span class="field__req" aria-hidden="true">*</span>
-        </label>
-        <select class="field__input" id="type" name="type" required
-                <?= $err('type') ? 'aria-invalid="true" aria-describedby="type-error"' : '' ?>>
-          <option value="">Select one…</option>
+      <fieldset class="project-choice" <?= $err('type') ? 'aria-invalid="true" aria-describedby="type-error"' : '' ?>>
+        <legend class="field__label">What do you need? <span aria-hidden="true">*</span></legend>
+        <div class="project-choice__options">
           <?php foreach ($form['types'] as $option): ?>
-            <option value="<?= e_attr($option) ?>" <?= $val('type') === $option ? 'selected' : '' ?>>
-              <?= e($option) ?>
-            </option>
+            <label class="project-choice__option">
+              <input type="radio" name="type" value="<?= e_attr($option) ?>" required <?= $val('type') === $option ? 'checked' : '' ?>>
+              <span><?= e($option) ?></span>
+            </label>
           <?php endforeach ?>
-        </select>
-        <?php if ($err('type')): ?>
-          <p class="field__error" id="type-error"><?= e($err('type')) ?></p>
-        <?php endif ?>
-      </div>
+        </div>
+        <?php if ($err('type')): ?><p class="field__error" id="type-error"><?= e($err('type')) ?></p><?php endif ?>
+      </fieldset>
+      <?php if ($rental !== null): ?>
+        <div class="rental-inquiry-note">
+          <p>Selected rental: <strong><?= e($rental['name']) ?></strong></p>
+          <p>Included when you choose Rentals. Availability and package details are confirmed on inquiry.</p>
+          <input type="hidden" name="rental" value="<?= e_attr($rental['id']) ?>">
+          <a class="text-link" href="<?= e_attr(url('start') . '?type=rentals') ?>">Remove selection</a>
+        </div>
+      <?php endif ?>
+      <?php if ($err('rental')): ?><p class="field__error" role="alert"><?= e($err('rental')) ?></p><?php endif ?>
 
       <div class="field-row">
         <!-- Name -->
@@ -113,7 +116,8 @@ $err  = static fn (string $k): ?string => $errors[$k] ?? null;
           <label class="field__label" for="company">Company <span class="field__opt">optional</span></label>
           <input class="field__input" type="text" id="company" name="company"
                  value="<?= e_attr($val('company')) ?>"
-                 autocomplete="organization" maxlength="160">
+                 autocomplete="organization" maxlength="160" <?= $err('company') ? 'aria-invalid="true" aria-describedby="company-error"' : '' ?>>
+          <?php if ($err('company')): ?><p class="field__error" id="company-error"><?= e($err('company')) ?></p><?php endif ?>
         </div>
       </div>
 

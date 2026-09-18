@@ -196,6 +196,12 @@ $container->bind(Router::class, static fn (): Router => new Router());
 
 $container->bind(Csrf::class, static fn (): Csrf => new Csrf());
 
+$container->bind(\App\Services\InquiryStore::class, static fn (Container $c): \App\Services\InquiryStore => new \App\Services\InquiryStore(
+    storagePath: BASE_PATH . '/storage/inquiries',
+    notifyTo: (string) $c->config('app.contact_email'),
+    siteName: (string) $c->config('app.name'),
+));
+
 $container->bind(Vite::class, static fn (Container $c): Vite => new Vite(
     buildPath: BASE_PATH . '/build',
     // Root-relative, like every other asset URL — see url() in Helpers.

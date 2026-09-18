@@ -25,9 +25,10 @@ $rest     = array_values(array_filter($projects, static fn (array $p): bool => e
 
 <?php $this->start('content') ?>
 
-<section class="section projects-head" data-theme="dark" aria-labelledby="projects-heading">
+<div class="projects-surface" data-theme="dark">
+<section class="section projects-head page-intro" data-theme="dark" aria-labelledby="projects-heading" style="padding-top: 100px">
   <div class="shell">
-    <p class="mono section__label">Projects</p>
+    <p class="mono section__label">Projects / 03</p>
     <h1 id="projects-heading" class="section__title">Selected work.</h1>
     <p class="section__lede">
       Production, event technology and digital platforms — the whole chain,
@@ -36,6 +37,12 @@ $rest     = array_values(array_filter($projects, static fn (array $p): bool => e
   </div>
 </section>
 
+<section class="section section--tight project-showreel" data-theme="dark" aria-label="3AM showreel" style="padding-top: 0">
+  <div class="shell">
+    <div class="showreel-heading"><p class="mono section__label">In the field</p><span class="mono">3AM showreel</span></div>
+    <?= $this->partial('partials.frame', ['slot' => 'track.featured']) ?>
+  </div>
+</section>
 <?php if ($projects === []): ?>
 
   <?php /* Honest empty state. No invented clients: naming work that has not
@@ -43,16 +50,9 @@ $rest     = array_values(array_filter($projects, static fn (array $p): bool => e
            The capability frames still give the page real visual weight. */ ?>
   <section class="section" data-theme="dark" aria-label="Work in preparation">
     <div class="shell">
-      <div class="emerging" data-reveal>
-        <span class="badge mono">In production</span>
-        <p class="emerging__body">
-          Case studies are being prepared for publication. For the current
-          portfolio and showreel, get in touch — we will send it across.
-        </p>
-        <a class="btn" href="<?= e_attr(url('start/media')) ?>">Request the portfolio</a>
-      </div>
 
-      <div class="reel-grid" style="margin-top: var(--s-16)">
+
+      <div class="reel-grid">
         <?php foreach ([
             ['track.broadcast', 'Broadcast', 'Multi-camera, switching, live'],
             ['track.events',    'Events',    'LED, AV, staging'],
@@ -65,6 +65,14 @@ $rest     = array_values(array_filter($projects, static fn (array $p): bool => e
             <p class="mono reel-card__note"><?= e($note) ?></p>
           </article>
         <?php endforeach ?>
+      </div>
+      <div class="emerging" data-reveal>
+        <span class="badge mono">In production</span>
+        <p class="emerging__body">
+          Case studies are being prepared for publication. For the current
+          portfolio and showreel, get in touch — we will send it across.
+        </p>
+        <a class="btn" href="<?= e_attr(url('start')) ?>">Request the portfolio</a>
       </div>
     </div>
   </section>
@@ -151,12 +159,12 @@ $rest     = array_values(array_filter($projects, static fn (array $p): bool => e
 <?php endif ?>
 
 <?php /* CTA */ ?>
+</div>
 <section class="section cta" aria-labelledby="projects-cta">
   <div class="shell">
     <h2 id="projects-cta" class="cta__title">What are you building?</h2>
     <div class="cta__actions">
-      <a class="btn btn--invert" href="<?= e_attr(url('start/media')) ?>">Start a media project</a>
-      <a class="btn btn--invert" href="<?= e_attr(url('start/technology')) ?>">Start a tech project</a>
+      <a class="btn btn--invert" href="<?= e_attr(url('start')) ?>">Start a project</a>
     </div>
   </div>
 </section>

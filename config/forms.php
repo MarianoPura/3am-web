@@ -7,9 +7,7 @@ declare(strict_types=1);
  * │  INQUIRY FORMS — edit the project-type options here.                  │
  * └───────────────────────────────────────────────────────────────────────┘
  *
- * Two forms, one template. "Start a media project" and "Start a tech project"
- * are the same fields with a different type list, which is why the split CTA
- * costs nothing to maintain: it qualifies the enquiry before anyone reads it.
+ * Unified project choices plus legacy POST allowlists.
  *
  * Adding or removing an option is a one-line change here. The values are what
  * get stored and emailed, so keep them readable — someone reads these in an
@@ -18,12 +16,20 @@ declare(strict_types=1);
 
 return [
 
+    'project' => [
+        'slug' => 'project',
+        'title' => 'Start a project',
+        'kicker' => 'Project enquiry',
+        'lede' => 'Tell us what you need and when. We will come back with questions, an approach and an estimate.',
+        'types' => ['Media / Production', 'Technology / Event Systems', 'Rentals', 'Other / General Inquiry'],
+    ],
+
     'media' => [
         'slug'     => 'media',
         'title'    => 'Start a media project',
         'kicker'   => 'Media enquiry',
         'lede'     => 'Tell us what you are making. We will come back with questions, '
-                    . 'a approach and an estimate.',
+                    . 'an approach and an estimate.',
         'types'    => [
             'Video Live Feed Coverage',
             'Video Streaming Coverage',
