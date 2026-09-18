@@ -26,7 +26,7 @@ $rest     = array_values(array_filter($projects, static fn (array $p): bool => e
 <?php $this->start('content') ?>
 
 <div class="projects-surface" data-theme="dark">
-<section class="section projects-head page-intro" data-theme="dark" aria-labelledby="projects-heading">
+<section class="section projects-head page-intro" data-theme="dark" aria-labelledby="projects-heading" style="padding-top: 100px">
   <div class="shell">
     <p class="mono section__label">Projects / 03</p>
     <h1 id="projects-heading" class="section__title">Selected work.</h1>
@@ -37,7 +37,7 @@ $rest     = array_values(array_filter($projects, static fn (array $p): bool => e
   </div>
 </section>
 
-<section class="section section--tight project-showreel" data-theme="dark" aria-label="3AM showreel">
+<section class="section section--tight project-showreel" data-theme="dark" aria-label="3AM showreel" style="padding-top: 0">
   <div class="shell">
     <div class="showreel-heading"><p class="mono section__label">In the field</p><span class="mono">3AM showreel</span></div>
     <?= $this->partial('partials.frame', ['slot' => 'track.featured']) ?>
