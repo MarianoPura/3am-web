@@ -28,7 +28,9 @@ use App\Controllers\Web\PageController;
 // ── Home ─────────────────────────────────────────────────────
 $router->get('/', [HomeController::class, 'index'])->name('home');
 $router->get('/services', [PageController::class, 'services'])->name('services');
-$router->get('/equipment-rentals', [PageController::class, 'rentals'])->name('rentals');
+$router->get('/information', [PageController::class, 'information'])->name('information');
+$router->get('/rentals', [PageController::class, 'rentals'])->name('rentals');
+$router->get('/equipment-rentals', [PageController::class, 'legacyInformation'])->name('rentals.legacy');
 $router->get('/about', [PageController::class, 'about'])->name('about');
 $router->get('/contact', [PageController::class, 'contact'])->name('contact');
 

@@ -36,13 +36,12 @@ final class InquiryController extends Controller
                     $_SESSION['_old']['type'] = match ($type) {
                         'media' => 'Media / Production',
                         'technology' => 'Technology / Event Systems',
-                        default => str_contains($legacyType, 'Rental') ? 'Rentals' : 'Other / General Inquiry',
+                        default => 'Other / General Inquiry',
                     };
                     $_SESSION['_old']['details'] = $legacyType . "\n" . (is_string($_SESSION['_old']['details'] ?? null) ? $_SESSION['_old']['details'] : '');
                 }
             }
-            $rental = $request->string('rental');
-            return $this->redirect('/start?type=' . ($rental !== '' ? 'rentals' : $preset) . ($rental !== '' ? '&rental=' . rawurlencode($rental) : ''));
+            return $this->redirect('/start?type=' . $preset);
         }
 
         // Pull back anything the visitor typed before a validation failure, then
@@ -52,24 +51,13 @@ final class InquiryController extends Controller
         unset($_SESSION['_old'], $_SESSION['_errors']);
         $old = array_filter($old, 'is_scalar');
 
-        $presets = ['media' => 'Media / Production', 'technology' => 'Technology / Event Systems', 'rentals' => 'Rentals', 'other' => 'Other / General Inquiry'];
+        $presets = ['media' => 'Media / Production', 'technology' => 'Technology / Event Systems', 'other' => 'Other / General Inquiry'];
         if ($old === []) { $old['type'] = $presets[$request->string('type')] ?? ''; }
-        $rentalSlug = (string) ($old['rental'] ?? $request->string('rental'));
-        $rental = (new \App\Models\RentalCatalog($this->db()))->find($rentalSlug);
-        if ($rental !== null) {
-            $old['rental'] = $rental['id'];
-            if ($errors === []) { $old['type'] = 'Rentals'; }
-        } elseif ($rentalSlug !== '') {
-            $errors['rental'] = 'This rental is no longer listed. Please choose another rental or continue with a general inquiry.';
-            unset($old['rental']);
-        }
-
         return $this->render('pages.inquiry', [
             'form'    => $form,
             'old'     => $old,
             'errors'  => $errors,
             'company' => config('app.company'),
-            'rental' => $rental,
         ])->noCache();
     }
 
@@ -113,11 +101,6 @@ final class InquiryController extends Controller
         $phone       = trim((string) $request->input('phone', ''));
         $company     = trim((string) $request->input('company', ''));
         $details     = trim((string) $request->input('details', ''));
-        $rentalSlug  = $request->string('rental');
-        $rental = $projectType === 'Rentals' ? (new \App\Models\RentalCatalog($this->db()))->find($rentalSlug) : null;
-        if ($projectType === 'Rentals' && $rentalSlug !== '' && $rental === null) {
-            $errors['rental'] = 'This rental is no longer listed. Please choose another rental or continue with a general inquiry.';
-        }
 
         // Compare against the allowlist, not just "is it non-empty" — the
         // select is a client-side control and a POST can carry anything.
@@ -168,7 +151,7 @@ final class InquiryController extends Controller
                 'email'      => $email,
                 'phone'      => $phone,
                 'company'    => $company,
-                'details'    => ($rental !== null ? 'Selected rental: ' . $rental['name'] . ' [' . $rental['id'] . "]\n\n" : '') . $details,
+                'details'    => $details,
                 'ip'         => $request->ip(),
                 'user_agent' => $request->userAgent(),
             ]);

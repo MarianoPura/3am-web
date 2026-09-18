@@ -86,16 +86,6 @@ $err  = static fn (string $k): ?string => $errors[$k] ?? null;
         </div>
         <?php if ($err('type')): ?><p class="field__error" id="type-error"><?= e($err('type')) ?></p><?php endif ?>
       </fieldset>
-      <?php if ($rental !== null): ?>
-        <div class="rental-inquiry-note">
-          <p>Selected rental: <strong><?= e($rental['name']) ?></strong></p>
-          <p>Included when you choose Rentals. Availability and package details are confirmed on inquiry.</p>
-          <input type="hidden" name="rental" value="<?= e_attr($rental['id']) ?>">
-          <a class="text-link" href="<?= e_attr(url('start') . '?type=rentals') ?>">Remove selection</a>
-        </div>
-      <?php endif ?>
-      <?php if ($err('rental')): ?><p class="field__error" role="alert"><?= e($err('rental')) ?></p><?php endif ?>
-
       <div class="field-row">
         <!-- Name -->
         <div class="field">

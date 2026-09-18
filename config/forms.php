@@ -21,7 +21,7 @@ return [
         'title' => 'Start a project',
         'kicker' => 'Project enquiry',
         'lede' => 'Tell us what you need and when. We will come back with questions, an approach and an estimate.',
-        'types' => ['Media / Production', 'Technology / Event Systems', 'Rentals', 'Other / General Inquiry'],
+        'types' => ['Media / Production', 'Technology / Event Systems', 'Other / General Inquiry'],
     ],
 
     'media' => [
@@ -66,22 +66,20 @@ return [
     /*
      * Ventures enquiries.
      *
-     * Softer framing than the other two on purpose: a rental request and a
-     * full event-management brief are very different sales, and "Start a
-     * project" fits neither.
+     * Legacy ventures enquiries remain available for old links.
      */
     'ventures' => [
         'slug'     => 'ventures',
         'title'    => 'Inquire about ventures',
         'kicker'   => 'Ventures enquiry',
-        'lede'     => 'Studio, stage, event management or rentals — tell us what you need '
+        'lede'     => 'Studio, stage and event management — tell us what you need '
                     . 'and when, and we will come back with availability and pricing.',
         'types'    => [
             'Studio Setup',
             'Stage Setup',
             'Event Management',
-            'Equipment Rental',
-            'Studio / Space Rental',
+            'Production Equipment',
+            'Studio / Production Space',
             'Other',
         ],
     ],

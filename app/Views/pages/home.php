@@ -35,10 +35,12 @@ $this->extend('layouts.base');
         audience is watching on. No handoffs, no gaps where the stream can drop.
       </p>
 
-
       <div class="hero__actions" data-reveal>
         <a class="btn" href="<?= e_attr(url('start')) ?>">Start a project</a>
+        <a class="btn" href="<?= e_attr(url('information')) ?>">Explore rentals</a>
       </div>
+
+
     </div>
 
     <div class="hero__media" data-reveal>
@@ -150,17 +152,17 @@ $this->extend('layouts.base');
 
 
 
-<section class="section rental-preview" id="rentals" data-theme="light" aria-labelledby="rentals-heading">
+<section class="section rental-preview" id="information" data-theme="light" aria-labelledby="information-heading">
   <div class="shell editorial-split">
     <div>
-      <p class="mono section__label">Rentals</p>
-      <h2 id="rentals-heading" class="section__title">Equipment and space rentals.</h2>
-      <p class="section__lede"><?= e(config('app.ventures')[3]['body']) ?></p>
-      <a class="btn" href="<?= e_attr(url('equipment-rentals')) ?>">Explore rentals</a>
+      <p class="mono section__label">Information</p>
+      <h2 id="information-heading" class="section__title">Production resources and support.</h2>
+      <p class="section__lede">Learn more about the media, technology, event systems and production environments 3AM works with.</p>
+      <a class="btn" href="<?= e_attr(url('rentals')) ?>">Explore rentals</a>
     </div>
     <div class="rental-preview__image" data-reveal>
       <?= $this->partial('partials.frame', ['slot' => 'venture.rentals', 'ratio' => '16x9']) ?>
-      <p class="mono image-note">Equipment and space · Inquire for the current list</p>
+      <p class="mono image-note">Production equipment and technical operations</p>
     </div>
   </div>
 </section>

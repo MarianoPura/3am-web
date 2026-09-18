@@ -25,6 +25,7 @@ $brandMark = site_media(config('assets.brand.mark'));
 
     <a class="btn btn--sm" href="<?= e_attr(url('start')) ?>">Start a project</a>
 
+
     <?php /* Toggled by js/app.js; hidden on wide viewports via CSS.
              aria-expanded is kept in sync there. */ ?>
     <button class="nav__toggle" type="button" data-nav-toggle

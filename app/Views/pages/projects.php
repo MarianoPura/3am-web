@@ -164,7 +164,7 @@ $rest     = array_values(array_filter($projects, static fn (array $p): bool => e
   <div class="shell">
     <h2 id="projects-cta" class="cta__title">What are you building?</h2>
     <div class="cta__actions">
-      <a class="btn btn--invert" href="<?= e_attr(url('start')) ?>">Start a project</a>
+      <a class="btn btn--invert" href="<?= e_attr(url('contact')) ?>">Contact us</a>
     </div>
   </div>
 </section>
