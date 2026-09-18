@@ -25,7 +25,8 @@ $rest     = array_values(array_filter($projects, static fn (array $p): bool => e
 
 <?php $this->start('content') ?>
 
-<section class="section projects-head page-intro" data-theme="light" aria-labelledby="projects-heading">
+<div class="projects-surface" data-theme="dark">
+<section class="section projects-head page-intro" data-theme="dark" aria-labelledby="projects-heading">
   <div class="shell">
     <p class="mono section__label">Projects / 03</p>
     <h1 id="projects-heading" class="section__title">Selected work.</h1>
@@ -47,7 +48,7 @@ $rest     = array_values(array_filter($projects, static fn (array $p): bool => e
   <?php /* Honest empty state. No invented clients: naming work that has not
            been cleared is the one unrecoverable mistake on a portfolio site.
            The capability frames still give the page real visual weight. */ ?>
-  <section class="section" data-theme="light" aria-label="Work in preparation">
+  <section class="section" data-theme="dark" aria-label="Work in preparation">
     <div class="shell">
 
 
@@ -71,7 +72,7 @@ $rest     = array_values(array_filter($projects, static fn (array $p): bool => e
           Case studies are being prepared for publication. For the current
           portfolio and showreel, get in touch — we will send it across.
         </p>
-        <a class="btn" href="<?= e_attr(url('start/media')) ?>">Request the portfolio</a>
+        <a class="btn" href="<?= e_attr(url('start')) ?>">Request the portfolio</a>
       </div>
     </div>
   </section>
@@ -80,7 +81,7 @@ $rest     = array_values(array_filter($projects, static fn (array $p): bool => e
 
   <?php /* Filter. Radios rather than buttons so the whole thing works without
            JavaScript; the grid responds through :has() on the fieldset. */ ?>
-  <section class="section section--tight" data-theme="light">
+  <section class="section section--tight" data-theme="dark">
     <div class="shell">
       <fieldset class="filter" id="project-filter">
         <legend class="mono filter__legend">Filter by</legend>
@@ -99,7 +100,7 @@ $rest     = array_values(array_filter($projects, static fn (array $p): bool => e
   </section>
 
   <?php if ($featured !== []): ?>
-    <section class="section section--tight" data-theme="light" aria-label="Featured project">
+    <section class="section section--tight" data-theme="dark" aria-label="Featured project">
       <div class="shell">
         <?php foreach ($featured as $project): ?>
           <article class="feature" data-reveal
@@ -128,7 +129,7 @@ $rest     = array_values(array_filter($projects, static fn (array $p): bool => e
     </section>
   <?php endif ?>
 
-  <section class="section" data-theme="light" aria-label="All projects">
+  <section class="section" data-theme="dark" aria-label="All projects">
     <div class="shell">
       <div class="project-grid">
         <?php foreach ($rest as $project): ?>
@@ -158,12 +159,12 @@ $rest     = array_values(array_filter($projects, static fn (array $p): bool => e
 <?php endif ?>
 
 <?php /* CTA */ ?>
+</div>
 <section class="section cta" aria-labelledby="projects-cta">
   <div class="shell">
     <h2 id="projects-cta" class="cta__title">What are you building?</h2>
     <div class="cta__actions">
-      <a class="btn btn--invert" href="<?= e_attr(url('start/media')) ?>">Start a media project</a>
-      <a class="btn btn--invert" href="<?= e_attr(url('start/technology')) ?>">Start a tech project</a>
+      <a class="btn btn--invert" href="<?= e_attr(url('start')) ?>">Start a project</a>
     </div>
   </div>
 </section>

@@ -622,7 +622,6 @@ a:hover .frame__play-tri { transform: scale(1.08); }
   gap: var(--s-3);
   margin-top: var(--s-8);
 }
-.hero__rentals { flex-basis: 100%; justify-self: start; width: fit-content; }
 
 /* ── Section head — title left, note right ───────────────── */
 .section__head {
@@ -915,7 +914,7 @@ a:hover .frame__play-tri { transform: scale(1.08); }
   /* Hero stacks: copy first, then the reel. Keeping them side by side any
      narrower squeezes the headline into two-word lines. */
   .hero__grid { grid-template-columns: 1fr; gap: var(--s-10); }
-  .hero { min-height: 0; padding-block: var(--s-24) var(--s-16); }
+  .hero { min-height: 100svh; padding-block: var(--s-24) var(--s-16); }
   .hero__lede { max-width: 52ch; }
   .hero__media { width: 100%; max-width: 780px; }
 }
@@ -1411,7 +1410,6 @@ select.field__input option { background: var(--c-void); color: var(--fg); }
 .service-list li { border-left: 2px solid var(--c-tally); padding-left: var(--s-3); }
 .service-why { margin-block: var(--s-6); color: var(--fg-muted); border-top: 1px solid var(--border); padding-top: var(--s-4); font-size: var(--t-small); }
 .delivery-example { margin-top: var(--s-12); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-8); align-items: start; }
-.systems__services > .text-link { margin-top: var(--s-4); }
 .rental-browse { padding-top: var(--s-12); background-image: linear-gradient(var(--c-cloud), var(--c-mist)); }
 .rental-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s-6); }
 .rental-category { min-width: 0; background: var(--bg-elevated); border: 1px solid var(--border); border-bottom: 3px solid var(--c-ink); }
@@ -1470,7 +1468,6 @@ select.field__input option { background: var(--c-void); color: var(--fg); }
   .rental-category .frame img { position: absolute; inset: 0; }
   .service-list { grid-template-columns: minmax(0, 1fr); }
   .inventory-note { padding: var(--s-6); }
-  .service-layout__image { order: -1; }
   .about-story__image { order: 1; }
   .showreel-heading { flex-wrap: wrap; }
   .footer__grid { gap: var(--s-8); }
@@ -1489,7 +1486,6 @@ select.field__input option { background: var(--c-void); color: var(--fg); }
   .hero__lede { margin-top: var(--s-4); font-size: var(--t-body); }
   .hero__actions { margin-top: var(--s-4); gap: var(--s-2); }
   .hero__actions .btn { width: 100%; }
-  .hero__rentals { flex-basis: auto; }
   .hero__grid { gap: var(--s-6); }
 }
 @media (prefers-reduced-motion: reduce) { .text-link:hover span { transform: none; } }
@@ -1514,7 +1510,7 @@ select.field__input option { background: var(--c-void); color: var(--fg); }
 .form-page[data-theme='light'] select.field__input option { background: var(--c-cloud); color: var(--fg); }
 .form-page[data-theme='light'] .field__req { color: var(--fg); }
 .form-page[data-theme='light'] .field__input[aria-invalid='true'] { border-color: var(--c-alert); }
-/* Three Channels continues the Hero's dark technical atmosphere. */
+.form-page[data-theme='light'] .field__error { color: var(--c-ink); }
 /* Homepage Three Channels — white section after the dark Hero. */
 .channels-section {
   position: relative;
@@ -1546,13 +1542,36 @@ select.field__input option { background: var(--c-void); color: var(--fg); }
 .service-section--media, .service-section--events { background-image: linear-gradient(120deg, var(--c-blue-haze), transparent 65%); }
 #technology.service-section--technology { --bg: var(--c-void); background-image: radial-gradient(ellipse at top right, var(--c-ink), transparent 65%); }
 .service-section--technology .technology-service { border-color: var(--border); }
-.service-layout--reverse .service-layout__image { order: -1; }
+.service-section--technology .systems__operations { order: -1; }
+.service-section--ventures .venture-card:first-child { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; }
+.service-section--ventures .ventures { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 0; }
+.service-section--ventures .venture-card__body { min-width: 0; }
 .service-section--ventures .service-section__meta { max-width: 40rem; }
 .service-layout__copy, .systems__services { min-width: 0; }
 @media (max-width: 900px) {
-  .service-layout .service-layout__image { order: 0; }
+  .service-layout .service-layout__image { order: -1; }
   .service-section .systems__grid { gap: var(--s-8); }
+  .service-section--ventures .venture-card:first-child { grid-template-columns: 1fr; gap: var(--s-4); }
+  .service-section--ventures .ventures { grid-template-columns: 1fr; }
+  .delivery-example > .frame { order: -1; }
 }
+
+#media[data-theme='dark'] { --bg: var(--c-void); --bg-elevated: var(--c-ink); }
+.projects-head[data-theme='dark'], .project-showreel { --bg: var(--c-void); }
+.projects-head[data-theme='dark'] { background-image: none; border-bottom: 0; }
+.projects-surface {
+  background-color: var(--c-void);
+  background-image: linear-gradient(var(--c-line) 1px, transparent 1px), linear-gradient(90deg, var(--c-line) 1px, transparent 1px);
+  background-size: 80px 80px;
+}
+.projects-surface > .section { background: transparent; }
+.project-choice { border: 0; padding: 0; margin: 0; min-width: 0; }
+.project-choice__options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-2); margin-top: var(--s-2); }
+.project-choice__option { display: flex; align-items: center; gap: var(--s-2); min-height: 48px; padding: var(--s-3); border: 1px solid var(--border); background: var(--bg-elevated); cursor: pointer; font-size: var(--t-small); }
+.project-choice__option:has(:checked) { border-color: var(--c-ink); box-shadow: inset 3px 0 var(--c-tally); }
+.project-choice__option:focus-within { outline: 2px solid var(--c-ink); outline-offset: 2px; }
+.project-choice__option input { flex-shrink: 0; accent-color: var(--c-ink); }
+.contact-options > .btn { margin-top: var(--s-6); }
 
 /* Rentals: a small, replaceable catalogue using the shared media frame. */
 .rental-catalog__intro { max-width: 44ch; color: var(--fg-muted); }

@@ -297,7 +297,7 @@
 
         if (status) {
           const noun = matching.length === 1 ? 'option' : 'options';
-          const scope = query || activeCategory !== 'all' ? 'matching sample' : 'sample';
+          const scope = query || activeCategory !== 'all' ? 'matching rental' : 'rental';
           status.textContent = shown.length === matching.length
             ? `Showing ${shown.length} ${scope} ${noun}.`
             : `Showing ${shown.length} of ${matching.length} ${scope} ${noun}.`;

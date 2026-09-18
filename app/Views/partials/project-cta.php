@@ -5,7 +5,7 @@
       <h2 id="project-cta-heading" class="cta__title">What are you building?</h2>
     </div>
     <div class="cta__actions">
-      <a class="btn btn--invert" href="<?= e_attr(url('contact')) ?>">Let's talk about your project</a>
+      <a class="btn btn--invert" href="<?= e_attr(url('start')) ?>">Let's talk about your project</a>
     </div>
   </div>
 </section>

@@ -35,14 +35,9 @@ $this->extend('layouts.base');
         audience is watching on. No handoffs, no gaps where the stream can drop.
       </p>
 
-      <?php /* Two CTAs, not one. A client booking a corporate video and a
-               client specifying AV for a 500-person hybrid conference are
-               different buyers with different urgency and budget; funnelling
-               both through one button loses the qualification for free. The
-               split also reinforces the Media / Technology structure. */ ?>
+
       <div class="hero__actions" data-reveal>
-        <a class="btn" href="<?= e_attr(url('start/media')) ?>">Start a media project</a>
-        <a class="btn btn--ghost" href="<?= e_attr(url('start/technology')) ?>">Start a tech project</a>
+        <a class="btn" href="<?= e_attr(url('start')) ?>">Start a project</a>
       </div>
     </div>
 
@@ -125,10 +120,10 @@ $this->extend('layouts.base');
          The production and creative side. Gallery reads from
          config/projects.php; anything absent falls back to a
          designed placeholder from config/assets.php. */ ?>
-<section class="section" id="media" data-theme="light" aria-labelledby="media-heading">
+<section class="section" id="media" data-theme="dark" aria-labelledby="media-heading">
   <div class="shell">
     <p class="mono section__label" data-reveal>Selected work</p>
-    <h2 id="media-heading" class="section__title" data-reveal><?= e($sectionMedia['headline']) ?></h2>
+    <h2 id="media-heading" class="section__title" data-reveal>Selected work.</h2>
     <p class="section__lede" data-reveal><?= e($sectionMedia['subhead']) ?></p>
 
     <div class="work-grid" data-carousel="Selected Work" role="region" aria-label="Media work gallery">

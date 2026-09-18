@@ -21,7 +21,6 @@
         <ul><?php foreach ($services as $service): ?><li><?= e($service) ?></li><?php endforeach ?></ul>
       </article>
     <?php endforeach ?>
-    <a class="text-link" href="<?= e_attr(url('start/technology')) ?>">Start a tech project <span aria-hidden="true">↗</span></a>
   </div>
   <div class="systems__operations" data-reveal>
     <?= $this->partial('partials.frame', ['slot' => 'channel.technology']) ?>

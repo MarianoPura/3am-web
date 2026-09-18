@@ -13,10 +13,10 @@ $ventures = config('app.ventures_section');
     'description' => 'Production, technology and event systems under one roof — so the camera, the encoder, the LED wall and the platform it all lands on are handled by the same team.',
 ]) ?>
 <?php $serviceNumber = 1; foreach ($capabilities as $key => $group): ?>
-<section class="section service-section service-section--<?= e_attr($key) ?><?= $key === 'events' ? ' service-section--reverse' : '' ?>" id="<?= e_attr($key) ?>" data-theme="<?= $key === 'technology' ? 'dark' : 'light' ?>" aria-labelledby="<?= e_attr($key) ?>-heading">
+<section class="section service-section service-section--<?= e_attr($key) ?>" id="<?= e_attr($key) ?>" data-theme="<?= $key === 'technology' ? 'dark' : 'light' ?>" aria-labelledby="<?= e_attr($key) ?>-heading">
   <div class="shell">
     <?php if ($key !== 'technology'): ?>
-    <div class="service-layout<?= $key === 'events' ? ' service-layout--reverse' : '' ?>">
+    <div class="service-layout">
       <div class="service-layout__copy">
         <div class="service-section__meta">
           <p class="mono section__label"><?= e($group['label']) ?></p>
@@ -56,14 +56,7 @@ $ventures = config('app.ventures_section');
 <?php $serviceNumber++; endforeach ?>
 <section class="section service-section service-section--ventures" id="ventures" data-theme="light" data-service-index="04" aria-labelledby="ventures-heading">
   <div class="shell">
-    <div class="service-section__meta service-section__meta--standalone">
-      <p class="mono section__label">Ventures</p>
-      <span class="service-section__rule" aria-hidden="true"></span>
-      <span class="mono service-section__index" aria-hidden="true">04</span>
-    </div>
-    <h2 id="ventures-heading" class="section__title"><?= e($ventures['headline']) ?></h2>
-    <p class="section__lede"><?= e($ventures['subhead']) ?></p>
-    <?= $this->partial('partials.venture-cards') ?>
+    <?= $this->partial('partials.venture-cards', ['intro' => $ventures]) ?>
   </div>
 </section>
 <?php $this->end() ?>

@@ -20,18 +20,19 @@ $catalogCount = count($catalogItems);
   <div class="shell">
     <div class="section__head rental-catalog__head">
       <div>
-        <p class="mono section__label">Sample inventory</p>
-        <h2 id="rental-catalog-heading" class="section__title section__title--sm">Representative rental options.</h2>
+        <p class="mono section__label">Rental catalogue</p>
+        <h2 id="rental-catalog-heading" class="section__title section__title--sm">Rental options.</h2>
       </div>
       <div class="rental-catalog__intro">
-        <p>Browse a small set of development options for production, events, and spaces. Final package details, availability, and pricing are confirmed on inquiry.</p>
-        <a class="text-link" href="<?= e_attr(url('start/ventures')) ?>">Ask about a custom package <span aria-hidden="true">↗</span></a>
+        <p>Explore rental options for production, events, and spaces. Items marked sample are representative options, not confirmed inventory. Final package details, availability, and pricing are confirmed on inquiry.</p>
+        <a class="text-link" href="<?= e_attr(url('start') . '?type=rentals') ?>">Ask about a custom package <span aria-hidden="true">↗</span></a>
       </div>
     </div>
 
+    <?php if ($catalogItems !== []): ?>
     <div class="rental-tools" aria-label="Rental catalogue controls">
       <label class="rental-search">
-        <span class="mono">Search sample rentals</span>
+        <span class="mono">Search rentals</span>
         <input class="field__input" type="search" data-rental-search placeholder="Camera, audio, studio..." autocomplete="off" aria-controls="rental-items">
       </label>
       <fieldset class="rental-filter">
@@ -46,8 +47,9 @@ $catalogCount = count($catalogItems);
     </div>
 
     <p class="rental-catalog__status" data-rental-status role="status" aria-live="polite">
-      Showing <?= e((string) $catalogCount) ?> sample options.
+      Showing <?= e((string) $catalogCount) ?> rental options.
     </p>
+    <?php endif ?>
 
     <?php if ($catalogItems !== []): ?>
       <div class="rental-items" id="rental-items" data-rental-items>
@@ -60,13 +62,13 @@ $catalogCount = count($catalogItems);
           $itemIdealFor = (string) ($item['ideal_for'] ?? 'Production and events');
           $itemIncludes = (string) ($item['includes'] ?? 'Package details confirmed on inquiry');
           $searchText = strtolower(implode(' ', [$itemName, $itemCategoryName, $itemDescription, $itemIdealFor, $itemIncludes]));
-          $inquiryUrl = url('start/ventures') . '?rental=' . rawurlencode($itemName);
+          $inquiryUrl = url('start') . '?type=rentals' . '&rental=' . rawurlencode($item['id']);
           ?>
           <article class="rental-item-card" data-rental-item data-rental-category="<?= e_attr($itemCategory) ?>" data-rental-search="<?= e_attr($searchText) ?>">
             <?= $this->partial('partials.frame', ['slot' => $item['slot'] ?? null, 'ratio' => '16x9']) ?>
             <div class="rental-item-card__body">
               <div class="rental-item-card__meta">
-                <span class="mono">Sample option</span>
+                <span class="mono"><?= !empty($item['is_sample']) ? 'Sample option' : e($item['availability_status'] ?? 'Inquire for availability') ?></span>
                 <span class="tag tag--cat mono"><?= e($itemCategoryName) ?></span>
               </div>
               <h3><?= e($itemName) ?></h3>
@@ -82,15 +84,15 @@ $catalogCount = count($catalogItems);
         <?php endforeach ?>
       </div>
       <button class="btn btn--ghost rental-catalog__more" type="button" data-rental-more hidden aria-controls="rental-items" aria-expanded="false">Show more options</button>
-      <p class="rental-catalog__empty" data-rental-empty hidden>No sample rentals match that search. Try another category or ask us to shape a package around your brief.</p>
+      <p class="rental-catalog__empty" data-rental-empty hidden>No rentals match that search. Try another category or ask us to shape a package around your brief.</p>
     <?php else: ?>
       <div class="inventory-note">
         <div>
-          <p class="mono section__label">Sample inventory</p>
+          <p class="mono section__label"><?= !empty($catalogUnavailable) ? 'Catalogue temporarily unavailable' : 'Catalogue being prepared' ?></p>
           <h2>Tell us what you need.</h2>
           <p>Contact us for the current rental list, availability, and package details.</p>
         </div>
-        <a class="btn" href="<?= e_attr(url('start/ventures')) ?>">Ask about rentals</a>
+        <a class="btn" href="<?= e_attr(url('start') . '?type=rentals') ?>">Ask about rentals</a>
       </div>
     <?php endif ?>
 

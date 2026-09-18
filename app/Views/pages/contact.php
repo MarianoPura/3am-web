@@ -22,11 +22,8 @@ $company = config('app.company');
     </aside>
     <div class="contact-options">
       <h2 id="contact-options-heading" class="section__title section__title--sm">Start with your project.</h2>
-      <?php foreach ([['media', 'Media project'], ['technology', 'Technology project'], ['ventures', 'Ventures & rental inquiry']] as [$slug, $label]): ?>
-        <a class="contact-option" href="<?= e_attr(url('start/' . $slug)) ?>">
-          <div><h3><?= e($label) ?></h3><p><?= e(config('forms.' . $slug . '.lede')) ?></p></div><span aria-hidden="true">↗</span>
-        </a>
-      <?php endforeach ?>
+      <p>Media / Production, Technology / Event Systems, Rentals, or a general inquiry — one form for what you need.</p>
+      <a class="btn" href="<?= e_attr(url('start')) ?>">Start a project</a>
       <p class="contact-general">For other inquiries, <a href="mailto:<?= e_attr(config('app.contact_email')) ?>">email our team</a>.</p>
     </div>
   </div>

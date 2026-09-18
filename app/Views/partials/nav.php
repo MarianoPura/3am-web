@@ -23,7 +23,7 @@ $brandMark = site_media(config('assets.brand.mark'));
       <?= $this->partial('partials.site-links') ?>
     </nav>
 
-    <a class="btn btn--sm" href="<?= e_attr(url('start/media')) ?>">Start a project</a>
+    <a class="btn btn--sm" href="<?= e_attr(url('start')) ?>">Start a project</a>
 
     <?php /* Toggled by js/app.js; hidden on wide viewports via CSS.
              aria-expanded is kept in sync there. */ ?>
@@ -42,7 +42,7 @@ $brandMark = site_media(config('assets.brand.mark'));
     <nav class="nav__panel-group" aria-label="Explore">
       <?= $this->partial('partials.site-links') ?>
     </nav>
-    <a class="btn nav__cta" href="<?= e_attr(url('start/media')) ?>">Start a project</a>
+    <a class="btn nav__cta" href="<?= e_attr(url('start')) ?>">Start a project</a>
     <div class="nav__contact">
       <p class="mono">Get in touch</p>
       <a href="mailto:<?= e_attr(config('app.contact_email')) ?>"><?= e(config('app.contact_email')) ?></a>

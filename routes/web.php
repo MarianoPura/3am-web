@@ -40,6 +40,8 @@ $router->get('/projects', [ProjectController::class, 'index'])->name('projects')
 // then checks it against config/forms.php — so an unknown form 404s before
 // any work happens rather than rendering an empty select.
 $router->get('/start/received', [InquiryController::class, 'received'])->name('inquiry.received');
+$router->get('/start', [InquiryController::class, 'show'])->name('inquiry');
+$router->post('/start', [InquiryController::class, 'submit'])->name('inquiry.send');
 $router->get('/start/{type:slug}', [InquiryController::class, 'show'])->name('inquiry.show');
 $router->post('/start/{type:slug}', [InquiryController::class, 'submit'])->name('inquiry.submit');
 

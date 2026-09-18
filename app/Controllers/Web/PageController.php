@@ -16,10 +16,7 @@ final class PageController extends Controller
 
     public function rentals(Request $request): Response
     {
-        return $this->render('pages.rentals', [
-            'categories' => config('rentals.categories', []),
-            'items' => config('rentals.items', []),
-        ])->cacheFor(300);
+        return $this->render('pages.rentals', (new \App\Models\RentalCatalog($this->db()))->load())->noCache();
     }
 
     public function about(Request $request): Response
