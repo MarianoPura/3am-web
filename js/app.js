@@ -257,6 +257,125 @@
     });
   };
 
+  // Information uses a dedicated peek carousel: the active card stays in the
+  // centre while its neighbours remain visible. It is separate from the
+  // mobile-only content carousels above because its interaction model applies
+  // at every viewport size.
+  const setupInformationCarousel = () => {
+    document.querySelectorAll('[data-information-carousel]').forEach((carousel) => {
+      const viewport = carousel.querySelector('[data-information-viewport]');
+      const slides = [...carousel.querySelectorAll('[data-information-slide]')];
+      const dots = carousel.querySelector('[data-information-dots]');
+      const status = carousel.querySelector('[data-information-status]');
+      if (!viewport || slides.length < 2) return;
+
+      let index = 0;
+      let pointerStart = 0;
+      let pointerId = null;
+      let wheelLocked = false;
+      let nextAdvance = performance.now() + 4500;
+      const paused = new Set();
+      const dotButtons = slides.map((slide, slideIndex) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.setAttribute('aria-label', `Show slide ${slideIndex + 1}`);
+        button.addEventListener('click', () => goTo(slideIndex, true));
+        dots?.append(button);
+        return button;
+      });
+
+      const relativePosition = (slideIndex) => {
+        let position = slideIndex - index;
+        if (position > slides.length / 2) position -= slides.length;
+        if (position < -slides.length / 2) position += slides.length;
+        return position;
+      };
+
+      const update = (announce = false) => {
+        slides.forEach((slide, slideIndex) => {
+          const position = relativePosition(slideIndex);
+          slide.dataset.position = String(position);
+          slide.classList.toggle('is-active', position === 0);
+          slide.setAttribute('aria-hidden', String(Math.abs(position) > 2));
+        });
+        dotButtons.forEach((button, slideIndex) => {
+          const active = slideIndex === index;
+          button.classList.toggle('is-active', active);
+          button.setAttribute('aria-current', active ? 'true' : 'false');
+        });
+        if (announce && status) status.textContent = `Slide ${index + 1} of ${slides.length}: ${slides[index].querySelector('h3')?.textContent || ''}`;
+      };
+
+      const goTo = (newIndex, announce = false) => {
+        index = (newIndex + slides.length) % slides.length;
+        nextAdvance = performance.now() + 4500;
+        update(announce);
+      };
+
+      viewport.addEventListener('keydown', (event) => {
+        if (event.key === 'ArrowLeft') { event.preventDefault(); goTo(index - 1, true); }
+        if (event.key === 'ArrowRight') { event.preventDefault(); goTo(index + 1, true); }
+      });
+
+      carousel.addEventListener('pointerenter', () => paused.add('hover'));
+      carousel.addEventListener('pointerleave', () => paused.delete('hover'));
+      carousel.addEventListener('focusin', () => paused.add('focus'));
+      carousel.addEventListener('focusout', () => requestAnimationFrame(() => {
+        if (!carousel.contains(document.activeElement)) paused.delete('focus');
+      }));
+
+      viewport.addEventListener('pointerdown', (event) => {
+        if (event.pointerType === 'mouse' && event.button !== 0) return;
+        pointerId = event.pointerId;
+        pointerStart = event.clientX;
+        paused.add('drag');
+        viewport.classList.add('is-dragging');
+        viewport.setPointerCapture(pointerId);
+      });
+      viewport.addEventListener('pointermove', (event) => {
+        if (event.pointerId !== pointerId) return;
+        const drag = Math.max(-110, Math.min(110, event.clientX - pointerStart));
+        viewport.style.setProperty('--carousel-drag', `${drag}px`);
+      });
+      const finishPointer = (event) => {
+        if (event.pointerId !== pointerId) return;
+        const distance = event.clientX - pointerStart;
+        viewport.style.removeProperty('--carousel-drag');
+        viewport.classList.remove('is-dragging');
+        pointerId = null;
+        paused.delete('drag');
+        if (Math.abs(distance) >= 42) goTo(index + (distance < 0 ? 1 : -1), true);
+      };
+      viewport.addEventListener('pointerup', finishPointer);
+      viewport.addEventListener('pointercancel', finishPointer);
+
+      viewport.addEventListener('wheel', (event) => {
+        const horizontal = Math.abs(event.deltaX) > Math.abs(event.deltaY);
+        const movement = horizontal ? event.deltaX : event.deltaY;
+        if (Math.abs(movement) < 8) return;
+        // Horizontal gestures belong to the carousel. A normal mouse wheel
+        // also changes the active card, but keeps scrolling the page.
+        if (horizontal) event.preventDefault();
+        if (wheelLocked) return;
+        wheelLocked = true;
+        goTo(index + (movement > 0 ? 1 : -1), true);
+        window.setTimeout(() => { wheelLocked = false; }, 450);
+      }, { passive: false });
+
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) paused.add('hidden');
+        else { paused.delete('hidden'); nextAdvance = performance.now() + 4500; }
+      });
+
+      const autoplay = (now) => {
+        if (!reduced && paused.size === 0 && now >= nextAdvance) goTo(index + 1);
+        requestAnimationFrame(autoplay);
+      };
+      update();
+      requestAnimationFrame(autoplay);
+    });
+  };
+
   // Lightweight Rentals catalogue filtering. With JavaScript unavailable all
   // sample options remain visible; this only adds search and category views.
   const setupRentalCatalog = () => {
@@ -314,6 +433,13 @@
       filters.forEach((button) => {
         button.addEventListener('click', () => {
           activeCategory = button.dataset.rentalFilter || 'all';
+          expanded = false;
+          update();
+        });
+      });
+      document.querySelectorAll('[data-rental-category-link]').forEach((link) => {
+        link.addEventListener('click', () => {
+          activeCategory = link.dataset.rentalCategoryLink || 'all';
           expanded = false;
           update();
         });
@@ -384,6 +510,7 @@
   const init = () => {
     setupNav();
     setupCarousels();
+    setupInformationCarousel();
     setupRentalCatalog();
     setupAnchors();
     setupReveals();

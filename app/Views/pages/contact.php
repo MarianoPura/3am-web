@@ -4,7 +4,7 @@ $company = config('app.company');
 ?>
 <?php $this->start('title') ?>Contact — 3AM<?php $this->end() ?>
 <?php $this->start('canonical') ?><?= e_attr(absolute_url('contact')) ?><?php $this->end() ?>
-<?php $this->start('description') ?>Talk to 3AM about media, technology, events or equipment rentals.<?php $this->end() ?>
+<?php $this->start('description') ?>Talk to 3AM about media, technology, events or production support.<?php $this->end() ?>
 <?php $this->start('address-in-content') ?>yes<?php $this->end() ?>
 <?php $this->start('content') ?>
 <?= $this->partial('partials.page-intro', [
@@ -22,8 +22,7 @@ $company = config('app.company');
     </aside>
     <div class="contact-options">
       <h2 id="contact-options-heading" class="section__title section__title--sm">Start with your project.</h2>
-      <p>Media / Production, Technology / Event Systems, Rentals, or a general inquiry — one form for what you need.</p>
-      <a class="btn" href="<?= e_attr(url('start')) ?>">Start a project</a>
+      <p>Media / Production, Technology / Event Systems, or a general inquiry — one form for what you need.</p>
       <p class="contact-general">For other inquiries, <a href="mailto:<?= e_attr(config('app.contact_email')) ?>">email our team</a>.</p>
     </div>
   </div>
