@@ -21,8 +21,7 @@ $informationCards = [
       <p class="mono section__label">Information</p>
       <h2 id="information-feature-heading" class="section__title section__title--sm">Built around the work.</h2>
       <p class="section__lede">Explore the media, technology, event systems and production support that connect a brief to its audience.</p>
-      <a class="btn" href="<?= e_attr(url('rentals')) ?>">Start renting <span aria-hidden="true">↗</span></a>
-    </div>
+      <a class="btn" aria-disabled="true">Start renting <span aria-hidden="true">↗</span></a>    </div>
 
     <div class="information-carousel" data-information-carousel role="region" aria-roledescription="carousel" aria-label="3AM capabilities">
       <div class="information-carousel__viewport" data-information-viewport tabindex="0">

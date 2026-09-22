@@ -12,6 +12,8 @@ $canonical  = $this->section('canonical') ?: absolute_url('rentals');
   <meta name="description" content="<?= e_attr($siteDesc) ?>">
   <link rel="canonical" href="<?= e_attr($canonical) ?>">
   <meta name="theme-color" content="#0b1622">
+  <link rel="stylesheet" href="<?= e_attr(versioned('css/tokens.css')) ?>">
+  <link rel="stylesheet" href="<?= e_attr(versioned('css/app.css')) ?>">
   <link rel="stylesheet" href="<?= e_attr(versioned('css/rentals.css')) ?>">
   <?= $this->section('head') ?>
 </head>
@@ -21,6 +23,6 @@ $canonical  = $this->section('canonical') ?: absolute_url('rentals');
   <?= $this->section('content') ?>
 </main>
 <?= $this->partial('rentals.partials.footer') ?>
-<script src="<?= e_attr(versioned('js/rentals.js')) ?>" defer></script>
+<script src="<?= e_attr(versioned('js/rentals.js')) ?>" nonce="<?= e_attr($nonce ?? '') ?>" defer></script>
 </body>
 </html>

@@ -1,4 +1,5 @@
-document.addEventListener('DOMContentLoaded', () => {
+const initRentalsCatalogue = () => {
+  document.documentElement.dataset.rentalsReady = 'true';
   const searchInput = document.querySelector('[data-rentals-search]');
   const filterButtons = document.querySelectorAll('[data-rentals-filter]');
   const itemCards = document.querySelectorAll('[data-rentals-item]');
@@ -31,4 +32,10 @@ document.addEventListener('DOMContentLoaded', () => {
       applyFilters();
     });
   });
-});
+};
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initRentalsCatalogue, { once: true });
+} else {
+  initRentalsCatalogue();
+}
