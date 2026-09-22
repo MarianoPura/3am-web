@@ -12,11 +12,7 @@ use App\Services\InquiryStore;
 /**
  * Project inquiry forms.
  *
- * Two forms sharing one template and one handler — "media" and "technology"
- * differ only in their project-type list (config/forms.php). The split exists
- * because a client booking a corporate video and a client specifying AV for a
- * 500-person hybrid conference are different buyers; asking which one they are
- * up front qualifies the enquiry for free.
+ * One inquiry page, with legacy URLs preserved for compatibility.
  *
  * CSRF is verified by the middleware pipeline before this class is reached, so
  * there is no token check here — a POST route cannot be unprotected by
@@ -24,7 +20,7 @@ use App\Services\InquiryStore;
  */
 final class InquiryController extends Controller
 {
-    public function show(Request $request, string $type): Response
+    public function show(Request $request, string $type = 'project'): Response
     {
         $form = $this->form($type);
 
@@ -32,12 +28,31 @@ final class InquiryController extends Controller
             return $this->render('pages.error', ['status' => 404, 'message' => ''], 404);
         }
 
+        if ($type !== 'project') {
+            $preset = ['media' => 'media', 'technology' => 'technology', 'ventures' => 'other'][$type];
+            if (isset($_SESSION['_old']['type']) && is_string($_SESSION['_old']['type'])) {
+                $legacyType = $_SESSION['_old']['type'];
+                if (in_array($legacyType, $form['types'], true)) {
+                    $_SESSION['_old']['type'] = match ($type) {
+                        'media' => 'Media / Production',
+                        'technology' => 'Technology / Event Systems',
+                        default => 'Other / General Inquiry',
+                    };
+                    $_SESSION['_old']['details'] = $legacyType . "\n" . (is_string($_SESSION['_old']['details'] ?? null) ? $_SESSION['_old']['details'] : '');
+                }
+            }
+            return $this->redirect('/start?type=' . $preset);
+        }
+
         // Pull back anything the visitor typed before a validation failure, then
         // clear it so a later refresh starts clean.
         $old    = $_SESSION['_old']    ?? [];
         $errors = $_SESSION['_errors'] ?? [];
         unset($_SESSION['_old'], $_SESSION['_errors']);
+        $old = array_filter($old, 'is_scalar');
 
+        $presets = ['media' => 'Media / Production', 'technology' => 'Technology / Event Systems', 'other' => 'Other / General Inquiry'];
+        if ($old === []) { $old['type'] = $presets[$request->string('type')] ?? ''; }
         return $this->render('pages.inquiry', [
             'form'    => $form,
             'old'     => $old,
@@ -46,7 +61,7 @@ final class InquiryController extends Controller
         ])->noCache();
     }
 
-    public function submit(Request $request, string $type): Response
+    public function submit(Request $request, string $type = 'project'): Response
     {
         $form = $this->form($type);
 
@@ -54,7 +69,7 @@ final class InquiryController extends Controller
             return $this->render('pages.error', ['status' => 404, 'message' => ''], 404);
         }
 
-        $path = '/start/' . $form['slug'];
+        $path = $type === 'project' ? '/start' : '/start/' . $form['slug'];
 
         // ── Anti-spam, before anything expensive ──────────────────────────
         if (trim((string) $request->input(config('forms.honeypot_field'), '')) !== '') {
@@ -111,6 +126,8 @@ final class InquiryController extends Controller
             $errors['phone'] = 'That number is too long.';
         }
 
+        if (mb_strlen($company) > $limits['company']) { $errors['company'] = 'That company name is too long.'; }
+
         if ($details === '') {
             $errors['details'] = 'Please tell us about the project.';
         } elseif (mb_strlen($details) < 20) {
@@ -124,11 +141,7 @@ final class InquiryController extends Controller
         }
 
         // ── Capture ───────────────────────────────────────────────────────
-        $store = new InquiryStore(
-            storagePath: BASE_PATH . '/storage/inquiries',
-            notifyTo:    (string) config('app.contact_email'),
-            siteName:    (string) config('app.name'),
-        );
+        $store = $this->container->get(InquiryStore::class);
 
         try {
             $reference = $store->capture([
@@ -183,7 +196,7 @@ final class InquiryController extends Controller
     {
         $forms = (array) config('forms', []);
 
-        return isset($forms[$type]) && is_array($forms[$type]) ? $forms[$type] : null;
+        return in_array($type, ['project', 'media', 'technology', 'ventures'], true) ? ($forms[$type] ?? null) : null;
     }
 
     /**

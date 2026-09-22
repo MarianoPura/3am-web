@@ -7,9 +7,7 @@ declare(strict_types=1);
  * │  INQUIRY FORMS — edit the project-type options here.                  │
  * └───────────────────────────────────────────────────────────────────────┘
  *
- * Two forms, one template. "Start a media project" and "Start a tech project"
- * are the same fields with a different type list, which is why the split CTA
- * costs nothing to maintain: it qualifies the enquiry before anyone reads it.
+ * Unified project choices plus legacy POST allowlists.
  *
  * Adding or removing an option is a one-line change here. The values are what
  * get stored and emailed, so keep them readable — someone reads these in an
@@ -18,12 +16,20 @@ declare(strict_types=1);
 
 return [
 
+    'project' => [
+        'slug' => 'project',
+        'title' => 'Start a project',
+        'kicker' => 'Project enquiry',
+        'lede' => 'Tell us what you need and when. We will come back with questions, an approach and an estimate.',
+        'types' => ['Media / Production', 'Technology / Event Systems', 'Other / General Inquiry'],
+    ],
+
     'media' => [
         'slug'     => 'media',
         'title'    => 'Start a media project',
         'kicker'   => 'Media enquiry',
         'lede'     => 'Tell us what you are making. We will come back with questions, '
-                    . 'a approach and an estimate.',
+                    . 'an approach and an estimate.',
         'types'    => [
             'Video Live Feed Coverage',
             'Video Streaming Coverage',
@@ -60,22 +66,20 @@ return [
     /*
      * Ventures enquiries.
      *
-     * Softer framing than the other two on purpose: a rental request and a
-     * full event-management brief are very different sales, and "Start a
-     * project" fits neither.
+     * Legacy ventures enquiries remain available for old links.
      */
     'ventures' => [
         'slug'     => 'ventures',
         'title'    => 'Inquire about ventures',
         'kicker'   => 'Ventures enquiry',
-        'lede'     => 'Studio, stage, event management or rentals — tell us what you need '
+        'lede'     => 'Studio, stage and event management — tell us what you need '
                     . 'and when, and we will come back with availability and pricing.',
         'types'    => [
             'Studio Setup',
             'Stage Setup',
             'Event Management',
-            'Equipment Rental',
-            'Studio / Space Rental',
+            'Production Equipment',
+            'Studio / Production Space',
             'Other',
         ],
     ],

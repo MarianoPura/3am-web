@@ -114,10 +114,6 @@ it were a picture would be misleading. */ ?>
     <?php endif ?>
   <?php endif ?>
 
-  <?php if ($meta !== null): ?>
-    <span class="mono frame__meta" aria-hidden="true"><?= e($meta) ?></span>
-  <?php endif ?>
-
   <span class="frame__marks" aria-hidden="true"></span>
 
   <?php if ($caption !== null): ?>

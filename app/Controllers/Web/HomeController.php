@@ -33,7 +33,7 @@ final class HomeController extends Controller
             // in the Technology story rather than filed away separately.
             'techProducts' => config('app.tech_products'),
 
-            // Studio Setup / Stage Setup / Event Management / Rentals.
+            // Studio Setup / Stage Setup / Event Management / production support.
             'ventures'        => config('app.ventures'),
             'sectionVentures' => config('app.ventures_section'),
 

@@ -23,9 +23,16 @@ declare(strict_types=1);
 use App\Controllers\Web\HomeController;
 use App\Controllers\Web\InquiryController;
 use App\Controllers\Web\ProjectController;
+use App\Controllers\Web\PageController;
 
 // ── Home ─────────────────────────────────────────────────────
 $router->get('/', [HomeController::class, 'index'])->name('home');
+$router->get('/services', [PageController::class, 'services'])->name('services');
+$router->get('/information', [PageController::class, 'information'])->name('information');
+$router->get('/rentals', [PageController::class, 'rentals'])->name('rentals');
+$router->get('/equipment-rentals', [PageController::class, 'legacyInformation'])->name('rentals.legacy');
+$router->get('/about', [PageController::class, 'about'])->name('about');
+$router->get('/contact', [PageController::class, 'contact'])->name('contact');
 
 // ── Projects showcase ────────────────────────────────────────
 $router->get('/projects', [ProjectController::class, 'index'])->name('projects');
@@ -35,6 +42,8 @@ $router->get('/projects', [ProjectController::class, 'index'])->name('projects')
 // then checks it against config/forms.php — so an unknown form 404s before
 // any work happens rather than rendering an empty select.
 $router->get('/start/received', [InquiryController::class, 'received'])->name('inquiry.received');
+$router->get('/start', [InquiryController::class, 'show'])->name('inquiry');
+$router->post('/start', [InquiryController::class, 'submit'])->name('inquiry.send');
 $router->get('/start/{type:slug}', [InquiryController::class, 'show'])->name('inquiry.show');
 $router->post('/start/{type:slug}', [InquiryController::class, 'submit'])->name('inquiry.submit');
 
@@ -49,8 +58,6 @@ $router->get('/health', [HomeController::class, 'health'])->name('health');
  * the controllers exist rather than emerging from them.
  *
  * Phase 2 — public shell
- *   GET  /about                          AboutController@index
- *   GET  /services                       ServiceController@index
  *   GET  /services/{channel:slug}        ServiceController@channel
  *   GET  /services/{channel:slug}/{slug} ServiceController@show
  *   GET  /clients                        ClientController@index
@@ -61,7 +68,6 @@ $router->get('/health', [HomeController::class, 'health'])->name('health');
  *   GET  /ventures                       VentureController@index
  *
  * Phase 5 — lead generation
- *   GET  /contact                        ContactController@show
  *   POST /contact                        ContactController@submit    (throttled)
  *   GET  /contact/received               ContactController@received
  *
