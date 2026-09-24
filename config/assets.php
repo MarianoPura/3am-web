@@ -218,6 +218,59 @@ return [
             'alt' => 'Professional video camera and wireless transmitter set up in a conference room',
         ],
 
+        // ── Rentals module ────────────────────────────────────────────────
+        // Product and category imagery supplied for the dedicated Rentals
+        // experience. Keep these slots scoped to Rentals so the corporate
+        // site imagery remains unchanged.
+        'rentals.hero' => [
+            'ratio' => '16x9',
+            'label' => 'Rental equipment',
+            'src' => 'media/rentals-camera-lineup.jpg',
+            'alt' => 'A lineup of professional camera bodies and lenses on a dark studio surface',
+        ],
+        'rentals.category.camera' => [
+            'ratio' => '16x9',
+            'label' => 'Camera rentals',
+            'src' => 'media/rentals-sony-alpha.jpg',
+            'alt' => 'Sony Alpha mirrorless camera with lens in natural light',
+        ],
+        'rentals.category.audio' => [
+            'ratio' => '16x9',
+            'label' => 'Audio rentals',
+            'src' => 'media/equipment-rentals.jpg',
+            'alt' => 'Professional video camera and wireless transmitter set up for production',
+        ],
+        'rentals.category.lighting' => [
+            'ratio' => '16x9',
+            'label' => 'Lighting rentals',
+            'src' => 'media/rentals-led-panels.jpg',
+            'alt' => 'Two LED panel lights with barn doors mounted on stands',
+        ],
+        'rentals.item.sony-camera' => [
+            'ratio' => '4x3',
+            'label' => 'Sony camera',
+            'src' => 'media/rentals-sony-camera.jpg',
+            'alt' => 'Sony mirrorless camera and zoom lens on a dark surface',
+        ],
+        'rentals.item.lighting' => [
+            'ratio' => '4x3',
+            'label' => 'Studio lighting',
+            'src' => 'media/rentals-lighting-modifiers.jpg',
+            'alt' => 'Studio lighting equipment including softboxes, reflectors and LED fixtures',
+        ],
+        'rentals.camera.vlogging' => [
+            'ratio' => '4x3',
+            'label' => 'Vlogging camera',
+            'src' => 'media/rentals-vlogging-camera.webp',
+            'alt' => 'Compact Sony camera with microphone and side-opening display',
+        ],
+        'rentals.camera.alpha7' => [
+            'ratio' => '4x3',
+            'label' => 'Sony Alpha camera',
+            'src' => 'media/rentals-sony-alpha-7.jpg',
+            'alt' => 'Sony Alpha 7 mirrorless camera with zoom lens',
+        ],
+
         // ── Technology products — product shot or UI screenshot ────────────
         'product.justbump' => [
             'ratio' => '4x3',

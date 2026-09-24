@@ -16,6 +16,20 @@ $directory = sys_get_temp_dir() . '/3am-inquiry-test-' . bin2hex(random_bytes(6)
 $container->set(App\Services\InquiryStore::class, new App\Services\InquiryStore($directory, '', '3AM QA'));
 $controller = new App\Controllers\Web\InquiryController($container);
 $_SESSION = [];
+
+// Cart flow requirement: a public guest cart must be able to add, count and
+// remove rental items without changing the main website's inquiry flow.
+$cart = new App\Services\RentalCart();
+$item = $catalog->find('mirrorless-camera-kit');
+$check($item !== null, 'Cart test item was not found in the catalogue.');
+$check($cart->count() === 0, 'New cart must start empty.');
+$cart->add($item['id'], 2, '2026-11-18', '2026-11-20');
+$check($cart->count() === 2, 'Cart did not store the requested quantity.');
+$check($cart->items()[0]['name'] === $item['name'], 'Cart item metadata was not preserved.');
+$cart->remove($item['id']);
+$check($cart->count() === 0, 'Removing a cart item did not clear the quantity.');
+
+$_SESSION = [];
 $_GET = $_COOKIE = $_FILES = [];
 $_SERVER['REQUEST_METHOD'] = 'POST';
 $_SERVER['REQUEST_URI'] = '/start';

@@ -20,16 +20,26 @@ declare(strict_types=1);
  * @var App\Core\Router $router
  */
 
+use App\Controllers\Rentals\RentalsController;
 use App\Controllers\Web\HomeController;
 use App\Controllers\Web\InquiryController;
-use App\Controllers\Web\ProjectController;
 use App\Controllers\Web\PageController;
+use App\Controllers\Web\ProjectController;
 
 // ── Home ─────────────────────────────────────────────────────
 $router->get('/', [HomeController::class, 'index'])->name('home');
 $router->get('/services', [PageController::class, 'services'])->name('services');
 $router->get('/information', [PageController::class, 'information'])->name('information');
-$router->get('/rentals', [PageController::class, 'rentals'])->name('rentals');
+$router->get('/rentals', [RentalsController::class, 'index'])->name('rentals');
+$router->get('/rentals/cart', [\App\Controllers\Rentals\RentalCartController::class, 'index'])->name('rentals.cart');
+$router->post('/rentals/cart/add', [\App\Controllers\Rentals\RentalCartController::class, 'add'])->name('rentals.cart.add');
+$router->post('/rentals/cart/remove', [\App\Controllers\Rentals\RentalCartController::class, 'remove'])->name('rentals.cart.remove');
+$router->post('/rentals/cart/clear', [\App\Controllers\Rentals\RentalCartController::class, 'clear'])->name('rentals.cart.clear');
+$router->get('/rentals/categories', [RentalsController::class, 'categories'])->name('rentals.categories');
+$router->get('/rentals/items', [RentalsController::class, 'items'])->name('rentals.items');
+$router->get('/rentals/services', [RentalsController::class, 'services'])->name('rentals.services');
+$router->get('/rentals/how-to-rent', [RentalsController::class, 'howToRent'])->name('rentals.how-to-rent');
+$router->get('/rentals/support', [RentalsController::class, 'support'])->name('rentals.support');
 $router->get('/equipment-rentals', [PageController::class, 'legacyInformation'])->name('rentals.legacy');
 $router->get('/about', [PageController::class, 'about'])->name('about');
 $router->get('/contact', [PageController::class, 'contact'])->name('contact');
