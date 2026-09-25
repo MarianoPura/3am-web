@@ -1,25 +1,77 @@
-# Rentals database
+# 3AM Rentals
 
-The catalogue reads the existing MySQL/MariaDB connection through `App\Core\Database`. It never creates tables during web requests. An unavailable database produces an honest contact/inquiry state, not a hard-coded live catalogue.
+The module uses the existing eight tables: `users`, `rental_categories`,
+`rental_items`, `carts`, `cart_items`, `payment_methods`, `order_header`, and
+`order_details`. Services are `rental_items.is_service = 1`. One checkout writes
+one header and one detail row per cart line. Analytics has its own Admin page
+after Dashboard. Sales Report includes only Approved rental subtotals, while
+Payment Report tracks all payment statuses. Both query those tables directly.
+In local/testing environments, orders containing `[TEST]` item names are kept
+out of Admin business totals and reports; their rental workflow is still
+available for QA.
 
-From the project root, with PHP's `pdo_mysql` enabled and the existing database credentials configured in the process environment:
+## Customer workflow
 
-```powershell
-php -d variables_order=EGPCS bin/rentals.php --migrate
-php -d variables_order=EGPCS bin/rentals.php --seed
-php -d variables_order=EGPCS bin/rentals.php --check
-```
+On Equipment, the customer opens an item, selects dates and quantity, and the
+calendar shows availability by date. The server checks when Add to Cart is
+pressed. Cart changes save automatically and check again. Final checkout locks
+the relevant item rows and checks once more before writing the
+header and details in a transaction. Pending and Approved orders reserve stock;
+Rejected orders do not. The selected payment method must be active. A manual
+method also needs configured account name and number; checkout shows those
+details and the calculated amount. Gateway methods are configured in Admin but remain unavailable at checkout until a real
+integration is approved. A legacy `test` method is accepted only in local/testing.
 
-The existing database must already exist. Run migration with an account permitted to CREATE tables and foreign keys; the runtime account only needs SELECT for Rentals. Supply deployment credentials through the environment/secret manager, never source code. No `.env` edit is required by these scripts. Alternatively import `database/rentals.sql` into the configured database using your database administration tool, then run the optional seed command.
+Manual checkout requires a JPG, PNG, WebP or PDF proof no larger than 5 MB. The
+server checks MIME and size, ignores the supplied filename, generates a random
+name and stores a relative path such as `micro/payment/<random>.jpg` on the order.
+The physical directory is `BASE_PATH/micro/payment`, corresponding to the
+deployed `/var/www/html/web/micro/payment`. This is inside the document root.
+Apache denies direct access with `.htaccess`; the stored file is also AES-256-GCM
+encrypted so direct access on the local PHP server reveals no readable proof.
+Only the owner and an Admin can use the app's decrypted proof routes. The local
+encryption key is kept in ignored `storage/rentals/payment-key.php`; production
+requires a stable existing `APP_KEY`. Preserve that key across deployments and
+back it up with the proofs. Do not change it while old proofs need to be read.
 
-`--seed` uses `database/seeds/rentals.php`, adds missing slugs only and preserves existing records. It is optional and contains **representative samples, not confirmed stock**. Seed items retain `is_sample = 1`; replace their names, descriptions, inclusions and approved media references before setting this flag to 0. No prices or stock counts are stored. `media_reference` is a key from `config/assets.php`.
+Every order gets an independent 64-character random `status_token`. A status URL
+uses the token rather than an order ID. The success and status pages generate a
+downloadable QR in the browser using the bundled MIT-licensed QR library. A
+best-effort email is attempted after checkout commit and after Admin review;
+mail failure is logged and never rolls back an order. Verify the production mail
+transport before relying on delivery.
 
-Use `is_active = 0` to hide an item or category; `display_order` controls ordering. Inclusions are normalized in `rental_inclusions`. Empty catalogues remain empty (samples are never silently reinserted). `--check` checks connectivity and the rental table without printing credentials.
+## One status source
 
-Cards link to `/start?type=rentals&rental=<slug>`. The server resolves active items, visibly carries the selection and appends the verified name/slug to the captured inquiry details. Unknown or withdrawn items show an error asking the visitor to choose another rental or continue with a general inquiry. Old inquiry URLs remain compatible.
+`order_header.payment_status` is `TINYINT UNSIGNED`: 0 Pending, 1 Approved,
+2 Rejected. `RentalPaymentStatus` provides shared constants and labels. The
+generic `status`, `order_status`, and `payment_review_status` columns are not
+part of the current schema. Review metadata remains in `payment_reviewed_at`,
+`payment_reviewed_by`, and `paid_at`. Admin review uses POST + CSRF and accepts
+only Pending manual proofs. Rejected customers may resubmit a proof only if
+their original dates still have stock.
 
-## Verification
+## Migration and deployment
 
-Against an isolated database named with an `_qa` suffix, migrate and seed using the commands above, then run `php -d variables_order=EGPCS tests/rentals.php`. It verifies database reads, inclusions, inactive categories/items, validation and captured rental selections. Test inquiries use temporary storage and send no email. Database test changes are rolled back.
+`database/rentals.sql` is the canonical fresh schema. Run `php bin/rentals.php
+--check` to inspect a configured database without writing. `--migrate` is
+restricted to local/testing and preflights legacy values before replacing the
+old status columns; it aborts on unmappable values. The local database was
+migrated after confirming that its existing five orders were all Pending.
+Production is untouched: back it up, inspect its actual statuses, rehearse the
+migration on staging, then review the exact DDL before applying it. DDL can
+implicitly commit, so do not treat this as an automatic live migration.
 
-The configured application database was unreachable during implementation. Schema, repeatable seed, database-backed rendering and inquiry capture were verified using a separate temporary MariaDB instance. The application connection still requires setup; the temporary QA database is not the live catalogue.
+The deployed web root must keep the root and `micro/payment/.htaccess` deny
+rules enabled. Test a direct proof URL after deployment; it must not return
+readable content. The corporate Information page's visible but inactive Start
+Renting button is intentionally outside this module.
+
+## Local verification
+
+Use PHP 8.1+ and run `tests/rentals.php`, `tests/rentals-completion.php`,
+`tests/rentals-integration.php`, and `tests/rentals-http-flow.php
+http://127.0.0.1:8000`. The HTTP script creates and removes only its own
+uniquely named test records and proofs. It checks a two-item order, rejected
+invalid uploads, encrypted proof, status token/QR markup, Admin and Superadmin
+redirects, role authorization, approval, rejection and proof resubmission.

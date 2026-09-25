@@ -44,6 +44,7 @@ AddDefaultCharset UTF-8
     # would happily serve app/Core/Database.php as plain text.
     # ─────────────────────────────────────────────────────────
     RewriteRule ^(app|config|routes|storage|bin|docs|vendor|node_modules|tests|database|resources)(/|$) - [F,L]
+    RewriteRule ^micro/payment(/|$) - [F,L]
 
     RewriteRule ^(bootstrap\.php|composer\.(json|lock)|package(-lock)?\.json|vite\.config\.js|README\.md|phpunit\.xml)$ - [F,L]
 

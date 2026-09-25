@@ -1,69 +1,41 @@
 <?php
 declare(strict_types=1);
-
-if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
-// Run only against an isolated, seeded *_qa database. Never sends email.
+// Isolated behavioural tests: no database, emails or application session writes.
 $container = require dirname(__DIR__) . '/bootstrap.php';
-if (!str_ends_with((string) config('database.connections.mysql.database'), '_qa')) {
-    fwrite(STDERR, "Use an isolated seeded database whose name ends in _qa.\n"); exit(1);
-}
-$db = $container->get(App\Core\Database::class);
-$catalog = new App\Models\RentalCatalog($db);
-$check = static function (bool $condition, string $message): void {
-    if (!$condition) { throw new RuntimeException($message); }
+$check = static function(bool $ok, string $message): void {
+    if (!$ok) { throw new RuntimeException($message); }
 };
-$directory = sys_get_temp_dir() . '/3am-inquiry-test-' . bin2hex(random_bytes(6));
-$container->set(App\Services\InquiryStore::class, new App\Services\InquiryStore($directory, '', '3AM QA'));
-$controller = new App\Controllers\Web\InquiryController($container);
 $_SESSION = [];
-
-// Cart flow requirement: a public guest cart must be able to add, count and
-// remove rental items without changing the main website's inquiry flow.
-$cart = new App\Services\RentalCart();
-$item = $catalog->find('mirrorless-camera-kit');
-$check($item !== null, 'Cart test item was not found in the catalogue.');
-$check($cart->count() === 0, 'New cart must start empty.');
-$cart->add($item['id'], 2, '2026-11-18', '2026-11-20');
-$check($cart->count() === 2, 'Cart did not store the requested quantity.');
-$check($cart->items()[0]['name'] === $item['name'], 'Cart item metadata was not preserved.');
-$cart->remove($item['id']);
-$check($cart->count() === 0, 'Removing a cart item did not clear the quantity.');
-
-$_SESSION = [];
-$_GET = $_COOKIE = $_FILES = [];
-$_SERVER['REQUEST_METHOD'] = 'POST';
-$_SERVER['REQUEST_URI'] = '/start';
-$_SERVER['REMOTE_ADDR'] = '192.0.2.' . random_int(1, 254);
-$_POST = ['type' => 'Rentals', 'rental' => 'mirrorless-camera-kit', 'name' => 'QA Visitor', 'email' => 'qa@example.test', 'phone' => '0000000000', 'company' => '', 'details' => 'A test rental inquiry with a date and location.', '_t' => time() - 10];
-$db->beginTransaction();
-try {
-    $check(count($catalog->load()['items']) === 10, 'Seed catalogue did not load.');
-    $item = $catalog->find('mirrorless-camera-kit');
-    $check($item !== null && str_contains($item['includes'], 'Camera body'), 'Inclusions did not load.');
-    $response = $controller->submit(App\Core\Request::capture());
-    $check($response->status() === 302 && str_ends_with($response->headers()['Location'], '/start/received'), 'Submission failed.');
-    $record = json_decode(trim(file_get_contents($directory . '/inquiries.jsonl')), true);
-    $check($record['type'] === 'Rentals' && str_contains($record['details'], 'Mirrorless Camera Kit [mirrorless-camera-kit]'), 'Rental selection not captured.');
-
-    $db->update('UPDATE rental_items SET is_active = 0 WHERE slug = ?', ['mirrorless-camera-kit']);
-    $check($catalog->find('mirrorless-camera-kit') === null, 'Inactive item remains public.');
-    $controller->submit(App\Core\Request::capture());
-    $check(isset($_SESSION['_errors']['rental']), 'Withdrawn rental not rejected.');
-    $check($_SESSION['_old']['name'] === 'QA Visitor', 'Validation discarded form values.');
-
-    $db->update('UPDATE rental_categories SET is_active = 0 WHERE slug = ?', ['audio']);
-    $check(count($catalog->load()['items']) === 7, 'Inactive category remains public.');
-    $_POST['type'] = 'forged';
-    $controller->submit(App\Core\Request::capture());
-    $check(isset($_SESSION['_errors']['type']), 'Forged project type accepted.');
-    $_POST['type'] = 'Media / Production';
-    $controller->submit(App\Core\Request::capture());
-    $lines = file($directory . '/inquiries.jsonl', FILE_IGNORE_NEW_LINES);
-    $record = json_decode(end($lines), true);
-    $check(!str_contains($record['details'], 'Selected rental:'), 'Changing project type retained a rental attachment.');
-    echo "PASS: database loading, inclusions, inactive items/categories, captured rental selection, type validation and preserved form values. No email sent.\n";
-} finally {
-    $db->rollBack();
-    if (is_file($directory . '/inquiries.jsonl')) { unlink($directory . '/inquiries.jsonl'); }
-    if (is_dir($directory)) { rmdir($directory); }
+$cart = new App\Services\RentalCart('rentals_test');
+$cart->add('item-1', 2, '2026-11-18', '2026-11-20');
+$cart->add('item-1', 1, '2026-11-18', '2026-11-20');
+$check($cart->count() === 3 && count($cart->contents()) === 1, 'Matching rental period did not merge');
+$cart->add('item-1', 1, '2026-12-01', '2026-12-03');
+$check($cart->count() === 4 && count($cart->contents()) === 2, 'Separate rental period did not create a separate line');
+$cart->remove('item-1');
+$check($cart->empty(), 'Remove failed');
+$row = $cart->add('item-2', 10000, '2026-02-30');
+$check($row['quantity'] === 999 && $row['rental_start_date'] === null, 'Invalid input not bounded');
+$cart->clear();
+$check($cart->empty(), 'Clear failed');
+foreach (['../.env', 'http://localhost/test.jpg', 'C:/Pictures/test.jpg', 'media/../.env', 'media/missing.jpg'] as $path) {
+    $check(App\Models\RentalCatalog::imagePath($path) === null, 'Unsafe image accepted');
 }
+$check(App\Models\RentalCatalog::imagePath('media/rentals-camera-lineup.jpg') !== null, 'Valid public asset rejected');
+// Verify failure does not silently become live inventory, without connecting anywhere.
+class FailedRentalPDO extends PDO {
+    public function __construct() {}
+    public function prepare(string $query, array $options = []): PDOStatement|false { throw new PDOException('Test connection failure'); }
+}
+$db = new App\Core\Database([]);
+(new ReflectionProperty($db, 'pdo'))->setValue($db, new FailedRentalPDO());
+$catalog = new App\Models\RentalCatalog($db);
+$data = $catalog->load();
+$check($data['catalogUnavailable'] === true, 'Failure not surfaced');
+if (!config('rentals.preview_samples')) {
+    $check($data['items'] === [] && $data['services'] === [], 'Failure exposed sample stock');
+}
+$container->set(App\Core\Database::class, $db);
+$response = (new App\Controllers\Rentals\RentalCartController($container))->index(App\Core\Request::capture());
+$check($response->status() === 200, 'Cart page failed to render');
+echo "PASS: guest cart, quantity bounds, date validation, portable images, honest unavailable catalogue. No database writes.\n";

@@ -30,6 +30,9 @@ auth.json
 !/storage/tmp/.gitkeep
 /storage/smoketest/*
 !/storage/smoketest/.gitkeep
+/storage/rentals/payment-key.php
+/micro/payment/*
+!/micro/payment/.htaccess
 
 # ── Local uploads (dev only; production uses S3) ─────────────
 /public/uploads/*

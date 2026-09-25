@@ -140,7 +140,7 @@ $servicesList = is_array($services ?? null)
                 class="rentals-item-card__link"
                 href="<?= e_attr(
                     url(
-                        '/start?type=Rentals&service=' .
+                        '/start?type=Rentals&rental=' .
                         rawurlencode($serviceId)
                     )
                 ) ?>"

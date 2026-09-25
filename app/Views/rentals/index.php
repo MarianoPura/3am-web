@@ -13,6 +13,7 @@ Browse production equipment and technical support resources for events, studio p
 <?php $this->end() ?>
 
 <?php $this->start('content') ?>
+<div class="rentals-home">
 
 <?php
 $categoriesList = is_array($categories ?? null)
@@ -38,7 +39,7 @@ $featuredServices = array_slice($servicesList, 0, 4);
       <p class="rentals-kicker">3AM Rentals</p>
 
       <h1>
-        Equipment and production resources for your next project.
+        Equipment for your next production.
       </h1>
 
       <p>
@@ -94,7 +95,7 @@ $featuredServices = array_slice($servicesList, 0, 4);
 </section>
 
 
-<section class="rentals-section">
+<section class="rentals-section rentals-section--dark">
   <div class="rentals-shell">
 
     <div class="rentals-section__header rentals-section__header--split">
@@ -116,8 +117,7 @@ $featuredServices = array_slice($servicesList, 0, 4);
         class="rentals-text-link"
         href="<?= e_attr(url('rentals/categories')) ?>"
       >
-        All categories
-        <span aria-hidden="true">↗</span>
+        All categories <span aria-hidden="true">↗</span>
       </a>
 
     </div>
@@ -155,25 +155,7 @@ $featuredServices = array_slice($servicesList, 0, 4);
 
             <div class="rentals-card__image">
 
-              <?php if ($imagePath !== ''): ?>
-
-                <img
-                  src="<?= e_attr(url(ltrim($imagePath, '/'))) ?>"
-                  alt="<?= e_attr($categoryName) ?>"
-                  loading="lazy"
-                >
-
-              <?php else: ?>
-
-                <?= $this->partial(
-                    'partials.frame',
-                    [
-                        'slot' => 'venture.rentals',
-                        'ratio' => '16x9'
-                    ]
-                ) ?>
-
-              <?php endif ?>
+              <?= $this->partial('rentals.partials.image', ['image_path' => $imagePath, 'name' => $categoryName]) ?>
 
             </div>
 
@@ -209,7 +191,7 @@ $featuredServices = array_slice($servicesList, 0, 4);
 
               <a
                 class="rentals-card__link"
-                href="<?= e_attr(url('rentals/items')) ?>"
+                href="<?= e_attr(url('rentals/items?category=' . rawurlencode($categoryId))) ?>"
               >
                 View items →
               </a>
@@ -242,7 +224,7 @@ $featuredServices = array_slice($servicesList, 0, 4);
 </section>
 
 
-<section class="rentals-section rentals-section--tight">
+<section class="rentals-section rentals-section--tight rentals-section--light">
   <div class="rentals-shell">
 
     <div class="rentals-section__header rentals-section__header--split">
@@ -256,8 +238,7 @@ $featuredServices = array_slice($servicesList, 0, 4);
         class="rentals-text-link"
         href="<?= e_attr(url('rentals/items')) ?>"
       >
-        Browse inventory
-        <span aria-hidden="true">↗</span>
+        Browse inventory <span aria-hidden="true">↗</span>
       </a>
 
     </div>
@@ -271,6 +252,7 @@ $featuredServices = array_slice($servicesList, 0, 4);
           <?php
           $itemId = (string) ($item['id'] ?? '');
           $itemName = (string) ($item['name'] ?? 'Rental item');
+          $isSample = ($item['is_sample'] ?? false) === true;
           $itemCategory = (string) ($item['category'] ?? 'production');
 
           $description = trim(
@@ -304,25 +286,8 @@ $featuredServices = array_slice($servicesList, 0, 4);
 
             <div class="rentals-item-card__image">
 
-              <?php if ($imagePath !== ''): ?>
-
-                <img
-                  src="<?= e_attr(url(ltrim($imagePath, '/'))) ?>"
-                  alt="<?= e_attr($itemName) ?>"
-                  loading="lazy"
-                >
-
-              <?php else: ?>
-
-                <?= $this->partial(
-                    'partials.frame',
-                    [
-                        'slot' => 'venture.rentals',
-                        'ratio' => '4x3'
-                    ]
-                ) ?>
-
-              <?php endif ?>
+              <?= $this->partial('rentals.partials.image', ['image_path' => $imagePath, 'name' => $itemName]) ?>
+              <?php if ($isSample): ?><span class="rentals-item-card__preview">Preview item</span><?php endif ?>
 
             </div>
 
@@ -344,13 +309,13 @@ $featuredServices = array_slice($servicesList, 0, 4);
                 <?= e($itemName) ?>
               </h3>
 
-              <?php if ($description !== ''): ?>
-                <p>
+              <?php if (!$isSample && $description !== ''): ?>
+                <p class="rentals-item-card__description">
                   <?= e($description) ?>
                 </p>
               <?php endif ?>
 
-              <?php if ($idealFor !== ''): ?>
+              <?php if (!$isSample && $idealFor !== ''): ?>
 
                 <p class="rentals-item-card__ideal">
                   <strong>Ideal for</strong>
@@ -359,7 +324,9 @@ $featuredServices = array_slice($servicesList, 0, 4);
 
               <?php endif ?>
 
-              <div class="rentals-item-card__meta-row">
+              <?php if ($isSample): ?>
+                <p class="rentals-item-card__description">Inventory and pricing await confirmation.</p>
+              <?php else: ?><div class="rentals-item-card__meta-row">
 
                 <span>
                   <?= e(
@@ -385,19 +352,14 @@ $featuredServices = array_slice($servicesList, 0, 4);
                   <?php endif ?>
                 </span>
 
-              </div>
+              </div><?php endif ?>
 
-              <a
+              <?php if (!$isSample): ?><a
                 class="rentals-item-card__link"
-                href="<?= e_attr(
-                    url(
-                        '/start?type=Rentals&rental=' .
-                        rawurlencode($itemId)
-                    )
-                ) ?>"
+                href="<?= e_attr(url('rentals/items?category=' . rawurlencode($itemCategory) . '#rental-item-' . rawurlencode($itemId))) ?>"
               >
-                Request Rental →
-              </a>
+                View equipment details →
+              </a><?php endif ?>
 
             </div>
 
@@ -421,7 +383,7 @@ $featuredServices = array_slice($servicesList, 0, 4);
 </section>
 
 
-<section class="rentals-section rentals-section--tight rentals-section--services">
+<section class="rentals-section rentals-section--tight rentals-section--dark rentals-section--services">
   <div class="rentals-shell">
 
     <div class="rentals-section__header">
@@ -549,7 +511,7 @@ $featuredServices = array_slice($servicesList, 0, 4);
 </section>
 
 
-<section class="rentals-section rentals-section--tight">
+<section class="rentals-section rentals-section--tight rentals-section--light">
   <div class="rentals-shell">
 
     <div class="rentals-section__header">
@@ -569,19 +531,19 @@ $featuredServices = array_slice($servicesList, 0, 4);
       <?php foreach ([
           [
               'Browse',
-              'Find the equipment or resources you need for your event or production.'
+              'Search equipment and choose the item that fits your production.'
           ],
           [
-              'Select',
-              'Review the item details, intended use and availability information.'
+              'Add to Cart',
+              'Choose quantity and dates when adding equipment, then review your Cart.'
           ],
           [
-              'Send Request',
-              'Submit your rental requirements, preferred schedule and scope to the 3AM team.'
+              'Checkout',
+              'Sign in or create an account, choose a payment method and upload payment proof.'
           ],
           [
-              'Confirmation',
-              'Availability and next steps are reviewed before the rental is confirmed.'
+              'Pending Review',
+              'Submit your request and track payment review under My Rentals.'
           ],
       ] as $stepIndex => [$title, $body]): ?>
 
@@ -672,7 +634,7 @@ $featuredServices = array_slice($servicesList, 0, 4);
 </section>
 
 
-<section class="rentals-section rentals-section--tight">
+<section class="rentals-section rentals-section--tight rentals-section--light">
   <div class="rentals-shell">
 
     <div class="rentals-cta-band rentals-cta-band--split">
@@ -710,4 +672,5 @@ $featuredServices = array_slice($servicesList, 0, 4);
   </div>
 </section>
 
+</div>
 <?php $this->end() ?>
