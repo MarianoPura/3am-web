@@ -95,25 +95,7 @@ $itemsList = is_array($items ?? null)
 
             <div class="rentals-card__image">
 
-              <?php if ($imagePath !== ''): ?>
-
-                <img
-                  src="<?= e_attr(url(ltrim($imagePath, '/'))) ?>"
-                  alt="<?= e_attr($categoryName) ?>"
-                  loading="lazy"
-                >
-
-              <?php else: ?>
-
-                <?= $this->partial(
-                    'partials.frame',
-                    [
-                        'slot' => 'venture.rentals',
-                        'ratio' => '16x9'
-                    ]
-                ) ?>
-
-              <?php endif ?>
+              <?= $this->partial('rentals.partials.image', ['image_path' => $imagePath, 'name' => $categoryName]) ?>
 
             </div>
 
@@ -131,8 +113,12 @@ $itemsList = is_array($items ?? null)
               </span>
 
               <span class="rentals-card__meta">
-                <?= e((string) $itemCount) ?>
-                <?= $itemCount === 1 ? 'item' : 'items' ?>
+                <?php if (($category['is_sample'] ?? false) === true): ?>
+                  Preview image
+                <?php else: ?>
+                  <?= e((string) $itemCount) ?>
+                  <?= $itemCount === 1 ? 'item' : 'items' ?>
+                <?php endif ?>
               </span>
 
               <h3>
@@ -149,7 +135,7 @@ $itemsList = is_array($items ?? null)
 
               <a
                 class="rentals-card__link"
-                href="<?= e_attr(url('rentals/items')) ?>"
+                href="<?= e_attr(url('rentals/items?category=' . rawurlencode($categoryId))) ?>"
               >
                 View items →
               </a>

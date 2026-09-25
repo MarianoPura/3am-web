@@ -5,8 +5,8 @@
 <?php $this->start('content') ?>
 <section class="rentals-page-hero">
   <div class="rentals-shell rentals-page-hero__inner">
-    <div><p class="rentals-kicker">How to rent</p><h1>A direct path from brief to confirmation.</h1></div>
-    <p>Start with what the production needs. The 3AM team will review the fit, timing and support requirements with you.</p>
+    <div><p class="rentals-kicker">How to rent</p><h1>From browse to rental request.</h1></div>
+    <p>Choose equipment, set dates and quantity, check availability, then review your Cart before submitting.</p>
   </div>
 </section>
 
@@ -14,16 +14,16 @@
   <div class="rentals-shell">
     <div class="rentals-section__header">
       <p class="rentals-kicker">How to rent</p>
-      <h2>A practical, direct rental process.</h2>
-      <p>Start with the brief, review the equipment fit, then send your request so the 3AM team can confirm availability and coordination.</p>
+      <h2>A clear path to your equipment.</h2>
+      <p>Your request is recorded as Pending Review. You can return to your account to track it.</p>
     </div>
 
     <div class="rentals-steps-grid">
       <?php foreach ([
-        ['1. Share the brief', 'Tell us what you are making, where it needs to happen and how the equipment will be used.'],
-        ['2. Review the fit', 'Match the production type, schedule and technical requirements with the right rental package.'],
-        ['3. Submit the request', 'Send your rental inquiry and include dates, venue information and any special requirements.'],
-        ['4. Confirm coordination', 'The team reviews availability, support needs and next steps before final confirmation.'],
+        ['Browse', 'Search equipment or filter by category to find a suitable item.'],
+        ['Add to cart', 'Open equipment details, choose quantity and dates, then add the item to your Cart.'],
+        ['Checkout', 'Sign in or create an account, choose a payment method and upload your payment proof.'],
+        ['Pending review', 'Submit your request and track payment review under My Rentals.'],
       ] as $stepIndex => [$title, $body]): ?>
         <article class="rentals-step">
           <p class="rentals-step__number"><?= e(str_pad((string) ($stepIndex + 1), 2, '0', STR_PAD_LEFT)) ?></p>
