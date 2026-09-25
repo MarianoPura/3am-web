@@ -85,6 +85,25 @@ return [
     ],
 
     /*
+     * Ad landing page quote form (/get-a-quote).
+     */
+    'quote' => [
+        'slug'             => 'quote',
+        'path'             => '/get-a-quote',
+        'title'            => 'Get a quote for your event',
+        'kicker'           => 'Event quote',
+        'lede'             => 'Tell us the date, venue and what you need.',
+        'details_required' => false,
+        'types'            => [
+            'Event Production & Livestreaming',
+            'Event Coverage (Video / Photo)',
+            'LED / AV & Technical Production',
+            'Equipment Rentals',
+            'Other',
+        ],
+    ],
+
+    /*
      * Anti-spam.
      *
      * A honeypot plus a minimum time-to-submit stops the overwhelming majority

@@ -57,7 +57,8 @@ final class InquiryStore
             'company'    => $data['company'] ?? '',
             'details'    => $data['details'] ?? '',
             'ip'         => $data['ip'] ?? '',
-            'user_agent' => $data['user_agent'] ?? '',
+            'user_agent'  => $data['user_agent'] ?? '',
+            'attribution' => $data['attribution'] ?? [],
         ];
 
         $this->write($record);

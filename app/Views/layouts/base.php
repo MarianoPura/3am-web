@@ -100,12 +100,28 @@ $pageDesc  = $this->section('description')
 <body>
 <a class="skip-link" href="#main">Skip to content</a>
 
+<?php $minimalChrome = $this->section('chrome') === 'minimal'; ?>
+<?php if ($minimalChrome): ?>
+<?= $this->partial('partials.nav-minimal', ['cta' => $this->section('chrome-cta')]) ?>
+<?php else: ?>
 <?= $this->partial('partials.nav') ?>
+<?php endif ?>
 
 <main id="main">
 <?= $this->section('content') ?>
 </main>
 
+<?php if ($minimalChrome): ?>
+<footer class="footer footer--minimal">
+  <div class="shell">
+    <p class="mono"><?= e($company['legal_name']) ?></p>
+    <p class="footer__line">
+      <?= e($company['address']['street']) ?>, <?= e($company['address']['locality']) ?>, <?= e($company['address']['region']) ?>
+      &middot; <a href="mailto:<?= e_attr(config('app.contact_email')) ?>"><?= e(config('app.contact_email')) ?></a>
+    </p>
+  </div>
+</footer>
+<?php else: ?>
 <footer class="footer">
   <div class="shell">
     <div class="footer__grid">
@@ -127,6 +143,7 @@ $pageDesc  = $this->section('description')
     </div>
   </div>
 </footer>
+<?php endif ?>
 
 <?php
 /*

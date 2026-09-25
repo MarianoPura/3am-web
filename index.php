@@ -82,10 +82,11 @@ $request = Request::capture((string) config('app.base_path'));
 // POST route is protected whether or not anyone remembered it existed.
 // ─────────────────────────────────────────────────────────────
 $secureHeaders = new SecureHeaders(
-    forceHttps:   (bool) config('app.force_https'),
-    hstsMaxAge:   (int) config('app.hsts_max_age'),
-    isProduction: config('app.env') === 'production',
-    cdnUrl:       (string) config('media.cdn_url', ''),
+    forceHttps:    (bool) config('app.force_https'),
+    hstsMaxAge:    (int) config('app.hsts_max_age'),
+    isProduction:  config('app.env') === 'production',
+    cdnUrl:        (string) config('media.cdn_url', ''),
+    trackingPaths: (string) config('landing.meta_pixel_id', '') !== '' ? [(string) config('landing.path')] : [],
 );
 
 $container->set(SecureHeaders::class, $secureHeaders);
@@ -125,6 +126,13 @@ $dispatch = static function (Request $request) use ($router, $container): Respon
 
     // Verify CSRF for state-changing requests, once, here.
     if ($request->isMutating() && !$container->get(Csrf::class)->verify($request)) {
+        if ($request->isAjax()) {
+            return Response::json([
+                'ok'      => false,
+                'message' => 'Your session expired or the form token was invalid. Please refresh the page and try again.',
+            ], 419);
+        }
+
         return render_error($container, 419, 'Your session expired. Please go back and try again.');
     }
 
