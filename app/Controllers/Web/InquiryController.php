@@ -28,6 +28,10 @@ final class InquiryController extends Controller
             return $this->render('pages.error', ['status' => 404, 'message' => ''], 404);
         }
 
+        if ($type === 'quote') {
+            return $this->redirect((string) $form['path']);
+        }
+
         if ($type !== 'project') {
             $preset = ['media' => 'media', 'technology' => 'technology', 'ventures' => 'other'][$type];
             if (isset($_SESSION['_old']['type']) && is_string($_SESSION['_old']['type'])) {
@@ -69,26 +73,27 @@ final class InquiryController extends Controller
             return $this->render('pages.error', ['status' => 404, 'message' => ''], 404);
         }
 
-        $path = $type === 'project' ? '/start' : '/start/' . $form['slug'];
+        $path = $form['path'] ?? ($type === 'project' ? '/start' : '/start/' . $form['slug']);
 
         // ── Anti-spam, before anything expensive ──────────────────────────
         if (trim((string) $request->input(config('forms.honeypot_field'), '')) !== '') {
-            // A bot filled the hidden field. Show the success page rather than
-            // an error: telling a spammer their submission was rejected just
-            // tells them what to change.
-            return $this->redirect('/start/received');
+            // A bot filled the hidden field. Return a silent success response.
+            return $request->isAjax()
+                ? Response::json(['ok' => true])
+                : $this->redirect('/start/received');
         }
 
         $elapsed = time() - (int) $request->input('_t', 0);
         if ($elapsed < (int) config('forms.min_seconds', 3)) {
-            return $this->back($path, ['form' => 'That was too quick — please try again.'], $request->all());
+            return $this->invalid($request, $path, ['form' => 'That was too quick — please try again.']);
         }
 
         if (!$this->withinRateLimit($request->ip())) {
-            return $this->render('pages.error', [
-                'status'  => 429,
-                'message' => 'Too many enquiries from this connection. Please try again later, or email us directly.',
-            ], 429);
+            $message = 'Too many enquiries from this connection. Please try again later, or email us directly.';
+
+            return $request->isAjax()
+                ? Response::json(['ok' => false, 'errors' => ['form' => $message]], 429)
+                : $this->render('pages.error', ['status' => 429, 'message' => $message], 429);
         }
 
         // ── Validate ──────────────────────────────────────────────────────
@@ -102,8 +107,7 @@ final class InquiryController extends Controller
         $company     = trim((string) $request->input('company', ''));
         $details     = trim((string) $request->input('details', ''));
 
-        // Compare against the allowlist, not just "is it non-empty" — the
-        // select is a client-side control and a POST can carry anything.
+        // Compare against the allowlist, not just "is it non-empty"
         if (!in_array($projectType, $form['types'], true)) {
             $errors['type'] = 'Please choose a project type.';
         }
@@ -126,18 +130,24 @@ final class InquiryController extends Controller
             $errors['phone'] = 'That number is too long.';
         }
 
-        if (mb_strlen($company) > $limits['company']) { $errors['company'] = 'That company name is too long.'; }
+        if (mb_strlen($company) > $limits['company']) {
+            $errors['company'] = 'That company name is too long.';
+        }
+
+        $detailsRequired = ($form['details_required'] ?? true) !== false;
 
         if ($details === '') {
-            $errors['details'] = 'Please tell us about the project.';
-        } elseif (mb_strlen($details) < 20) {
+            if ($detailsRequired) {
+                $errors['details'] = 'Please tell us about the project.';
+            }
+        } elseif ($detailsRequired && mb_strlen($details) < 20) {
             $errors['details'] = 'A little more detail would help — requirements, location and dates.';
         } elseif (mb_strlen($details) > $limits['details']) {
             $errors['details'] = 'That is longer than we can accept here. Please email us directly.';
         }
 
         if ($errors !== []) {
-            return $this->back($path, $errors, $request->all());
+            return $this->invalid($request, $path, $errors);
         }
 
         // ── Capture ───────────────────────────────────────────────────────
@@ -145,34 +155,41 @@ final class InquiryController extends Controller
 
         try {
             $reference = $store->capture([
-                'form'       => $form['slug'],
-                'type'       => $projectType,
-                'name'       => $name,
-                'email'      => $email,
-                'phone'      => $phone,
-                'company'    => $company,
-                'details'    => $details,
-                'ip'         => $request->ip(),
-                'user_agent' => $request->userAgent(),
+                'form'             => $form['slug'],
+                'type'             => $projectType,
+                'name'             => $name,
+                'email'            => $email,
+                'phone'            => $phone,
+                'company'          => $company,
+                'details'          => $details,
+                'ip'               => $request->ip(),
+                'user_agent'       => $request->userAgent(),
+                'attribution'      => $this->attribution($request, $path),
+                'visit_id'         => $request->input('visit_id') ?: null,
+                'lead_event_id'    => $request->input('lead_event_id') ?: null,
+                'contact_event_id' => $request->input('contact_event_id') ?: null,
             ]);
         } catch (\Throwable $e) {
-            // The record could not be written, so we must NOT show a success
-            // page — the visitor would believe they had made contact when
-            // nothing exists to follow up.
             error_log('Inquiry capture failed: ' . $e->getMessage());
 
-            return $this->back($path, [
+            return $this->invalid($request, $path, [
                 'form' => 'Something went wrong on our side. Please email us directly at '
                         . config('app.contact_email') . '.',
-            ], $request->all());
+            ], 500);
         }
 
         $this->recordAttempt($request->ip());
 
+        if ($request->isAjax()) {
+            return Response::json([
+                'ok'        => true,
+                'success'   => true,
+                'reference' => $reference,
+            ]);
+        }
+
         $_SESSION['_inquiry_reference'] = $reference;
 
-        // Redirect after POST so a refresh cannot resubmit, and so the
-        // confirmation has its own URL for conversion tracking.
         return $this->redirect('/start/received');
     }
 
@@ -196,7 +213,52 @@ final class InquiryController extends Controller
     {
         $forms = (array) config('forms', []);
 
-        return in_array($type, ['project', 'media', 'technology', 'ventures'], true) ? ($forms[$type] ?? null) : null;
+        return in_array($type, ['project', 'media', 'technology', 'ventures', 'quote'], true) ? ($forms[$type] ?? null) : null;
+    }
+
+    /**
+     * Reject a submission: JSON for AJAX, otherwise redirect back with form input.
+     *
+     * @param array<string, string> $errors
+     */
+    private function invalid(Request $request, string $path, array $errors, int $status = 422): Response
+    {
+        if ($request->isAjax()) {
+            return Response::json(['ok' => false, 'errors' => $errors], $status);
+        }
+
+        return $this->back($path, $errors, $request->all());
+    }
+
+    /**
+     * Extract campaign attribution parameters (UTMs and fbclid).
+     *
+     * @return array<string, string>
+     */
+    private function attribution(Request $request, string $path): array
+    {
+        $keys = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'fbclid', 'fbp', 'fbc'];
+        $out  = [];
+
+        foreach ($keys as $key) {
+            $value = mb_substr(trim($request->string($key)), 0, 255);
+            if ($value !== '') {
+                $out[$key] = $value;
+            }
+        }
+
+        if (!isset($out['fbp']) && !empty($_COOKIE['_fbp'])) {
+            $out['fbp'] = mb_substr(trim((string) $_COOKIE['_fbp']), 0, 255);
+        }
+        if (!isset($out['fbc']) && !empty($_COOKIE['_fbc'])) {
+            $out['fbc'] = mb_substr(trim((string) $_COOKIE['_fbc']), 0, 255);
+        }
+
+        if ($out !== [] || $path === config('landing.path')) {
+            $out['landing'] = $path;
+        }
+
+        return $out;
     }
 
     /**

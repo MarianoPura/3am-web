@@ -27,6 +27,8 @@ final class SecureHeaders
         private readonly int $hstsMaxAge = 31536000,
         private readonly bool $isProduction = true,
         private readonly string $cdnUrl = '',
+        /** Paths that load the Meta Pixel */
+        private readonly array $trackingPaths = [],
     ) {
         // One nonce per request, shared with the view layer so script tags can
         // carry it.
@@ -60,7 +62,9 @@ final class SecureHeaders
 
             'Cross-Origin-Opener-Policy' => 'same-origin',
 
-            'Content-Security-Policy' => $this->contentSecurityPolicy(),
+            'Content-Security-Policy' => $this->contentSecurityPolicy(
+                in_array($request->path(), $this->trackingPaths, true)
+            ),
         ];
 
         // HSTS only over HTTPS. Sent on a plain HTTP response it is ignored,
@@ -76,10 +80,13 @@ final class SecureHeaders
         return $response->withHeaders($headers);
     }
 
-    private function contentSecurityPolicy(): string
+    private function contentSecurityPolicy(bool $withTracking = false): string
     {
         $self = "'self'";
         $cdn  = $this->cdnUrl !== '' ? ' ' . $this->cdnUrl : '';
+
+        // Meta Pixel tracking domains on the ad landing page
+        $meta = $withTracking ? ' https://www.facebook.com https://connect.facebook.net' : '';
 
         $directives = [
             "default-src {$self}",
@@ -98,14 +105,14 @@ final class SecureHeaders
             "style-src {$self} 'unsafe-inline' https://fonts.googleapis.com",
 
             "font-src {$self} https://fonts.gstatic.com data:",
-            "img-src {$self} data: blob:{$cdn} https://i.vimeocdn.com https://i.ytimg.com",
+            "img-src {$self} data: blob:{$cdn} https://i.vimeocdn.com https://i.ytimg.com{$meta}",
             "media-src {$self}{$cdn}",
 
             // Video embeds are facade-loaded — the iframe only appears after a
             // click — but the frame-src must still permit it.
             "frame-src https://player.vimeo.com https://www.youtube-nocookie.com",
 
-            "connect-src {$self}{$cdn}",
+            "connect-src {$self}{$cdn}{$meta}",
             "form-action {$self}",
             "base-uri {$self}",
             "object-src 'none'",

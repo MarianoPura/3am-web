@@ -23,6 +23,7 @@ declare(strict_types=1);
 use App\Controllers\Rentals\RentalsController;
 use App\Controllers\Web\HomeController;
 use App\Controllers\Web\InquiryController;
+use App\Controllers\Web\LandingController;
 use App\Controllers\Web\PageController;
 use App\Controllers\Web\ProjectController;
 
@@ -75,6 +76,11 @@ $router->get('/start', [InquiryController::class, 'show'])->name('inquiry');
 $router->post('/start', [InquiryController::class, 'submit'])->name('inquiry.send');
 $router->get('/start/{type:slug}', [InquiryController::class, 'show'])->name('inquiry.show');
 $router->post('/start/{type:slug}', [InquiryController::class, 'submit'])->name('inquiry.submit');
+
+// ── Ad landing page (Facebook / Meta Ads) ────────────────────
+$router->get('/get-a-quote', [LandingController::class, 'show'])->name('landing');
+$router->post('/get-a-quote', [LandingController::class, 'submit'])->name('landing.submit');
+$router->post('/track-event', [\App\Controllers\Web\TrackingController::class, 'track'])->name('tracking.event');
 
 // ── Operational ──────────────────────────────────────────────
 // Used by bin/deploy.sh to verify a release before the symlink swap.
