@@ -46,7 +46,10 @@ $hero   = $landing['hero'];
 <?php /* Read by js/landing.js. The Pixel loads only when an ID is set. */ ?>
 <div hidden data-lp-config id="landing-config"
      data-pixel-id="<?= e_attr($landing['meta_pixel_id']) ?>"
-     data-content-name="<?= e_attr($hero['kicker']) ?>"></div>
+     data-content-name="<?= e_attr($hero['kicker']) ?>"
+     data-visit-id="<?= e_attr((string) ($visit_id ?? '')) ?>"
+     data-csrf-token="<?= e_attr(csrf_token()) ?>"
+     data-track-url="<?= e_attr(url('/track-event')) ?>"></div>
 
 <?php /* ══ HERO + FORM ═════════════════════════════════════════ */ ?>
 <section class="lp-hero" data-theme="dark" aria-labelledby="lp-title">
@@ -85,10 +88,11 @@ $hero   = $landing['hero'];
 
     <div class="lp-hero__form">
       <?= $this->partial('partials.lead-form', [
-          'form'   => $form,
-          'copy'   => $landing['form'],
-          'old'    => $old,
-          'errors' => $errors,
+          'form'     => $form,
+          'copy'     => $landing['form'],
+          'old'      => $old,
+          'errors'   => $errors,
+          'visit_id' => $visit_id ?? null,
       ]) ?>
     </div>
 

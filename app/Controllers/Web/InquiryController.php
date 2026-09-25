@@ -155,16 +155,19 @@ final class InquiryController extends Controller
 
         try {
             $reference = $store->capture([
-                'form'        => $form['slug'],
-                'type'        => $projectType,
-                'name'        => $name,
-                'email'       => $email,
-                'phone'       => $phone,
-                'company'     => $company,
-                'details'     => $details,
-                'ip'          => $request->ip(),
-                'user_agent'  => $request->userAgent(),
-                'attribution' => $this->attribution($request, $path),
+                'form'             => $form['slug'],
+                'type'             => $projectType,
+                'name'             => $name,
+                'email'            => $email,
+                'phone'            => $phone,
+                'company'          => $company,
+                'details'          => $details,
+                'ip'               => $request->ip(),
+                'user_agent'       => $request->userAgent(),
+                'attribution'      => $this->attribution($request, $path),
+                'visit_id'         => $request->input('visit_id') ?: null,
+                'lead_event_id'    => $request->input('lead_event_id') ?: null,
+                'contact_event_id' => $request->input('contact_event_id') ?: null,
             ]);
         } catch (\Throwable $e) {
             error_log('Inquiry capture failed: ' . $e->getMessage());
@@ -178,7 +181,11 @@ final class InquiryController extends Controller
         $this->recordAttempt($request->ip());
 
         if ($request->isAjax()) {
-            return Response::json(['ok' => true, 'reference' => $reference]);
+            return Response::json([
+                'ok'        => true,
+                'success'   => true,
+                'reference' => $reference,
+            ]);
         }
 
         $_SESSION['_inquiry_reference'] = $reference;
@@ -230,7 +237,7 @@ final class InquiryController extends Controller
      */
     private function attribution(Request $request, string $path): array
     {
-        $keys = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'fbclid'];
+        $keys = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'fbclid', 'fbp', 'fbc'];
         $out  = [];
 
         foreach ($keys as $key) {
@@ -238,6 +245,13 @@ final class InquiryController extends Controller
             if ($value !== '') {
                 $out[$key] = $value;
             }
+        }
+
+        if (!isset($out['fbp']) && !empty($_COOKIE['_fbp'])) {
+            $out['fbp'] = mb_substr(trim((string) $_COOKIE['_fbp']), 0, 255);
+        }
+        if (!isset($out['fbc']) && !empty($_COOKIE['_fbc'])) {
+            $out['fbc'] = mb_substr(trim((string) $_COOKIE['_fbc']), 0, 255);
         }
 
         if ($out !== [] || $path === config('landing.path')) {

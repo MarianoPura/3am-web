@@ -30,6 +30,12 @@ final class LandingController extends Controller
         $landingConfig = (array) config('landing');
         $formConfig    = (array) config('forms.quote');
 
+        // Record or resume visitor in landing_page_visits
+        $tracking = $this->container->get(\App\Services\TrackingService::class);
+        $visitId  = $tracking->recordVisit($request, [
+            'landing_page' => $request->path(),
+        ]);
+
         return $this->render('pages.landing', [
             'landing'      => $landingConfig,
             'form'         => $formConfig,
@@ -39,6 +45,7 @@ final class LandingController extends Controller
             'capabilities' => config('app.capabilities'),
             'proof'        => config('app.proof'),
             'video'        => $this->resolveVideo((string) ($landingConfig['video_url'] ?? '')),
+            'visit_id'     => $visitId,
         ])->noCache();
     }
 

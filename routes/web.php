@@ -80,6 +80,7 @@ $router->post('/start/{type:slug}', [InquiryController::class, 'submit'])->name(
 // ── Ad landing page (Facebook / Meta Ads) ────────────────────
 $router->get('/get-a-quote', [LandingController::class, 'show'])->name('landing');
 $router->post('/get-a-quote', [LandingController::class, 'submit'])->name('landing.submit');
+$router->post('/track-event', [\App\Controllers\Web\TrackingController::class, 'track'])->name('tracking.event');
 
 // ── Operational ──────────────────────────────────────────────
 // Used by bin/deploy.sh to verify a release before the symlink swap.

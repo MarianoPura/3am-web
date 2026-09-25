@@ -55,9 +55,12 @@ $reassurance = $copy['reassurance'] ?? 'Your information is kept strictly confid
     <form class="lp-form" id="quote-form" method="POST" action="<?= e_attr(url('/get-a-quote')) ?>" novalidate aria-labelledby="lead-form-heading" data-lp-form>
       <?= csrf_field() ?>
       <input type="hidden" name="_t" value="<?= e_attr(time()) ?>">
+      <input type="hidden" name="visit_id" value="<?= e_attr((string) ($visit_id ?? '')) ?>" data-lp-visit-id>
+      <input type="hidden" name="lead_event_id" value="" data-lp-lead-event-id>
+      <input type="hidden" name="contact_event_id" value="" data-lp-contact-event-id>
 
       <!-- Campaign Attribution (filled automatically by JavaScript) -->
-      <?php foreach (['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'fbclid'] as $utm): ?>
+      <?php foreach (['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'fbclid', 'fbp', 'fbc'] as $utm): ?>
         <input type="hidden" name="<?= e_attr($utm) ?>" value="<?= e_attr($val($utm)) ?>" data-lp-utm>
       <?php endforeach ?>
 

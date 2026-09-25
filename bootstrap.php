@@ -196,10 +196,22 @@ $container->bind(Router::class, static fn (): Router => new Router());
 
 $container->bind(Csrf::class, static fn (): Csrf => new Csrf());
 
+$container->bind(\App\Services\SmtpMailer::class, static fn (Container $c): \App\Services\SmtpMailer => new \App\Services\SmtpMailer(
+    (array) $c->config('mail', [])
+));
+
+$container->bind(\App\Services\TrackingService::class, static fn (Container $c): \App\Services\TrackingService => new \App\Services\TrackingService(
+    $c->get(Database::class)
+));
+
 $container->bind(\App\Services\InquiryStore::class, static fn (Container $c): \App\Services\InquiryStore => new \App\Services\InquiryStore(
     storagePath: BASE_PATH . '/storage/inquiries',
-    notifyTo: (string) $c->config('app.contact_email'),
-    siteName: (string) $c->config('app.name'),
+    siteName:    (string) $c->config('app.name'),
+    db:          $c->get(Database::class),
+    mailer:      $c->get(\App\Services\SmtpMailer::class),
+    tracking:    $c->get(\App\Services\TrackingService::class),
+    mailConfig:  (array) $c->config('mail.inquiry', []),
+    company:     (array) $c->config('app.company', []),
 ));
 
 $container->bind(Vite::class, static fn (Container $c): Vite => new Vite(
