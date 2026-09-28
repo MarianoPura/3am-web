@@ -110,6 +110,11 @@ final class RentalAdminController extends Controller
         }
         $data['notice'] = $_SESSION['rentals_admin_notice'] ?? null;
         unset($_SESSION['rentals_admin_notice']);
+        $draft = $_SESSION['rentals_admin_product_draft'] ?? null;
+        if ($section === 'items' && $showEditor && is_array($draft) && (int) $draft['id'] === $id) {
+            $data['record'] = array_replace($data['record'] ?? [], $draft['fields']);
+            unset($_SESSION['rentals_admin_product_draft']);
+        }
         return $this->render('rentals.admin', $data)->noCache();
     }
 
@@ -126,6 +131,7 @@ final class RentalAdminController extends Controller
                 'payments' => $this->savePayment($request, $id),
             };
             $_SESSION['rentals_admin_notice'] = 'Changes saved.';
+            if ($section === 'items') { unset($_SESSION['rentals_admin_product_draft']); }
         } catch (\InvalidArgumentException $e) {
             $failed = true;
             $_SESSION['rentals_admin_notice'] = $e->getMessage();
@@ -133,6 +139,14 @@ final class RentalAdminController extends Controller
             $failed = true;
             error_log('Rentals admin save failed: ' . $e->getMessage());
             $_SESSION['rentals_admin_notice'] = 'Could not save. Check required fields and unique slug or SKU.';
+        }
+        if ($failed && $section === 'items') {
+            $fields = [];
+            foreach (['category_id', 'name', 'slug', 'sku', 'description', 'ideal_use', 'is_service',
+                'availability_status', 'rental_unit', 'rental_rate', 'security_deposit', 'available_quantity', 'is_active'] as $field) {
+                $fields[$field] = substr($request->string($field), 0, 5000);
+            }
+            $_SESSION['rentals_admin_product_draft'] = ['id' => $id, 'fields' => $fields];
         }
         $query = $id > 0 ? '?edit=' . $id : ($failed && $section !== 'orders' ? '?new=1' : '');
         return $this->redirect(url('rentals/admin/' . $section . $query));
@@ -298,6 +312,27 @@ final class RentalAdminController extends Controller
         return $valid;
     }
 
+    /** Generate a usable, unique product URL without requiring a technical field. */
+    private function productSlug(Request $request, string $name, int $id, ?string $existing): string
+    {
+        $source = $request->string('slug');
+        // Editing a name must not unexpectedly break the existing product URL.
+        if ($source === '' && $existing !== null && $existing !== '') { return $existing; }
+        $source = $source !== '' ? $source : $name;
+        if (function_exists('iconv')) {
+            $source = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $source) ?: $source;
+        }
+        $base = trim(substr(trim(preg_replace('/[^a-z0-9]+/', '-', strtolower($source)) ?? '', '-'), 0, 190), '-');
+        $base = $base !== '' ? $base : 'product';
+        $slug = $base;
+        $suffix = 1;
+        while ($this->db()->selectValue('SELECT id FROM rental_items WHERE slug = ? AND id <> ? LIMIT 1', [$slug, $id]) !== null) {
+            $ending = '-' . ++$suffix;
+            $slug = rtrim(substr($base, 0, 190 - strlen($ending)), '-') . $ending;
+        }
+        return $slug;
+    }
+
     private function saveCategory(Request $request, int $id): void
     {
         $name = $this->name($request, 120);
@@ -320,12 +355,16 @@ final class RentalAdminController extends Controller
             throw new \InvalidArgumentException('Choose an existing category.');
         }
         $name = $this->name($request);
-        $slug = $this->slug($request);
-        $sku = substr($request->string('sku'), 0, 80);
+        $sku = $request->string('sku');
+        if (strlen($sku) > 80) { throw new \InvalidArgumentException('Keep the SKU to 80 characters or fewer, or leave it blank.'); }
+        if ($sku !== '' && $this->db()->selectValue('SELECT id FROM rental_items WHERE sku = ? AND id <> ? LIMIT 1', [$sku, $id]) !== null) {
+            throw new \InvalidArgumentException('That SKU is already used by another product. Enter a different SKU or leave it blank.');
+        }
         $description = substr($request->string('description'), 0, 5000);
         $ideal = substr($request->string('ideal_use'), 0, 500);
-        $existing = $id > 0 ? $this->db()->selectOne('SELECT image_path FROM rental_items WHERE id = ?', [$id]) : null;
+        $existing = $id > 0 ? $this->db()->selectOne('SELECT image_path, slug FROM rental_items WHERE id = ?', [$id]) : null;
         if ($id > 0 && $existing === null) { throw new \InvalidArgumentException('That product no longer exists.'); }
+        $slug = $this->productSlug($request, $name, $id, $existing['slug'] ?? null);
         $service = $request->string('is_service') === '1' ? 1 : 0;
         $status = $request->string('availability_status');
         if (!in_array($status, self::AVAILABILITY, true)) { throw new \InvalidArgumentException('Choose a valid availability status.'); }

@@ -103,7 +103,10 @@ $newRecordLabel = ['items' => 'product', 'categories' => 'category', 'payments' 
               <fieldset><legend>Basic information</legend>
                 <label>Category<select name="category_id" required><option value="">Choose category</option><?php foreach ($categories as $category): ?><option value="<?= e_attr((string) $category['id']) ?>"<?= (int) ($record['category_id'] ?? 0) === (int) $category['id'] ? ' selected' : '' ?>><?= e((string) $category['name']) ?></option><?php endforeach ?></select></label>
                 <label>Name<input name="name" maxlength="190" required value="<?= e_attr((string) ($record['name'] ?? '')) ?>"></label>
-                <div class="rentals-admin__two"><label>Slug<input name="slug" maxlength="190" pattern="[a-z0-9]+(-[a-z0-9]+)*" required value="<?= e_attr((string) ($record['slug'] ?? '')) ?>"></label><label>SKU<input name="sku" maxlength="80" value="<?= e_attr((string) ($record['sku'] ?? '')) ?>"></label></div>
+                <div class="rentals-admin__two">
+                  <label>Slug (optional)<input name="slug" maxlength="190" placeholder="e.g. sony-a7-iii" aria-describedby="product-slug-help" value="<?= e_attr((string) ($record['slug'] ?? '')) ?>"><small id="product-slug-help">Example: sony-a7-iii. Used in the product URL. Leave blank to generate automatically; existing URLs are kept when editing.</small></label>
+                  <label>SKU (optional)<input name="sku" maxlength="80" placeholder="e.g. CAM-001" aria-describedby="product-sku-help" value="<?= e_attr((string) ($record['sku'] ?? '')) ?>"><small id="product-sku-help">Example: CAM-001. Your internal product code. Leave blank if unused; each entered SKU must be unique.</small></label>
+                </div>
               </fieldset>
               <fieldset><legend>Product details</legend>
                 <label>Description<textarea name="description" rows="3"><?= e((string) ($record['description'] ?? '')) ?></textarea></label>
