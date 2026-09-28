@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 50" width="200" height="50" fill="none">
+  <circle cx="26" cy="25" r="15" stroke="#F1F5F9" stroke-width="2.5" stroke-dasharray="8 4"/>
+  <circle cx="26" cy="25" r="7" fill="#F1F5F9"/>
+  <text x="56" y="32" fill="#F1F5F9" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="20" font-weight="800" letter-spacing="3">VORTEX</text>
+</svg>

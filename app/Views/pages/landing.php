@@ -61,7 +61,7 @@ $hero   = $landing['hero'];
       <p class="lp-hero__lede"><?= e($hero['lede']) ?></p>
       <div class="lp-hero__media">
         <?php if (($video['kind'] ?? 'none') === 'file'): ?>
-          <video controls playsinline preload="none" poster="<?= e_attr($poster ?? '') ?>">
+          <video autoplay muted loop playsinline preload="auto" poster="<?= e_attr($poster ?? '') ?>">
             <source src="<?= e_attr($video['src']) ?>" type="video/mp4">
           </video>
         <?php else: ?>
@@ -81,8 +81,8 @@ $hero   = $landing['hero'];
         <li><?= e($company['address']['locality']) ?>, <?= e($company['address']['region']) ?></li>
       </ul>
 
-      <!-- Quick jump CTA for mobile visitors -->
-      <a class="btn lp-hero__quick-cta" href="#lead-form" data-lp-cta>
+      <!-- Quick jump CTA — opens modal on mobile, scrolls on desktop -->
+      <a class="btn lp-hero__quick-cta" href="#lead-form" data-lp-cta data-lp-modal-trigger>
         <span>Get a Quote for Your Event</span>
         <svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v10.586l3.293-3.293a1 1 0 111.414 1.414l-5 5a1 1 0 01-1.414 0l-5-5a1 1 0 111.414-1.414L9 14.586V4a1 1 0 011-1z" clip-rule="evenodd"/></svg>
       </a>
@@ -100,6 +100,28 @@ $hero   = $landing['hero'];
 
   </div>
 </section>
+
+<?php /* ══ MOBILE QUOTE MODAL ════════════════════════════════════ */ ?>
+<div class="lp-modal" id="lp-quote-modal" role="dialog" aria-modal="true" aria-labelledby="lp-modal-heading" hidden data-lp-modal>
+  <div class="lp-modal__backdrop" data-lp-modal-close></div>
+  <div class="lp-modal__sheet">
+    <div class="lp-modal__header">
+      <span class="lp-modal__brand mono">3AM Digital Media</span>
+      <button class="lp-modal__close" type="button" aria-label="Close quote form" data-lp-modal-close>
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"/></svg>
+      </button>
+    </div>
+    <div class="lp-modal__body">
+      <?= $this->partial('partials.lead-form', [
+          'form'     => $form,
+          'copy'     => $landing['form'],
+          'old'      => $old,
+          'errors'   => $errors,
+          'visit_id' => $visit_id ?? null,
+      ]) ?>
+    </div>
+  </div>
+</div>
 
 <?php /* ══ SERVICES (CAROUSEL ON MOBILE) ═══════════════════════ */ ?>
 <section class="section lp-services" id="services" data-theme="dark" aria-labelledby="lp-services-heading" data-lp-view>
@@ -160,7 +182,7 @@ $hero   = $landing['hero'];
     <div class="lp-answer">
       <h3 class="lp-answer__title"><?= e($landing['problems']['answer_heading']) ?></h3>
       <p><?= e($landing['problems']['answer']) ?></p>
-      <a class="btn btn--invert" href="#lead-form" data-lp-cta><?= e($hero['cta']) ?></a>
+      <a class="btn btn--invert" href="#lead-form" data-lp-cta data-lp-modal-trigger><?= e($hero['cta']) ?></a>
     </div>
   </div>
 </section>
@@ -205,19 +227,57 @@ $hero   = $landing['hero'];
   </div>
 </section>
 
+<?php /* ══ CLIENT LOGOS CAROUSEL ═══════════════════════════════════ */ ?>
+<section class="section lp-clients" data-theme="dark" aria-label="Clients we have worked with">
+  <div class="shell">
+    <p class="mono section__label">Trusted By</p>
+    <div class="lp-logos-track-wrapper" aria-hidden="true">
+      <div class="lp-logos-track" data-lp-logos-track>
+        <?php
+          /* ─────────────────────────────────────────────────────────────────
+           * CLIENT LOGOS — easy to replace.
+           *
+           * To swap or add a logo:
+           * 1. Place an SVG or PNG in media/clients/ (or any media folder).
+           * 2. Update the 'logo' path and 'name' in the $clients array below.
+           * ────────────────────────────────────────────────────────────────
+           */
+          $clients = [
+            ['name' => 'Apex Live',   'logo' => 'media/clients/client-1.svg'],
+            ['name' => 'Vortex',      'logo' => 'media/clients/client-2.svg'],
+            ['name' => 'Nexus Media', 'logo' => 'media/clients/client-3.svg'],
+            ['name' => 'Pulse AV',    'logo' => 'media/clients/client-4.svg'],
+            ['name' => 'Horizon',     'logo' => 'media/clients/client-5.svg'],
+            ['name' => 'Spectra',     'logo' => 'media/clients/client-6.svg'],
+            ['name' => 'Meridian',    'logo' => 'media/clients/client-7.svg'],
+            ['name' => 'Zenith',      'logo' => 'media/clients/client-8.svg'],
+          ];
+        ?>
+        <?php foreach ($clients as $client): ?>
+        <div class="lp-logos-item">
+          <img src="<?= e_attr(site_media($client['logo'])) ?>" alt="<?= e_attr($client['name']) ?>" width="180" height="48" loading="lazy">
+        </div>
+        <?php endforeach ?>
+        <!-- Duplicate set for seamless infinite loop -->
+        <?php foreach ($clients as $client): ?>
+        <div class="lp-logos-item" aria-hidden="true">
+          <img src="<?= e_attr(site_media($client['logo'])) ?>" alt="" width="180" height="48" loading="lazy">
+        </div>
+        <?php endforeach ?>
+      </div>
+    </div>
+  </div>
+</section>
+
 <?php /* ══ FINAL CTA ═════════════════════════════════════════════ */ ?>
 <section class="section lp-final" data-theme="dark" aria-labelledby="lp-final-heading">
   <div class="shell lp-narrow lp-final__inner">
     <h2 id="lp-final-heading" class="section__title section__title--sm"><?= e($landing['final']['heading']) ?></h2>
     <p class="section__lede"><?= e($landing['final']['body']) ?></p>
-    <a class="btn lp-final__btn" href="#lead-form" data-lp-cta><?= e($landing['final']['cta']) ?></a>
+    <a class="btn lp-final__btn" href="#lead-form" data-lp-cta data-lp-modal-trigger><?= e($landing['final']['cta']) ?></a>
   </div>
 </section>
 
-<?php /* Mobile sticky CTA */ ?>
-<div class="lp-sticky" id="mobile-sticky-cta" data-lp-sticky>
-  <a class="btn lp-sticky__btn" href="#lead-form" data-lp-cta><?= e($hero['cta']) ?></a>
-</div>
 
 <?php $this->end() ?>
 

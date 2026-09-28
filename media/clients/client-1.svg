@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 50" width="200" height="50" fill="none">
+  <path d="M15 38L27 12L39 38H31L27 28L23 38H15ZM27 20L25 24H29L27 20Z" fill="#F1F5F9"/>
+  <path d="M27 6L43 38H37L27 18L17 38H11L27 6Z" fill="#F1F5F9" fill-opacity="0.4"/>
+  <text x="56" y="32" fill="#F1F5F9" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="20" font-weight="800" letter-spacing="3.5">APEX</text>
+  <text x="142" y="32" fill="#F1F5F9" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="10" font-weight="600" letter-spacing="2" fill-opacity="0.5">LIVE</text>
+</svg>
