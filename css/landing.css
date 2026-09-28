@@ -33,6 +33,13 @@
   flex-shrink: 0;
   text-decoration: none;
   color: inherit;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.nav__brand-group:hover {
+  opacity: 0.8;
+  text-decoration: none;
 }
 
 .nav--minimal .nav__brand {
@@ -409,12 +416,16 @@
   font-family: var(--f-mono);
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 0.25rem;
+  justify-content: flex-start;
 }
 
 .lp-form-card .field__req {
-  color: var(--c-alert, #FF4438);
-  font-weight: 700;
+  color: var(--c-alert, #E53935);
+  font-weight: 900;
+  font-size: 0.9rem;
+  line-height: 1;
+  margin-left: 0.1em;
 }
 
 .lp-form-card .field__opt {
@@ -1031,33 +1042,6 @@
   font-size: var(--t-small);
 }
 
-/* ── Mobile Sticky CTA ─────────────────────────────────────── */
-.lp-sticky {
-  position: fixed;
-  inset: auto 0 0;
-  z-index: var(--z-sticky);
-  padding: var(--s-3) var(--gutter) calc(var(--s-3) + env(safe-area-inset-bottom, 0px));
-  background: var(--c-void);
-  border-top: 1px solid var(--c-slate);
-  transform: translateY(0);
-  transition: transform var(--m-ui) var(--ease), visibility var(--m-ui);
-}
-
-.lp-sticky.is-hidden {
-  transform: translateY(110%);
-  visibility: hidden;
-}
-
-.lp-sticky__btn {
-  width: 100%;
-  min-height: 48px;
-  font-size: var(--t-small);
-}
-
-body:has(.lp-sticky) {
-  padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
-}
-
 /* ── Responsive Media Queries ──────────────────────────────── */
 @media (min-width: 600px) {
   .lp-gallery {
@@ -1067,14 +1051,6 @@ body:has(.lp-sticky) {
 }
 
 @media (min-width: 768px) {
-  .lp-sticky {
-    display: none;
-  }
-
-  body:has(.lp-sticky) {
-    padding-bottom: 0;
-  }
-
   .lp-steps {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -1088,10 +1064,6 @@ body:has(.lp-sticky) {
 @media (prefers-reduced-motion: reduce) {
   .lp-spinner {
     animation-duration: 1.5s;
-  }
-
-  .lp-sticky {
-    transition: none;
   }
 }
 
@@ -1239,14 +1211,16 @@ body:has(.lp-sticky) {
    ══════════════════════════════════════════════════════════════ */
 
 .lp-clients {
-  padding-block: 2rem 2.5rem;
+  padding-block: 2.75rem 3.5rem;
   overflow: hidden;
 }
 
 .lp-clients .section__label {
   text-align: center;
-  margin-bottom: 1.5rem;
+  margin-bottom: 2rem;
   color: var(--fg-muted);
+  font-size: 0.85rem;
+  letter-spacing: 0.15em;
 }
 
 /* Fade-edge mask so logos smoothly fade in/out at the edges */
@@ -1262,7 +1236,7 @@ body:has(.lp-sticky) {
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 80px;
+  width: 70px;
   z-index: 2;
   pointer-events: none;
 }
@@ -1279,10 +1253,11 @@ body:has(.lp-sticky) {
 
 .lp-logos-track {
   display: flex;
-  gap: 2rem;
+  align-items: center;
+  gap: 3.5rem;
   width: max-content;
-  /* Infinite scroll: JS sets the animation, or we use CSS animation */
-  animation: lp-logos-scroll 28s linear infinite;
+  /* Infinite scroll animation */
+  animation: lp-logos-scroll 32s linear infinite;
 }
 
 .lp-logos-track:hover {
@@ -1294,53 +1269,63 @@ body:has(.lp-sticky) {
   100% { transform: translateX(-50%); } /* half = one complete set */
 }
 
+/* Plain logo items — NO container, no border, no background */
 .lp-logos-item {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 140px;
-  height: 64px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  border-radius: 10px;
-  transition: background 0.2s, border-color 0.2s;
+  width: auto;
+  min-width: 160px;
+  height: 56px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0;
 }
 
 .lp-logos-item:hover {
-  background: rgba(255, 179, 0, 0.08);
-  border-color: rgba(255, 179, 0, 0.22);
+  background: transparent;
+  border-color: transparent;
 }
 
 .lp-logos-item img {
-  max-width: 110px;
-  max-height: 44px;
+  display: block;
+  max-width: 165px;
+  max-height: 48px;
   width: auto;
   height: auto;
   object-fit: contain;
-  /* Desaturate logos for a uniform look; remove if you prefer full color */
-  filter: brightness(0) invert(1) opacity(0.65);
-  transition: filter 0.2s;
+  filter: brightness(0) invert(1);
+  opacity: 0.72;
+  transition: opacity 0.25s ease, transform 0.25s ease;
 }
 
 .lp-logos-item:hover img {
-  filter: brightness(0) invert(1) opacity(1);
+  opacity: 1;
+  transform: scale(1.06);
 }
 
-/* Placeholder badge (shown until real logos are added) */
-.lp-logos-placeholder {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 100%;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  font-family: var(--f-mono);
-  color: rgba(255, 255, 255, 0.35);
-  text-transform: uppercase;
-  user-select: none;
+@media (min-width: 768px) {
+  .lp-logos-track-wrapper::before,
+  .lp-logos-track-wrapper::after {
+    width: 120px;
+  }
+
+  .lp-logos-track {
+    gap: 5rem;
+    animation-duration: 36s;
+  }
+
+  .lp-logos-item {
+    min-width: 195px;
+    height: 68px;
+  }
+
+  .lp-logos-item img {
+    max-width: 200px;
+    max-height: 56px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

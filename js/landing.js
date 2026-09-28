@@ -329,6 +329,16 @@
 
   // ── Smooth Scroll for #lead-form CTAs ───────────────────────────────────
 
+  // ── Logo: scroll back to hero top on click ──────────────────────────────
+  function setupLogoHomeScroll() {
+    document.querySelectorAll('[data-lp-logo-home]').forEach(el => {
+      el.addEventListener('click', e => {
+        e.preventDefault();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+    });
+  }
+
   // ── Quote Modal (mobile bottom sheet) ─────────────────────────────────────
   function setupModal() {
     const modal = document.getElementById('lp-quote-modal');
@@ -395,7 +405,10 @@
     document.querySelectorAll('[data-lp-cta]').forEach(cta => {
       cta.addEventListener('click', (e) => {
         // On mobile, modal triggers are handled by setupModal; bail out here
-        if (window.innerWidth < 992 && cta.hasAttribute('data-lp-modal-trigger')) return;
+        if (window.innerWidth < 992 && cta.hasAttribute('data-lp-modal-trigger')) {
+          e.preventDefault();
+          return;
+        }
 
         const href = cta.getAttribute('href');
         if (!href || !href.startsWith('#')) return;
@@ -649,8 +662,8 @@
   setupViewContent();
   setupForm();
   setupModal();
-  setupStickyCTA();
   setupCTAScroll();
+  setupLogoHomeScroll();
   setupServicesCarousel();
   setupHeroVideo();
 

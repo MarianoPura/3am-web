@@ -61,7 +61,7 @@ $hero   = $landing['hero'];
       <p class="lp-hero__lede"><?= e($hero['lede']) ?></p>
       <div class="lp-hero__media">
         <?php if (($video['kind'] ?? 'none') === 'file'): ?>
-          <video autoplay muted loop playsinline preload="auto" controls poster="<?= e_attr($poster ?? '') ?>">
+          <video autoplay muted loop playsinline preload="auto" poster="<?= e_attr($poster ?? '') ?>">
             <source src="<?= e_attr($video['src']) ?>" type="video/mp4">
           </video>
         <?php else: ?>
@@ -182,7 +182,7 @@ $hero   = $landing['hero'];
     <div class="lp-answer">
       <h3 class="lp-answer__title"><?= e($landing['problems']['answer_heading']) ?></h3>
       <p><?= e($landing['problems']['answer']) ?></p>
-      <a class="btn btn--invert" href="#lead-form" data-lp-cta><?= e($hero['cta']) ?></a>
+      <a class="btn btn--invert" href="#lead-form" data-lp-cta data-lp-modal-trigger><?= e($hero['cta']) ?></a>
     </div>
   </div>
 </section>
@@ -237,33 +237,31 @@ $hero   = $landing['hero'];
           /* ─────────────────────────────────────────────────────────────────
            * CLIENT LOGOS — easy to replace.
            *
-           * To swap a logo: replace the img src with your own image URL or
-           * a site_media('path/to/logo.png') call. Each .lp-logos-item holds
-           * one client. Add or remove <div class="lp-logos-item"> blocks freely.
+           * To swap or add a logo:
+           * 1. Place an SVG or PNG in media/clients/ (or any media folder).
+           * 2. Update the 'logo' path and 'name' in the $clients array below.
            * ────────────────────────────────────────────────────────────────
            */
           $clients = [
-            ['name' => 'Client A', 'placeholder' => 'CA'],
-            ['name' => 'Client B', 'placeholder' => 'CB'],
-            ['name' => 'Client C', 'placeholder' => 'CC'],
-            ['name' => 'Client D', 'placeholder' => 'CD'],
-            ['name' => 'Client E', 'placeholder' => 'CE'],
-            ['name' => 'Client F', 'placeholder' => 'CF'],
-            ['name' => 'Client G', 'placeholder' => 'CG'],
-            ['name' => 'Client H', 'placeholder' => 'CH'],
+            ['name' => 'Apex Live',   'logo' => 'media/clients/client-1.svg'],
+            ['name' => 'Vortex',      'logo' => 'media/clients/client-2.svg'],
+            ['name' => 'Nexus Media', 'logo' => 'media/clients/client-3.svg'],
+            ['name' => 'Pulse AV',    'logo' => 'media/clients/client-4.svg'],
+            ['name' => 'Horizon',     'logo' => 'media/clients/client-5.svg'],
+            ['name' => 'Spectra',     'logo' => 'media/clients/client-6.svg'],
+            ['name' => 'Meridian',    'logo' => 'media/clients/client-7.svg'],
+            ['name' => 'Zenith',      'logo' => 'media/clients/client-8.svg'],
           ];
         ?>
         <?php foreach ($clients as $client): ?>
         <div class="lp-logos-item">
-          <!-- REPLACE: swap the <span> below with an <img> tag pointing to the real logo -->
-          <!-- Example: <img src="<?= e_attr(site_media('img/clients/client-a.png')) ?>" alt="<?= e_attr($client['name']) ?>" width="120" height="48" loading="lazy"> -->
-          <span class="lp-logos-placeholder" aria-label="<?= e_attr($client['name']) ?>"><?= e($client['placeholder']) ?></span>
+          <img src="<?= e_attr(site_media($client['logo'])) ?>" alt="<?= e_attr($client['name']) ?>" width="180" height="48" loading="lazy">
         </div>
         <?php endforeach ?>
         <!-- Duplicate set for seamless infinite loop -->
         <?php foreach ($clients as $client): ?>
         <div class="lp-logos-item" aria-hidden="true">
-          <span class="lp-logos-placeholder"><?= e($client['placeholder']) ?></span>
+          <img src="<?= e_attr(site_media($client['logo'])) ?>" alt="" width="180" height="48" loading="lazy">
         </div>
         <?php endforeach ?>
       </div>
@@ -280,10 +278,6 @@ $hero   = $landing['hero'];
   </div>
 </section>
 
-<?php /* Mobile sticky CTA */ ?>
-<div class="lp-sticky" id="mobile-sticky-cta" data-lp-sticky>
-  <a class="btn lp-sticky__btn" href="#lead-form" data-lp-cta data-lp-modal-trigger><?= e($hero['cta']) ?></a>
-</div>
 
 <?php $this->end() ?>
 
