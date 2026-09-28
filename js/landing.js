@@ -344,6 +344,172 @@
     });
   }
 
+  // ── Services Section Carousel ───────────────────────────────────────────
+  function setupServicesCarousel() {
+    const carousel = document.querySelector('[data-lp-carousel]');
+    if (!carousel) return;
+
+    const track   = carousel.querySelector('[data-lp-carousel-track]');
+    const slides  = Array.from(carousel.querySelectorAll('[data-lp-carousel-slide]'));
+    const dots    = Array.from(carousel.querySelectorAll('[data-lp-carousel-dot]'));
+    const prevBtn = document.querySelector('[data-lp-carousel-prev]');
+    const nextBtn = document.querySelector('[data-lp-carousel-next]');
+
+    if (!track || slides.length === 0) return;
+
+    let currentIndex = 0;
+    let autoTimer    = null;
+    let isInteracting = false;
+    const intervalMs = 4200;
+
+    function isCarouselMode() {
+      return window.innerWidth < 992;
+    }
+
+    function updateActiveState(index) {
+      currentIndex = index;
+      dots.forEach((dot, i) => {
+        dot.classList.toggle('is-active', i === index);
+        dot.setAttribute('aria-selected', i === index ? 'true' : 'false');
+      });
+      slides.forEach((slide, i) => {
+        slide.classList.toggle('is-active', i === index);
+      });
+    }
+
+    function scrollToSlide(index, smooth = true) {
+      if (index < 0) index = slides.length - 1;
+      if (index >= slides.length) index = 0;
+
+      const targetSlide = slides[index];
+      if (!targetSlide) return;
+
+      const targetLeft = targetSlide.offsetLeft - track.offsetLeft;
+      track.scrollTo({
+        left: targetLeft,
+        behavior: smooth ? 'smooth' : 'auto'
+      });
+      updateActiveState(index);
+    }
+
+    function nextSlide() {
+      scrollToSlide(currentIndex + 1);
+    }
+
+    function prevSlide() {
+      scrollToSlide(currentIndex - 1);
+    }
+
+    function startAutoScroll() {
+      stopAutoScroll();
+      if (!isCarouselMode() || isInteracting) return;
+      autoTimer = setInterval(() => {
+        if (!isInteracting && isCarouselMode()) {
+          nextSlide();
+        }
+      }, intervalMs);
+    }
+
+    function stopAutoScroll() {
+      if (autoTimer) {
+        clearInterval(autoTimer);
+        autoTimer = null;
+      }
+    }
+
+    // Dot navigation
+    dots.forEach((dot, i) => {
+      dot.addEventListener('click', () => {
+        stopAutoScroll();
+        scrollToSlide(i);
+        startAutoScroll();
+      });
+    });
+
+    // Arrow navigation
+    if (prevBtn) {
+      prevBtn.addEventListener('click', () => {
+        stopAutoScroll();
+        prevSlide();
+        startAutoScroll();
+      });
+    }
+    if (nextBtn) {
+      nextBtn.addEventListener('click', () => {
+        stopAutoScroll();
+        nextSlide();
+        startAutoScroll();
+      });
+    }
+
+    // Synchronize active dot with user's native swipe / scroll
+    let scrollTimeout = null;
+    track.addEventListener('scroll', () => {
+      if (!isCarouselMode()) return;
+
+      clearTimeout(scrollTimeout);
+      scrollTimeout = setTimeout(() => {
+        const scrollCenter = track.scrollLeft + track.clientWidth / 2;
+        let closestIndex = 0;
+        let minDiff = Infinity;
+
+        slides.forEach((slide, i) => {
+          const slideCenter = slide.offsetLeft - track.offsetLeft + slide.clientWidth / 2;
+          const diff = Math.abs(scrollCenter - slideCenter);
+          if (diff < minDiff) {
+            minDiff = diff;
+            closestIndex = i;
+          }
+        });
+
+        if (closestIndex !== currentIndex) {
+          updateActiveState(closestIndex);
+        }
+      }, 50);
+    }, { passive: true });
+
+    // Pause on hover or touch
+    carousel.addEventListener('mouseenter', () => {
+      isInteracting = true;
+      stopAutoScroll();
+    });
+    carousel.addEventListener('mouseleave', () => {
+      isInteracting = false;
+      startAutoScroll();
+    });
+    carousel.addEventListener('touchstart', () => {
+      isInteracting = true;
+      stopAutoScroll();
+    }, { passive: true });
+    carousel.addEventListener('touchend', () => {
+      setTimeout(() => {
+        isInteracting = false;
+        startAutoScroll();
+      }, 1500);
+    }, { passive: true });
+
+    // Pause when tab is backgrounded
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        stopAutoScroll();
+      } else {
+        startAutoScroll();
+      }
+    });
+
+    // Handle window resize
+    window.addEventListener('resize', () => {
+      if (isCarouselMode()) {
+        startAutoScroll();
+      } else {
+        stopAutoScroll();
+      }
+    }, { passive: true });
+
+    updateActiveState(0);
+    startAutoScroll();
+  }
+
   // ── Initialise ──────────────────────────────────────────────────────────
   initPixel();
   captureUtms();
@@ -351,5 +517,6 @@
   setupForm();
   setupStickyCTA();
   setupCTAScroll();
+  setupServicesCarousel();
 
 })();
