@@ -27,5 +27,6 @@ $siteDesc = '3AM Rentals administration.';
   <?= $this->section('content') ?>
 </main>
 <footer class="rentals-admin-footer"><div class="rentals-shell">3AM Rentals · Administration</div></footer>
+<script src="<?= e_attr(versioned('js/rentals-admin.js')) ?>" nonce="<?= e_attr($nonce ?? '') ?>" defer></script>
 </body>
 </html>

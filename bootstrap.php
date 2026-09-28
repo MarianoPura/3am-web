@@ -96,7 +96,8 @@ if (class_exists(Dotenv\Dotenv::class)) {
 // ─────────────────────────────────────────────────────────────
 // 3. Error handling
 // ─────────────────────────────────────────────────────────────
-$isDebug = (bool) env('APP_DEBUG', false);
+$isDebug = in_array(env('APP_ENV', 'production'), ['local', 'testing', 'development'], true)
+    && (bool) env('APP_DEBUG', false);
 
 error_reporting(E_ALL);
 ini_set('display_errors', $isDebug ? '1' : '0');

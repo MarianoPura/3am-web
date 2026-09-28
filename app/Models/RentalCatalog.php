@@ -192,6 +192,12 @@ final class RentalCatalog
     /** Remaining units on each date, with rejected orders excluded. */
     public function remainingByDate(array $item, string $startDate, string $endDate): array
     {
+        return array_map(static fn (array $day): int => $day['remaining'], $this->availabilityByDate($item, $startDate, $endDate));
+    }
+
+    /** Stock and its causes, without customer identities, for both calendars. */
+    public function availabilityByDate(array $item, string $startDate, string $endDate): array
+    {
         $start = \DateTimeImmutable::createFromFormat('!Y-m-d', $startDate);
         $end = \DateTimeImmutable::createFromFormat('!Y-m-d', $endDate);
         if ($start === false || $end === false || $start > $end
@@ -231,7 +237,8 @@ final class RentalCatalog
                     break;
                 }
             }
-            $result[$date] = $blocked ? 0 : max(0, $available - $reserved);
+            $result[$date] = ['remaining' => $blocked ? 0 : max(0, $available - $reserved),
+                'reserved' => $reserved, 'admin_blocked' => $blocked];
         }
         return $result;
     }

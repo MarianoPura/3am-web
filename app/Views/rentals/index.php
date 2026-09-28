@@ -95,7 +95,7 @@ $featuredServices = array_slice($servicesList, 0, 4);
 </section>
 
 
-<section class="rentals-section rentals-section--dark">
+<section class="rentals-section rentals-section--light">
   <div class="rentals-shell">
 
     <div class="rentals-section__header rentals-section__header--split">
@@ -224,7 +224,7 @@ $featuredServices = array_slice($servicesList, 0, 4);
 </section>
 
 
-<section class="rentals-section rentals-section--tight rentals-section--light">
+<section class="rentals-section rentals-section--tight rentals-section--dark">
   <div class="rentals-shell">
 
     <div class="rentals-section__header rentals-section__header--split">
@@ -383,7 +383,7 @@ $featuredServices = array_slice($servicesList, 0, 4);
 </section>
 
 
-<section class="rentals-section rentals-section--tight rentals-section--dark rentals-section--services">
+<section class="rentals-section rentals-section--tight rentals-section--light rentals-section--services">
   <div class="rentals-shell">
 
     <div class="rentals-section__header">
@@ -511,7 +511,7 @@ $featuredServices = array_slice($servicesList, 0, 4);
 </section>
 
 
-<section class="rentals-section rentals-section--tight rentals-section--light">
+<section class="rentals-section rentals-section--tight rentals-section--dark">
   <div class="rentals-shell">
 
     <div class="rentals-section__header">
@@ -574,7 +574,7 @@ $featuredServices = array_slice($servicesList, 0, 4);
 </section>
 
 
-<section class="rentals-section rentals-section--tight rentals-section--dark">
+<section class="rentals-section rentals-section--tight rentals-section--light">
   <div class="rentals-shell">
 
     <div class="rentals-section__header">
@@ -634,7 +634,7 @@ $featuredServices = array_slice($servicesList, 0, 4);
 </section>
 
 
-<section class="rentals-section rentals-section--tight rentals-section--light">
+<section class="rentals-section rentals-section--tight rentals-section--dark">
   <div class="rentals-shell">
 
     <div class="rentals-cta-band rentals-cta-band--split">

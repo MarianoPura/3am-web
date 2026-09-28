@@ -165,6 +165,13 @@ if (!function_exists('url')) {
             return $base === '' ? '/' : $base;
         }
 
+        // Controllers may pass an already-generated URL to redirect(). Mount
+        // only application-relative paths; match a path boundary, not /webfoo.
+        if ($base !== '' && ($path === $base || str_starts_with($path, $base . '/')
+            || str_starts_with($path, $base . '?') || str_starts_with($path, $base . '#'))) {
+            return $path;
+        }
+
         return $base . '/' . ltrim($path, '/');
     }
 }

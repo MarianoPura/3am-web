@@ -12,6 +12,8 @@ use App\Services\RentalCart;
 use App\Services\RentalCheckout;
 use App\Services\RentalNotification;
 use App\Services\RentalPaymentStatus;
+use App\Services\RentalManagedImage;
+use App\Services\RentalAccount;
 use RuntimeException;
 
 final class RentalCheckoutController extends Controller
@@ -120,5 +122,24 @@ final class RentalCheckoutController extends Controller
             LEFT JOIN payment_methods p ON p.id = h.payment_method_id WHERE h.status_token = ?', [$token]);
         return $order === null ? Response::notFound()
             : $this->render('rentals.status', ['order' => $order, 'statusToken' => $token])->noCache();
+    }
+
+    public function paymentQr(Request $request, string $id): Response
+    {
+        $method = $this->db()->selectOne('SELECT type, is_active, qr_image_path FROM payment_methods WHERE id = ?', [(int) $id]);
+        if ($method === null) { return Response::notFound(); }
+        if ($method['type'] !== 'manual' || (int) $method['is_active'] !== 1) {
+            $user = (new RentalAccount($this->db(), new RentalCart()))->current();
+            if (!in_array(strtolower((string) ($user['role'] ?? '')), ['admin', 'superadmin'], true)) { return Response::notFound(); }
+        }
+        $path = RentalManagedImage::publicPath($method['qr_image_path'], 'qr');
+        if ($path === null) { return Response::notFound(); }
+        $bytes = file_get_contents(BASE_PATH . '/' . $path);
+        if ($bytes === false) { return Response::notFound(); }
+        $mime = match (pathinfo($path, PATHINFO_EXTENSION)) {
+            'jpg' => 'image/jpeg', 'png' => 'image/png', 'webp' => 'image/webp', default => 'application/octet-stream',
+        };
+        return Response::make($bytes)->withHeader('Content-Type', $mime)
+            ->withHeader('Content-Disposition', 'inline; filename="payment-qr.' . pathinfo($path, PATHINFO_EXTENSION) . '"')->noCache();
     }
 }

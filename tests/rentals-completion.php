@@ -109,11 +109,31 @@ try {
     $assert($multi !== null && $catalog->isAvailable($multi, 1, $firstDay, $lastDay)
         && !$catalog->isAvailable($multi, 2, $firstDay, $lastDay),
         'Disjoint reservations were incorrectly added together, or quantity was ignored.');
+    $cart->clear();
+    $cartController->add($request(['id' => 'multi-' . $key, 'quantity' => '1',
+        'rental_start_date' => $middleDay, 'rental_end_date' => $middleDay]));
+    $assert($cart->count() === 1, 'Available item was not added before manual block.');
+    $blockId = $db->insert('INSERT INTO rental_item_blackouts (rental_item_id,start_date,end_date,note) VALUES (?,?,?,?)',
+        [$multiId,$middleDay,$middleDay,'QA maintenance']);
+    $blockedCheckout = false;
+    try {
+        (new App\Services\RentalCheckout($db,$cart))->createOrder($userId,
+            ['name'=>'[TEST] Customer','email'=>'completion-' . $key . '@example.test','phone'=>'','payment_method_id'=>$paymentId,'notes'=>'']);
+    } catch (RuntimeException $e) { $blockedCheckout = str_contains($e->getMessage(), 'no longer available'); }
+    $assert($blockedCheckout && $cart->count() === 1, 'Checkout ignored a new manual block or cleared the cart on failure.');
+    $cart->clear();
+    $cartController->add($request(['id' => 'multi-' . $key, 'quantity' => '1',
+        'rental_start_date' => $middleDay, 'rental_end_date' => $middleDay]));
+    $assert($cart->empty(), 'Direct Add to Cart bypassed the manual block.');
+    $db->update('UPDATE rental_item_blackouts SET is_active=0 WHERE id=?', [$blockId]);
+    $assert($catalog->isAvailable($multi,1,$middleDay,$middleDay), 'Removing a block did not restore unreserved inventory.');
     $assert(App\Services\RentalPaymentStatus::label(0) === 'Pending'
         && App\Services\RentalPaymentStatus::label(1) === 'Approved'
         && App\Services\RentalPaymentStatus::label(2) === 'Rejected', 'Status labels are inconsistent.');
     $admin = new App\Controllers\Rentals\RentalAdminController($container);
     $assert($admin->index($request([], 'GET'))->status() === 403, 'Customer could access Admin.');
+    $assert($admin->availability($request([], 'GET'), (string) $multiId)->status() === 403, 'Customer accessed Admin availability.');
+    $assert($admin->reviewProof($request(['decision'=>'rejected']), (string) $orderId)->status() === 403, 'Customer could reject an order.');
     $adminId = $db->insert('INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)',
         ['[TEST] Admin', 'completion-admin-' . $key . '@example.test', password_hash(random_bytes(16), PASSWORD_DEFAULT), 'admin']);
     $_SESSION['user_id'] = $adminId;

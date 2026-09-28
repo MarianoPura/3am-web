@@ -74,7 +74,7 @@ $customer = is_array($customer ?? null) ? $customer : [];
                     <div><dt>Amount to pay</dt><dd>₱<?= e(number_format((float) $summary['total'], 2)) ?></dd></div>
                   </dl>
                   <p>Send the amount to this account, then upload your proof of payment below.</p>
-                  <?php $qrPath = \App\Services\RentalManagedImage::publicPath($method['qr_image_path'] ?? null, 'qr'); if ($qrPath !== null): ?><button class="rentals-btn rentals-btn--dark" type="button" data-payment-qr-open data-qr-src="<?= e_attr(url($qrPath)) ?>" data-qr-name="<?= e_attr((string) $method['name']) ?>">View / Scan QR</button><?php endif ?>
+                  <?php $qrPath = \App\Services\RentalManagedImage::publicPath($method['qr_image_path'] ?? null, 'qr'); if ($qrPath !== null): ?><button class="rentals-btn rentals-btn--dark" type="button" data-payment-qr-open data-qr-src="<?= e_attr(url('rentals/payment-qr/' . (int) $method['id'])) ?>" data-qr-name="<?= e_attr((string) $method['name']) ?>">View / Scan QR</button><?php endif ?>
                 <?php else: ?><p>Local test method only. No real payment is collected.</p><?php endif ?>
               </div>
             <?php endforeach ?>

@@ -87,7 +87,7 @@ final class RentalAdminController extends Controller
                 'SELECT h.*, p.name AS payment_method FROM order_header h LEFT JOIN payment_methods p ON p.id = h.payment_method_id
                  WHERE (? = \'\' OR h.order_number LIKE ? OR h.customer_name LIKE ? OR h.customer_email LIKE ?)
                    AND (? = \'all\' OR h.payment_status = ?)
-                 ORDER BY h.created_at DESC, h.id DESC LIMIT 200',
+                 ORDER BY (h.payment_status = 0) DESC, h.created_at DESC, h.id DESC LIMIT 200',
                 [$term, '%' . $term . '%', '%' . $term . '%', '%' . $term . '%', $status, $status]
             );
             $data['record'] = $id ? $db->selectOne('SELECT h.*, p.name AS payment_method, p.type AS payment_type FROM order_header h LEFT JOIN payment_methods p ON p.id = h.payment_method_id WHERE h.id = ?', [$id]) : null;
@@ -161,18 +161,42 @@ final class RentalAdminController extends Controller
         return $this->redirect(url('rentals/admin/' . $section));
     }
 
+    public function availability(Request $request, string $id): Response
+    {
+        if ($denial = $this->deny()) { return $denial; }
+        $item = $this->db()->selectOne('SELECT * FROM rental_items WHERE id = ? AND is_service = 0', [(int) $id]);
+        if ($item === null) { return Response::notFound(); }
+        $month = $request->string('month');
+        $first = \DateTimeImmutable::createFromFormat('!Y-m-d', $month . '-01');
+        $current = new \DateTimeImmutable('first day of this month');
+        if (!$first || $first->format('Y-m') !== $month || $first < $current->modify('-12 months')
+            || $first > $current->modify('+12 months')) {
+            return Response::json(['ok' => false, 'message' => 'Choose a month within the availability calendar.'], 422)->noCache();
+        }
+        $item['db_id'] = (int) $item['id'];
+        $dates = (new RentalCatalog($this->db()))->availabilityByDate($item, $first->format('Y-m-d'), $first->modify('last day of this month')->format('Y-m-d'));
+        $days = [];
+          foreach ($dates as $date => $day) {
+              if ((int) $item['is_active'] !== 1 || $item['availability_status'] !== 'available') { $day['remaining'] = 0; }
+              $days[] = ['date' => $date] + $day;
+          }
+        return Response::json(['ok' => true, 'month' => $month, 'capacity' => (int) $item['available_quantity'],
+            'stock_status' => (string) $item['availability_status'], 'active' => (int) $item['is_active'] === 1,
+            'days' => $days])->noCache();
+    }
+
     public function saveBlackout(Request $request, string $id): Response
     {
         if ($denial = $this->deny()) { return $denial; }
         $itemId = (int) $id;
-        $return = url('rentals/admin/items?edit=' . $itemId);
+        $return = url('rentals/admin/items?edit=' . $itemId . '#equipment-availability');
         $start = $request->string('start_date');
         $end = $request->string('end_date');
         $first = \DateTimeImmutable::createFromFormat('!Y-m-d', $start);
         $last = \DateTimeImmutable::createFromFormat('!Y-m-d', $end);
         if ($itemId < 1 || !$first || !$last || $first->format('Y-m-d') !== $start
             || $last->format('Y-m-d') !== $end || $first > $last
-            || $this->db()->selectOne('SELECT id FROM rental_items WHERE id = ?', [$itemId]) === null) {
+            || $this->db()->selectOne('SELECT id FROM rental_items WHERE id = ? AND is_service = 0', [$itemId]) === null) {
             $_SESSION['rentals_admin_notice'] = 'Choose a valid equipment item and date range.';
             return $this->redirect($return);
         }
@@ -189,7 +213,7 @@ final class RentalAdminController extends Controller
         $this->db()->update('UPDATE rental_item_blackouts SET is_active = IF(is_active = 1, 0, 1) WHERE id = ? AND rental_item_id = ?',
             [(int) $blackoutId, $itemId]);
         $_SESSION['rentals_admin_notice'] = 'Manual date block updated. Customer reservations still apply.';
-        return $this->redirect(url('rentals/admin/items?edit=' . $itemId));
+        return $this->redirect(url('rentals/admin/items?edit=' . $itemId . '#equipment-availability'));
     }
 
     public function viewProof(Request $request, string $id): Response
@@ -210,13 +234,14 @@ final class RentalAdminController extends Controller
                 $order = $db->selectOne('SELECT h.payment_proof_path, h.payment_status, h.order_number, h.customer_email, h.status_token, p.type AS payment_type
                     FROM order_header h LEFT JOIN payment_methods p ON p.id = h.payment_method_id
                     WHERE h.id = ? FOR UPDATE', [$orderId]);
-                if ($order === null || RentalPaymentProof::path($order['payment_proof_path']) === null) {
+                if ($order === null) { throw new \InvalidArgumentException('That order no longer exists.'); }
+                if ($decision === 'approved' && RentalPaymentProof::path($order['payment_proof_path']) === null) {
                     throw new \InvalidArgumentException('No payment proof is available for review.');
                 }
                 if ((int) $order['payment_status'] !== RentalPaymentStatus::PENDING) {
                     throw new \InvalidArgumentException('Only pending payments can be reviewed.');
                 }
-                if ($order['payment_type'] === 'gateway') {
+                if ($decision === 'approved' && $order['payment_type'] === 'gateway') {
                     throw new \InvalidArgumentException('Gateway payments need an approved integration before review.');
                 }
                 $status = $decision === 'approved' ? RentalPaymentStatus::APPROVED : RentalPaymentStatus::REJECTED;
@@ -301,8 +326,6 @@ final class RentalAdminController extends Controller
         $ideal = substr($request->string('ideal_use'), 0, 500);
         $existing = $id > 0 ? $this->db()->selectOne('SELECT image_path FROM rental_items WHERE id = ?', [$id]) : null;
         if ($id > 0 && $existing === null) { throw new \InvalidArgumentException('That product no longer exists.'); }
-        $uploaded = RentalManagedImage::store($request->file('product_image'), 'product');
-        $image = $uploaded ?? ($existing['image_path'] ?? null);
         $service = $request->string('is_service') === '1' ? 1 : 0;
         $status = $request->string('availability_status');
         if (!in_array($status, self::AVAILABILITY, true)) { throw new \InvalidArgumentException('Choose a valid availability status.'); }
@@ -312,6 +335,10 @@ final class RentalAdminController extends Controller
         $quantity = $request->int('available_quantity');
         if ($quantity < 0 || $quantity > 999999) { throw new \InvalidArgumentException('Enter a valid available quantity.'); }
         $active = $this->active($request, 'rental_items', $id);
+        // Finish validation before writing a file, so failed form validation
+        // cannot leave an orphaned upload behind.
+        $uploaded = RentalManagedImage::store($request->file('product_image'), 'product');
+        $image = $uploaded ?? ($existing['image_path'] ?? null);
         $values = [$category, $name, $slug, $sku !== '' ? $sku : null, $description, $ideal, $image, $service, $status, $unit !== '' ? $unit : null, $rate, $deposit, $quantity, $active];
         try {
             if ($id > 0) {

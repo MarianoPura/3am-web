@@ -3,9 +3,6 @@ $metrics = is_array($metrics ?? null) ? $metrics : [];
 $recentOrders = is_array($recentOrders ?? null) ? $recentOrders : [];
 $upcomingRentals = is_array($upcomingRentals ?? null) ? $upcomingRentals : [];
 ?>
-<?php if (in_array(config('app.env'), ['local', 'testing'], true)): ?>
-  <p class="rentals-admin__empty">Local [TEST] records are excluded from Dashboard totals.</p>
-<?php endif ?>
 <div class="rentals-admin__bento">
   <?php foreach ($metrics as $label => $value): ?>
     <?php $money = in_array($label, ['Total rental sales', 'Average transaction value'], true); ?>
