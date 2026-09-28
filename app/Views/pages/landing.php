@@ -56,10 +56,6 @@ $hero   = $landing['hero'];
   <div class="shell lp-hero__grid">
 
     <div class="lp-hero__copy">
-      <p class="hero__kicker">
-        <span class="tally" aria-hidden="true"></span>
-        <span class="mono"><?= e($hero['kicker']) ?></span>
-      </p>
 
       <h1 id="lp-title" class="lp-hero__title"><?= e($hero['headline']) ?></h1>
       <p class="lp-hero__lede"><?= e($hero['lede']) ?></p>
@@ -84,6 +80,12 @@ $hero   = $landing['hero'];
         <li>Broadcast-grade cameras &amp; switchers</li>
         <li><?= e($company['address']['locality']) ?>, <?= e($company['address']['region']) ?></li>
       </ul>
+
+      <!-- Quick jump CTA for mobile visitors -->
+      <a class="btn lp-hero__quick-cta" href="#lead-form" data-lp-cta>
+        <span>Get a Quote for Your Event</span>
+        <svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v10.586l3.293-3.293a1 1 0 111.414 1.414l-5 5a1 1 0 01-1.414 0l-5-5a1 1 0 111.414-1.414L9 14.586V4a1 1 0 011-1z" clip-rule="evenodd"/></svg>
+      </a>
     </div>
 
     <div class="lp-hero__form">
@@ -99,29 +101,45 @@ $hero   = $landing['hero'];
   </div>
 </section>
 
-<?php /* ══ SERVICES ══════════════════════════════════════════════ */ ?>
+<?php /* ══ SERVICES (CAROUSEL ON MOBILE) ═══════════════════════ */ ?>
 <section class="section lp-services" id="services" data-theme="dark" aria-labelledby="lp-services-heading" data-lp-view>
   <div class="shell">
-    <p class="mono section__label">Services</p>
-    <h2 id="lp-services-heading" class="section__title section__title--sm"><?= e($landing['services']['heading']) ?></h2>
+    <div class="lp-services__header">
+      <div>
+        <p class="mono section__label">Services</p>
+        <h2 id="lp-services-heading" class="section__title section__title--sm"><?= e($landing['services']['heading']) ?></h2>
+      </div>
+      <div class="lp-carousel__arrows" aria-label="Services carousel controls">
+        <button type="button" class="lp-carousel__arrow lp-carousel__arrow--prev" data-lp-carousel-prev aria-label="Previous service">‹</button>
+        <button type="button" class="lp-carousel__arrow lp-carousel__arrow--next" data-lp-carousel-next aria-label="Next service">›</button>
+      </div>
+    </div>
 
-    <div class="lp-cards">
-      <?php foreach ($landing['services']['items'] as $key => $slot): ?>
-        <?php if (!isset($capabilities[$key])) { continue; } $cap = $capabilities[$key]; ?>
-        <article class="lp-card">
-          <?= $this->partial('partials.frame', ['slot' => $slot, 'ratio' => '16x9', 'video' => '', 'play' => false]) ?>
-          <div class="lp-card__body">
-            <h3 class="lp-card__title"><?= e($cap['label']) ?></h3>
-            <p class="lp-card__summary"><?= e($cap['summary']) ?></p>
-            <p class="lp-card__benefit"><?= e($cap['why']) ?></p>
-            <ul class="tags lp-card__tags" aria-label="<?= e_attr($cap['label']) ?> services">
-              <?php foreach (array_slice($cap['items'], 0, 4) as $item): ?>
-                <li class="tag"><?= e($item) ?></li>
-              <?php endforeach ?>
-            </ul>
-          </div>
-        </article>
-      <?php endforeach ?>
+    <div class="lp-carousel" data-lp-carousel>
+      <div class="lp-cards lp-carousel__track" data-lp-carousel-track>
+        <?php $slideIdx = 0; foreach ($landing['services']['items'] as $key => $slot): ?>
+          <?php if (!isset($capabilities[$key])) { continue; } $cap = $capabilities[$key]; ?>
+          <article class="lp-card lp-carousel__slide <?= $slideIdx === 0 ? 'is-active' : '' ?>" data-lp-carousel-slide data-slide-index="<?= $slideIdx ?>">
+            <?= $this->partial('partials.frame', ['slot' => $slot, 'ratio' => '16x9', 'video' => '', 'play' => false]) ?>
+            <div class="lp-card__body">
+              <h3 class="lp-card__title"><?= e($cap['label']) ?></h3>
+              <p class="lp-card__summary"><?= e($cap['summary']) ?></p>
+              <p class="lp-card__benefit"><?= e($cap['why']) ?></p>
+              <ul class="tags lp-card__tags" aria-label="<?= e_attr($cap['label']) ?> services">
+                <?php foreach (array_slice($cap['items'], 0, 4) as $item): ?>
+                  <li class="tag"><?= e($item) ?></li>
+                <?php endforeach ?>
+              </ul>
+            </div>
+          </article>
+        <?php $slideIdx++; endforeach ?>
+      </div>
+
+      <div class="lp-carousel__dots" data-lp-carousel-dots aria-label="Services carousel pagination">
+        <?php for ($i = 0; $i < $slideIdx; $i++): ?>
+          <button type="button" class="lp-carousel__dot <?= $i === 0 ? 'is-active' : '' ?>" data-lp-carousel-dot="<?= $i ?>" aria-label="Go to slide <?= $i + 1 ?>"></button>
+        <?php endfor ?>
+      </div>
     </div>
   </div>
 </section>
