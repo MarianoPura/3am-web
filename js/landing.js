@@ -328,9 +328,75 @@
   }
 
   // ── Smooth Scroll for #lead-form CTAs ───────────────────────────────────
+
+  // ── Quote Modal (mobile bottom sheet) ─────────────────────────────────────
+  function setupModal() {
+    const modal = document.getElementById('lp-quote-modal');
+    if (!modal) return;
+
+    let closing = false;
+
+    function openModal() {
+      if (window.innerWidth >= 992) return; // desktop: never use modal
+      modal.removeAttribute('hidden');
+      modal.classList.add('is-open');
+      modal.classList.remove('is-closing');
+      document.body.style.overflow = 'hidden';
+      requestAnimationFrame(() => {
+        const first = modal.querySelector('input:not([type="hidden"]), select, textarea');
+        if (first) first.focus({ preventScroll: true });
+      });
+    }
+
+    function closeModal() {
+      if (closing) return;
+      closing = true;
+      modal.classList.add('is-closing');
+      const sheet = modal.querySelector('.lp-modal__sheet');
+      const done = () => {
+        modal.classList.remove('is-open', 'is-closing');
+        modal.setAttribute('hidden', '');
+        document.body.style.overflow = '';
+        closing = false;
+      };
+      if (sheet) {
+        sheet.addEventListener('animationend', done, { once: true });
+      } else {
+        done();
+      }
+    }
+
+    // Open triggers (buttons/links with data-lp-modal-trigger)
+    document.querySelectorAll('[data-lp-modal-trigger]').forEach(btn => {
+      btn.addEventListener('click', e => {
+        if (window.innerWidth >= 992) return;
+        e.preventDefault();
+        openModal();
+      });
+    });
+
+    // Close triggers (backdrop + close button)
+    modal.querySelectorAll('[data-lp-modal-close]').forEach(el => {
+      el.addEventListener('click', closeModal);
+    });
+
+    // Escape key
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && modal.classList.contains('is-open')) closeModal();
+    });
+
+    // If page loaded with #lead-form hash on mobile, open modal automatically
+    if (window.location.hash === '#lead-form' && window.innerWidth < 992) {
+      setTimeout(openModal, 150);
+    }
+  }
+
   function setupCTAScroll() {
     document.querySelectorAll('[data-lp-cta]').forEach(cta => {
       cta.addEventListener('click', (e) => {
+        // On mobile, modal triggers are handled by setupModal; bail out here
+        if (window.innerWidth < 992 && cta.hasAttribute('data-lp-modal-trigger')) return;
+
         const href = cta.getAttribute('href');
         if (!href || !href.startsWith('#')) return;
         const target = document.querySelector(href);
@@ -582,6 +648,7 @@
   captureUtms();
   setupViewContent();
   setupForm();
+  setupModal();
   setupStickyCTA();
   setupCTAScroll();
   setupServicesCarousel();

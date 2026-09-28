@@ -1094,3 +1094,261 @@ body:has(.lp-sticky) {
     transition: none;
   }
 }
+
+/* ══════════════════════════════════════════════════════════════
+   MOBILE QUOTE MODAL
+   ══════════════════════════════════════════════════════════════ */
+
+/* The modal is only active on mobile (<992px); on desktop the form
+   stays in the hero grid and the modal is never shown.             */
+.lp-modal {
+  display: none; /* overridden to flex via JS */
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.lp-modal.is-open {
+  display: flex;
+}
+
+.lp-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(4px);
+  cursor: pointer;
+}
+
+.lp-modal__sheet {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 540px;
+  max-height: 92svh;
+  background: #ffffff;
+  border-radius: 20px 20px 0 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.45);
+  animation: lp-sheet-up 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes lp-sheet-up {
+  from { transform: translateY(100%); opacity: 0; }
+  to   { transform: translateY(0);   opacity: 1; }
+}
+
+.lp-modal.is-closing .lp-modal__sheet {
+  animation: lp-sheet-down 0.22s cubic-bezier(0.5, 0, 0.75, 0) both;
+}
+
+@keyframes lp-sheet-down {
+  from { transform: translateY(0);   opacity: 1; }
+  to   { transform: translateY(100%); opacity: 0; }
+}
+
+.lp-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 1.15rem 0.6rem;
+  border-bottom: 1px solid rgba(21, 43, 69, 0.1);
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  background: #ffffff;
+  z-index: 2;
+}
+
+.lp-modal__header::before {
+  content: '';
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(21, 43, 69, 0.18);
+}
+
+.lp-modal__brand {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--c-ink);
+  text-transform: uppercase;
+}
+
+.lp-modal__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: rgba(21, 43, 69, 0.07);
+  border-radius: 50%;
+  cursor: pointer;
+  color: var(--c-ink);
+  padding: 0;
+  transition: background 0.15s;
+}
+
+.lp-modal__close:hover {
+  background: rgba(21, 43, 69, 0.14);
+}
+
+.lp-modal__body {
+  padding: 0.85rem 1.15rem 1.5rem;
+  flex: 1 1 auto;
+  /* The lead-form partial renders .lp-form-card inside; reset its shadow/border
+     since the modal sheet already provides the visual container.              */
+}
+
+/* Inside modal: remove card chrome (already inside the sheet) */
+.lp-modal__body .lp-form-card {
+  border: none !important;
+  border-top: 3px solid var(--c-tally) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  padding: 0.65rem 0 0 !important;
+}
+
+/* On desktop: never show the modal; show the form in-hero instead */
+@media (min-width: 992px) {
+  .lp-modal {
+    display: none !important;
+  }
+}
+
+/* On mobile: hide the in-hero form (it lives in the modal instead) */
+@media (max-width: 991px) {
+  .lp-hero__form {
+    display: none !important;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   CLIENT LOGOS AUTO-SCROLL CAROUSEL
+   ══════════════════════════════════════════════════════════════ */
+
+.lp-clients {
+  padding-block: 2rem 2.5rem;
+  overflow: hidden;
+}
+
+.lp-clients .section__label {
+  text-align: center;
+  margin-bottom: 1.5rem;
+  color: var(--fg-muted);
+}
+
+/* Fade-edge mask so logos smoothly fade in/out at the edges */
+.lp-logos-track-wrapper {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+}
+
+.lp-logos-track-wrapper::before,
+.lp-logos-track-wrapper::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 80px;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.lp-logos-track-wrapper::before {
+  left: 0;
+  background: linear-gradient(to right, var(--c-void, #0A0F1A), transparent);
+}
+
+.lp-logos-track-wrapper::after {
+  right: 0;
+  background: linear-gradient(to left, var(--c-void, #0A0F1A), transparent);
+}
+
+.lp-logos-track {
+  display: flex;
+  gap: 2rem;
+  width: max-content;
+  /* Infinite scroll: JS sets the animation, or we use CSS animation */
+  animation: lp-logos-scroll 28s linear infinite;
+}
+
+.lp-logos-track:hover {
+  animation-play-state: paused;
+}
+
+@keyframes lp-logos-scroll {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); } /* half = one complete set */
+}
+
+.lp-logos-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 140px;
+  height: 64px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 10px;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.lp-logos-item:hover {
+  background: rgba(255, 179, 0, 0.08);
+  border-color: rgba(255, 179, 0, 0.22);
+}
+
+.lp-logos-item img {
+  max-width: 110px;
+  max-height: 44px;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  /* Desaturate logos for a uniform look; remove if you prefer full color */
+  filter: brightness(0) invert(1) opacity(0.65);
+  transition: filter 0.2s;
+}
+
+.lp-logos-item:hover img {
+  filter: brightness(0) invert(1) opacity(1);
+}
+
+/* Placeholder badge (shown until real logos are added) */
+.lp-logos-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  font-family: var(--f-mono);
+  color: rgba(255, 255, 255, 0.35);
+  text-transform: uppercase;
+  user-select: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-logos-track {
+    animation: none;
+  }
+  .lp-modal__sheet {
+    animation: none;
+  }
+}
+
