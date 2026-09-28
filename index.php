@@ -124,6 +124,15 @@ $dispatch = static function (Request $request) use ($router, $container): Respon
         return render_error($container, 404);
     }
 
+    // PHP discards both POST fields and the CSRF token when an upload exceeds
+    // post_max_size. Reject this Rentals product request without dispatching a write.
+    if ($request->isPost() && $request->path() === '/rentals/admin/items') {
+        $postLimit = \App\Services\RentalManagedImage::maxRequestBytes();
+        if ($postLimit > 0 && $request->contentLength() > $postLimit) {
+            return render_error($container, 413, 'The product form exceeds this server\'s upload limit. Go back, choose a smaller image, and submit again.');
+        }
+    }
+
     // Verify CSRF for state-changing requests, once, here.
     if ($request->isMutating() && !$container->get(Csrf::class)->verify($request)) {
         if ($request->isAjax()) {

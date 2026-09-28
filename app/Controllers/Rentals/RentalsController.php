@@ -17,6 +17,17 @@ use App\Models\RentalCatalog;
  */
 final class RentalsController extends Controller
 {
+    public function productImage(Request $request, string $filename): Response
+    {
+        $reference = \App\Services\RentalManagedImage::publicPath('micro/rentals/products/' . $filename, 'product');
+        $path = $reference !== null ? \App\Services\RentalStorage::path($reference) : null;
+        if ($path === null || ($bytes = @file_get_contents($path)) === false) { return Response::notFound(); }
+        $mime = match (pathinfo($filename, PATHINFO_EXTENSION)) {
+            'jpg' => 'image/jpeg', 'png' => 'image/png', 'webp' => 'image/webp', default => 'application/octet-stream',
+        };
+        return Response::make($bytes)->withHeader('Content-Type', $mime)->withHeader('X-Content-Type-Options', 'nosniff');
+    }
+
     public function index(Request $request): Response
     {
         return $this->render('rentals.index', $this->catalog())->noCache();

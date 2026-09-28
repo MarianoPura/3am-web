@@ -189,6 +189,11 @@ final class Request
         return $this->server[$key] ?? null;
     }
 
+    public function contentLength(): int
+    {
+        return max(0, (int) ($this->server['CONTENT_LENGTH'] ?? 0));
+    }
+
     // ─────────────────────────────────────────────────────────
     // Client
     // ─────────────────────────────────────────────────────────

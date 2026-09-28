@@ -30,7 +30,7 @@ $newRecordLabel = ['items' => 'product', 'categories' => 'category', 'payments' 
       <?php elseif (!$showEditor): ?><p>Review and manage <?= e(strtolower($sectionName)) ?>.</p><?php endif ?>
     </div>
 
-    <?php if (is_string($notice ?? null)): ?><p class="rentals-admin__notice" role="status"><?= e($notice) ?></p><?php endif ?>
+    <?php if (is_string($notice ?? null)): ?><p class="rentals-admin__notice" role="<?= !empty($noticeIsError) ? 'alert' : 'status' ?>"<?= !empty($noticeIsError) ? ' data-admin-save-error' : '' ?>><?php if (!empty($noticeIsError)): ?><strong>Not saved:</strong> <?php endif ?><?= e($notice) ?></p><?php endif ?>
 
     <?php if ($section === 'dashboard'): ?>
       <?= $this->partial('rentals.partials.admin-dashboard', ['metrics' => $metrics, 'recentOrders' => $recentOrders ?? [], 'upcomingRentals' => $upcomingRentals ?? []]) ?>
@@ -109,15 +109,16 @@ $newRecordLabel = ['items' => 'product', 'categories' => 'category', 'payments' 
                 </div>
               </fieldset>
               <fieldset><legend>Product details</legend>
-                <label>Description<textarea name="description" rows="3"><?= e((string) ($record['description'] ?? '')) ?></textarea></label>
+                <label>Description<textarea name="description" rows="3" maxlength="5000"><?= e((string) ($record['description'] ?? '')) ?></textarea></label>
                 <label>Ideal use<input name="ideal_use" maxlength="500" value="<?= e_attr((string) ($record['ideal_use'] ?? '')) ?>"></label>
                 <?php $productImage = \App\Models\RentalCatalog::imagePath($record['image_path'] ?? null); if ($productImage !== null): ?><img class="rentals-admin__image-preview" src="<?= e_attr(url($productImage)) ?>" alt="Current product image"><?php endif ?>
-                <label><?= $recordId > 0 ? 'Replace image (optional)' : 'Upload product image (optional)' ?><input type="file" name="product_image" accept="image/jpeg,image/png,image/webp"></label>
+                <?php $productUploadMax = \App\Services\RentalManagedImage::maxUploadBytes(); ?>
+                <label><?= $recordId > 0 ? 'Replace image (optional)' : 'Upload product image (optional)' ?><input type="file" name="product_image" accept="image/jpeg,image/png,image/webp" data-product-image-limit="<?= $productUploadMax ?>" aria-describedby="product-image-help"><small id="product-image-help">JPG, PNG or WebP. Maximum <?= e(number_format($productUploadMax / (1024 * 1024), 2)) ?> MB on this server. Reselect the image after a failed save.</small></label>
               </fieldset>
               <fieldset><legend>Rental settings</legend>
                 <div class="rentals-admin__two"><label>Type<select name="is_service"><option value="0"<?= (int) ($record['is_service'] ?? 0) === 0 ? ' selected' : '' ?>>Equipment</option><option value="1"<?= (int) ($record['is_service'] ?? 0) === 1 ? ' selected' : '' ?>>Service</option></select></label><label>Availability<select name="availability_status"><?php foreach (['available', 'unavailable', 'out_of_stock', 'reserved', 'inquire'] as $status): ?><option value="<?= e_attr($status) ?>"<?= ($record['availability_status'] ?? 'available') === $status ? ' selected' : '' ?>><?= e(ucwords(str_replace('_', ' ', $status))) ?></option><?php endforeach ?></select></label></div>
-                <div class="rentals-admin__two"><label>Rental unit<input name="rental_unit" maxlength="30" value="<?= e_attr((string) ($record['rental_unit'] ?? 'day')) ?>"></label><label>Available quantity<input type="number" min="0" max="999999" name="available_quantity" required value="<?= e_attr((string) ($record['available_quantity'] ?? '0')) ?>"></label></div>
-                <div class="rentals-admin__two"><label>Rate (₱)<input type="number" min="0" step="0.01" name="rental_rate" required value="<?= e_attr((string) ($record['rental_rate'] ?? '0.00')) ?>"></label><label>Security deposit (₱)<input type="number" min="0" step="0.01" name="security_deposit" required value="<?= e_attr((string) ($record['security_deposit'] ?? '0.00')) ?>"></label></div>
+                <div class="rentals-admin__two"><label>Rental unit<input name="rental_unit" maxlength="30" placeholder="e.g. day, hour or event" value="<?= e_attr((string) ($record['rental_unit'] ?? 'day')) ?>"></label><label>Available quantity<input type="number" min="0" max="999999" step="1" name="available_quantity" required value="<?= e_attr((string) ($record['available_quantity'] ?? '0')) ?>"></label></div>
+                <div class="rentals-admin__two"><label>Rate (₱)<input type="number" min="0" max="9999999999.99" step="0.01" name="rental_rate" required value="<?= e_attr((string) ($record['rental_rate'] ?? '0.00')) ?>"></label><label>Security deposit (₱, optional)<input type="number" min="0" max="9999999999.99" step="0.01" name="security_deposit" placeholder="0.00" value="<?= e_attr((string) ($record['security_deposit'] ?? '0.00')) ?>"></label></div>
               </fieldset>
             <?php elseif ($section === 'categories'): ?>
               <fieldset><legend>Basic information</legend>

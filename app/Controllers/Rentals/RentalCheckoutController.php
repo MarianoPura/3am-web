@@ -134,7 +134,7 @@ final class RentalCheckoutController extends Controller
         }
         $path = RentalManagedImage::publicPath($method['qr_image_path'], 'qr');
         if ($path === null) { return Response::notFound(); }
-        $bytes = file_get_contents(BASE_PATH . '/' . $path);
+        $bytes = @file_get_contents((string) \App\Services\RentalStorage::path($path));
         if ($bytes === false) { return Response::notFound(); }
         $mime = match (pathinfo($path, PATHINFO_EXTENSION)) {
             'jpg' => 'image/jpeg', 'png' => 'image/png', 'webp' => 'image/webp', default => 'application/octet-stream',

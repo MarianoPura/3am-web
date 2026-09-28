@@ -6,8 +6,8 @@ if (PHP_VERSION_ID < 80100) {
 }
 $container = require dirname(__DIR__) . '/bootstrap.php';
 $command = $argv[1] ?? '--check';
-if (!in_array($command, ['--check', '--migrate', '--seed-test', '--cleanup-test'], true)) {
-    fwrite(STDERR, "Usage: php bin/rentals.php --check|--migrate|--seed-test|--cleanup-test.\n"); exit(1);
+if (!in_array($command, ['--check', '--payment-report-check', '--payment-report-sql', '--migrate', '--seed-test', '--cleanup-test'], true)) {
+    fwrite(STDERR, "Usage: php bin/rentals.php --check|--payment-report-check|--payment-report-sql|--migrate|--seed-test|--cleanup-test.\n"); exit(1);
 }
 if (in_array($command, ['--migrate', '--seed-test', '--cleanup-test'], true)
     && !in_array(config('app.env'), ['local', 'testing'], true)) {
@@ -15,6 +15,30 @@ if (in_array($command, ['--migrate', '--seed-test', '--cleanup-test'], true)
 }
 try {
     $db = $container->get(App\Core\Database::class);
+
+    if (in_array($command, ['--payment-report-check', '--payment-report-sql'], true)) {
+        $inspection = (new App\Services\RentalPaymentReportSchema($db))->inspect();
+        foreach ($inspection['issues'] as $issue) { fwrite(STDERR, "Review: $issue\n"); }
+        if ($command === '--payment-report-sql') {
+            if ($inspection['migration'] !== null) {
+                echo "-- Generated from the currently connected schema; review before executing.\n";
+                echo "-- Additive SQL only. This command has NOT executed a migration.\n";
+                echo $inspection['migration'];
+            } elseif ($inspection['issues'] === []) {
+                echo "-- Payment Report schema is compatible. No column migration required.\n";
+            } else {
+                fwrite(STDERR, "Cannot propose a review-column-only migration for these schema issues. No changes made.\n");
+                exit(1);
+            }
+        } elseif ($inspection['issues'] !== []) {
+            fwrite(STDERR, "Payment Report schema mismatch. No changes made.\n");
+            exit(1);
+        } else {
+            $report = (new App\Services\RentalAdminInsights($db))->paymentReport(App\Core\Request::capture());
+            echo "Configured Payment Report schema and SELECT checked: " . count($report['rows']) . " rows returned. No changes made.\n";
+        }
+        exit(0);
+    }
 
     if ($command === '--seed-test') {
         $category = $db->selectOne('SELECT id FROM rental_categories WHERE slug = ?', ['test-rentals-category']);
@@ -177,8 +201,7 @@ try {
         $orderColumns = array_column($db->select('SHOW COLUMNS FROM `order_header`'), null, 'Field');
         foreach ([
             'payment_proof_path' => 'varchar(255) DEFAULT NULL',
-            'payment_reviewed_at' => 'timestamp NULL DEFAULT NULL',
-            'payment_reviewed_by' => 'bigint(20) UNSIGNED DEFAULT NULL',
+            ...App\Services\RentalPaymentReportSchema::REVIEW_COLUMNS,
             'status_token' => 'varchar(64) DEFAULT NULL',
         ] as $field => $definition) {
             if (!isset($orderColumns[$field])) {
@@ -256,6 +279,22 @@ try {
                 $issues[] = 'order_header.payment_status must be unsigned';
             }
         }
+        if ($name === 'rental_items') {
+            foreach (['sku', 'rental_unit', 'image_path'] as $field) {
+                if (isset($columns[$field]) && $columns[$field]['Null'] !== 'YES') { $issues[] = "$name.$field must allow NULL for optional product fields"; }
+            }
+            foreach (['name' => 190, 'slug' => 190, 'sku' => 80, 'ideal_use' => 500, 'rental_unit' => 30, 'image_path' => 500] as $field => $minimum) {
+                if (isset($columns[$field]) && preg_match('/^(?:var)?char\((\d+)\)/i', (string) $columns[$field]['Type'], $size) && (int) $size[1] < $minimum) {
+                    $issues[] = "$name.$field must support at least $minimum characters";
+                }
+            }
+            foreach (['rental_rate', 'security_deposit'] as $field) {
+                if (isset($columns[$field]) && preg_match('/^decimal\((\d+),(\d+)\)/i', (string) $columns[$field]['Type'], $size)
+                    && ((int) $size[1] - (int) $size[2] < 10 || (int) $size[2] < 2)) {
+                    $issues[] = "$name.$field must support DECIMAL(12,2) amounts";
+                }
+            }
+        }
         $indexes = $db->select('SHOW INDEX FROM ' . $identifier);
         if (!in_array('PRIMARY', array_column($indexes, 'Key_name'), true)) { $issues[] = "$name missing primary key"; }
         preg_match_all('/UNIQUE KEY `[^`]+` \(`([a-z_]+)`\)/', $table[2], $uniqueKeys, PREG_SET_ORDER);
@@ -270,6 +309,11 @@ try {
         echo "$name: " . $db->selectValue('SELECT COUNT(*) FROM ' . $identifier) . " records\n";
     }
     foreach ($issues as $issue) { echo "Review: $issue\n"; }
+    if (array_diff(['order_header', 'payment_methods', 'users', 'order_details'], $existing) === []) {
+        $reportSchema = (new App\Services\RentalPaymentReportSchema($db))->inspect();
+        foreach (array_diff($reportSchema['issues'], $issues) as $issue) { echo "Review: $issue\n"; }
+        $issues = array_unique(array_merge($issues, $reportSchema['issues']));
+    }
     if ($issues) { fwrite(STDERR, "Existing schema needs a reviewed migration. No changes made.\n"); exit(1); }
     foreach ($missing as $name => $sql) {
         if ($command === '--migrate') { $db->statement($sql); echo "Created $name\n"; }
@@ -277,6 +321,14 @@ try {
     }
     if ($missing && $command === '--check') { exit(1); }
     echo "Required Rentals columns and relationships checked. Existing records preserved.\n";
+    $uploadRoot = App\Services\RentalStorage::root();
+    echo "External Rentals storage: $uploadRoot\n";
+    foreach (['rentals/products', 'payment', 'payment/qr'] as $subdirectory) {
+        $directory = $uploadRoot . '/' . $subdirectory;
+        if (!is_dir($directory) || !is_writable($directory)) {
+            fwrite(STDERR, "Review: external storage $subdirectory is missing or not writable by this PHP process.\n");
+        }
+    }
 } catch (Throwable $e) {
     $cause = $e->getPrevious() ?? $e;
     $code = $cause instanceof PDOException ? ($cause->errorInfo[1] ?? $cause->getCode()) : $cause->getCode();

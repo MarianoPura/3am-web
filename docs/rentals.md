@@ -82,11 +82,19 @@ Production is untouched: back it up, inspect its actual statuses, rehearse the
 migration on staging, then review the exact DDL before applying it. DDL can
 implicitly commit, so do not treat this as an automatic live migration.
 
-The deployed web root must keep the root and `micro/payment/.htaccess` deny
-rules enabled. Test a direct proof URL after deployment; it must not return
-readable content. Public payment-method QR images stored beneath that denied
-directory are served through `/rentals/payment-qr/{id}`; payment proofs remain
-private. Product images use `micro/rentals/products` with executable files denied.
+New Rentals uploads use the `micro` directory beside the project, outside the
+Git checkout. `RENTALS_STORAGE_ROOT` may specify another absolute directory.
+The PHP worker needs write access to `rentals/products`, `payment`, and
+`payment/qr` beneath that directory. Application-created storage directories
+receive a direct-access deny rule; `resources/rentals-storage/.htaccess` is the
+template for pre-existing directories. Do not change the whole project to be
+writable. Product image URLs remain portable and are served by the application;
+payment QR images use `/rentals/payment-qr/{id}` and proofs stay encrypted and
+restricted to their authorized controllers. The project root's legacy
+`micro/payment` deny rule must remain enabled until any old uploads are moved.
+Existing project-local uploads remain readable during migration. Preserve their
+relative names when copying to external storage; do not change database paths.
+Test a direct proof URL after deployment; it must not return readable content.
 The corporate Information page's Start Renting button now links to Rentals.
 
 ### Existing deployed database missing review fields
@@ -99,16 +107,28 @@ SHOW COLUMNS FROM order_header LIKE 'payment_reviewed_by';
 SHOW COLUMNS FROM order_header LIKE 'paid_at';
 ```
 
-Run only the individual statement for a column confirmed missing, using the
-approved deployment migration account. These nullable additions preserve rows:
+For a targeted read-only diagnosis, run these commands on the environment that
+actually fails. They use its existing connection configuration; no credentials
+belong in command arguments or output:
 
-```sql
-ALTER TABLE order_header ADD COLUMN payment_reviewed_at TIMESTAMP NULL DEFAULT NULL;
-ALTER TABLE order_header ADD COLUMN payment_reviewed_by BIGINT UNSIGNED DEFAULT NULL;
-ALTER TABLE order_header ADD COLUMN paid_at TIMESTAMP NULL DEFAULT NULL;
+```text
+php bin/rentals.php --payment-report-check
+php bin/rentals.php --payment-report-sql
 ```
 
-The canonical schema and `bin/rentals.php --check` already require these fields.
+The first command checks required fields and executes the report SELECT only
+when the schema is compatible. The second prints proposed additive SQL based on
+the inspected schema. It adds only missing nullable review/payment timestamps
+and reviewer ID. It prints no ALTER when those columns exist and refuses to
+propose a review-only repair for other missing fields or incompatible types.
+Neither command changes the database. Review the proposal and the backup before
+an authorized developer executes it; re-run inspection immediately beforehand
+to avoid adding a column another deployment has already added. Existing columns
+and payment states are never rewritten by the proposal.
+
+The canonical schema already contains these fields. `bin/rentals.php --check`
+also validates nullable timestamp/reviewer types. The explicitly local/testing
+`--migrate` adds missing `paid_at` alongside the existing review-column additions.
 Check also `payment_methods.qr_image_path` and `rental_item_blackouts` against
 `database/rentals.sql` before release. If the QR field is missing, its exact
 additive statement is:
@@ -124,7 +144,7 @@ without reviewing actual deployed values.
 ## Local verification
 
 Use PHP 8.1+ and run `tests/rentals.php`, `tests/rentals-completion.php`,
-`tests/rentals-integration.php`, and `tests/rentals-http-flow.php
+`tests/rentals-integration.php`, `tests/rentals-payment-report.php`, and `tests/rentals-http-flow.php
 http://127.0.0.1:8000`. The HTTP script creates and removes only its own
 uniquely named test records and proofs. It checks a two-item order, rejected
 invalid uploads, encrypted proof, status token/QR markup, Admin and Superadmin
@@ -136,3 +156,8 @@ built-in server, then run `tests/rentals-admin-qa.php http://127.0.0.1:8012`.
 Set `RENTALS_QA_MOUNT=/web-dev/3am-web` only in the test server process to
 simulate deployment mounting. The QA script removes its own uniquely named
 fixtures/uploads; it never migrates production or modifies `.env`.
+
+The Payment Report test uses connection-local temporary tables. It verifies
+empty/NULL/history/status results and exact financial totals, reproduces missing
+review fields as MySQL error 1054, then repairs only those temporary tables using
+the inspected SQL proposal. Persistent tables and customer records are preserved.
