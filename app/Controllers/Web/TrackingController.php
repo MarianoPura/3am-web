@@ -23,7 +23,16 @@ final class TrackingController extends Controller
         $eventName = trim((string) $request->input('event_name', ''));
         $eventId = trim((string) $request->input('event_id', ''));
         $eventSource = trim((string) $request->input('event_source', 'browser'));
-        $eventData = (array) $request->input('event_data', []);
+        $eventData = $request->array('event_data');
+        if ($eventData === []) {
+            $raw = $request->input('event_data');
+            if (is_string($raw) && $raw !== '') {
+                $decoded = json_decode($raw, true);
+                if (is_array($decoded)) {
+                    $eventData = $decoded;
+                }
+            }
+        }
 
         if ($visitId <= 0) {
             // Attempt to record or retrieve visit if missing
