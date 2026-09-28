@@ -326,10 +326,11 @@ final class Database
             $this->bind($statement, $bindings);
             $statement->execute();
         } catch (PDOException $e) {
-            // Include the SQL (structure only — bindings are never inlined)
-            // so a failure is debuggable, while values stay out of logs.
+            // Keep database internals in logs even when a form catches a
+            // RuntimeException and displays its message to the customer.
+            error_log(sprintf('Database query failed: %s — SQL: %s', $e->getMessage(), $sql));
             throw new RuntimeException(
-                sprintf('Query failed: %s — SQL: %s', $e->getMessage(), $sql),
+                'A database request could not be completed. Please try again later.',
                 0,
                 $e
             );

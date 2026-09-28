@@ -73,7 +73,7 @@ final class Request
         // Collapse duplicate slashes so //admin and /admin are one path.
         $path = preg_replace('#/+#', '/', $path) ?? $path;
 
-        if ($basePath !== '' && str_starts_with($path, $basePath)) {
+        if ($basePath !== '' && ($path === $basePath || str_starts_with($path, $basePath . '/'))) {
             $path = substr($path, strlen($basePath));
         }
 

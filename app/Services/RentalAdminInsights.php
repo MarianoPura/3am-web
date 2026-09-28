@@ -7,7 +7,7 @@ namespace App\Services;
 use App\Core\Database;
 use App\Core\Request;
 
-/** Query-only dashboard, analytics and reports on the eight Rentals tables. */
+/** Query-only dashboard, analytics and reports on persisted Rentals transactions. */
 final class RentalAdminInsights
 {
     public function __construct(private readonly Database $db) {}
@@ -137,13 +137,16 @@ final class RentalAdminInsights
         if ($method) { $where .= ' AND h.payment_method_id = ?'; $bindings[] = $method; }
         $filters += ['payment_status' => $status, 'method' => $method];
         $rows = $this->db->select("SELECT h.id, h.order_number, h.customer_name, h.created_at,
-            h.payment_status, h.payment_reference, h.payment_reviewed_at, h.paid_at, h.total_amount,
+            h.payment_status, h.payment_reference, h.payment_reviewed_at, h.paid_at,
+            h.subtotal, h.security_deposit, h.total_amount, reviewer.name AS reviewer,
             p.name AS payment_method FROM order_header h LEFT JOIN payment_methods p ON p.id = h.payment_method_id
+            LEFT JOIN users reviewer ON reviewer.id = h.payment_reviewed_by
             WHERE $where ORDER BY h.created_at DESC, h.id DESC LIMIT 200", $bindings);
         $totals = $this->db->selectOne("SELECT COUNT(*) AS orders,
             COALESCE(SUM(CASE WHEN h.payment_status = 1 THEN h.subtotal ELSE 0 END), 0) AS rental_amount,
             COALESCE(SUM(CASE WHEN h.payment_status = 1 THEN h.security_deposit ELSE 0 END), 0) AS security_deposits,
-            COALESCE(SUM(CASE WHEN h.payment_status = 1 THEN h.total_amount ELSE 0 END), 0) AS total_collected
+            COALESCE(SUM(CASE WHEN h.payment_status = 1 THEN h.total_amount ELSE 0 END), 0) AS total_collected,
+            COALESCE(SUM(CASE WHEN h.payment_status = 0 THEN h.total_amount ELSE 0 END), 0) AS pending_amount
             FROM order_header h WHERE $where", $bindings);
         return ['rows' => $rows, 'totals' => $totals, 'filters' => $filters,
             'methods' => $this->db->select('SELECT id, name FROM payment_methods ORDER BY name')];

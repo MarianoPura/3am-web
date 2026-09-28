@@ -28,14 +28,15 @@ final class RentalCartController extends Controller
             return Response::json(['ok' => false, 'message' => 'Availability could not be loaded for that item or month.'], 422)->noCache();
         }
         $last = $first->modify('last day of this month');
-        $remaining = (new RentalCatalog($this->db()))->remainingByDate($item, $first->format('Y-m-d'), $last->format('Y-m-d'));
+        $remaining = (new RentalCatalog($this->db()))->availabilityByDate($item, $first->format('Y-m-d'), $last->format('Y-m-d'));
         $stockStatus = strtolower((string) ($item['availability_status'] ?? ''));
         $canRent = !in_array($stockStatus, ['unavailable', 'out_of_stock', 'inactive', 'reserved'], true);
         $days = [];
-        foreach ($remaining as $date => $units) {
-            $days[] = ['date' => $date, 'remaining' => $units,
+        foreach ($remaining as $date => $day) {
+            $days[] = ['date' => $date, 'remaining' => $day['remaining'], 'admin_blocked' => $day['admin_blocked'],
+                'reserved' => $day['reserved'],
                 'available' => $date >= $today->format('Y-m-d')
-                    && $canRent && $units >= $quantity];
+                    && $canRent && $day['remaining'] >= $quantity];
         }
         return Response::json(['ok' => true, 'month' => $month, 'days' => $days])->noCache();
     }

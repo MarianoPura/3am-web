@@ -73,10 +73,17 @@ $newRecordLabel = ['items' => 'product', 'categories' => 'category', 'payments' 
                 <?php if (preg_match('/\.pdf(?:\.php)?$/', (string) $record['payment_proof_path'])): ?><a href="<?= e_attr($proofUrl) ?>" target="_blank" rel="noopener">Open PDF proof in a new tab</a>
                 <?php else: ?><img src="<?= e_attr($proofUrl) ?>" loading="lazy" alt="Uploaded payment proof for order <?= e_attr((string) $record['order_number']) ?>"><?php endif ?>
               </details>
-              <?php if ((int) $record['payment_status'] === \App\Services\RentalPaymentStatus::PENDING): ?><form method="post" action="<?= e_attr(url('rentals/admin/orders/' . $recordId . '/review')) ?>" class="rentals-admin__proof-actions"><?= csrf_field() ?>
-                <button class="rentals-btn rentals-btn--primary" name="decision" value="approved" type="submit">Approve proof</button>
-                <button class="rentals-btn rentals-btn--secondary" name="decision" value="rejected" type="submit">Reject proof</button>
-              </form><?php endif ?>
+            </section>
+          <?php endif ?>
+          <?php if ((int) $record['payment_status'] === \App\Services\RentalPaymentStatus::PENDING): ?>
+            <section class="rentals-admin__review" aria-labelledby="review-actions-title">
+              <div><p class="rentals-card__meta">Pending review</p><h3 id="review-actions-title">Review payment</h3><p>Approve verified payment or reject this request. Rejection releases its equipment reservation.</p></div>
+              <?php $canApprove = \App\Services\RentalPaymentProof::path($record['payment_proof_path'] ?? null) !== null && ($record['payment_type'] ?? '') !== 'gateway'; ?>
+              <?php if (!$canApprove): ?><p class="rentals-admin__empty">A reviewable payment proof is required before approval.</p><?php endif ?>
+              <form method="post" action="<?= e_attr(url('rentals/admin/orders/' . $recordId . '/review')) ?>" class="rentals-admin__proof-actions"><?= csrf_field() ?>
+                <button class="rentals-btn rentals-btn--primary" name="decision" value="approved" type="submit"<?= $canApprove ? '' : ' disabled' ?>>Approve</button>
+                <button class="rentals-btn rentals-btn--reject" name="decision" value="rejected" type="submit">Reject</button>
+              </form>
             </section>
           <?php endif ?>
           <h3>Rented items</h3>
@@ -125,20 +132,32 @@ $newRecordLabel = ['items' => 'product', 'categories' => 'category', 'payments' 
                 <p>Active manual methods require an account name and number to appear at checkout.</p>
                 <label>Provider<input name="provider" maxlength="120" value="<?= e_attr((string) ($record['provider'] ?? '')) ?>"></label>
                 <div class="rentals-admin__two"><label>Account name<input name="account_name" maxlength="190" value="<?= e_attr((string) ($record['account_name'] ?? '')) ?>"></label><label>Account number<input name="account_number" maxlength="100" value="<?= e_attr((string) ($record['account_number'] ?? '')) ?>"></label></div>
-                <?php $paymentQr = \App\Services\RentalManagedImage::publicPath($record['qr_image_path'] ?? null, 'qr'); if ($paymentQr !== null): ?><img class="rentals-admin__qr-preview" src="<?= e_attr(url($paymentQr)) ?>" alt="Current payment QR code"><?php endif ?>
+                <?php $paymentQr = \App\Services\RentalManagedImage::publicPath($record['qr_image_path'] ?? null, 'qr'); if ($paymentQr !== null): ?><img class="rentals-admin__qr-preview" src="<?= e_attr(url('rentals/payment-qr/' . $recordId)) ?>" alt="Current payment QR code"><?php endif ?>
                 <label><?= $recordId > 0 ? 'Replace QR image (optional)' : 'QR code image (optional)' ?><input type="file" name="qr_image" accept="image/jpeg,image/png,image/webp"></label>
               </fieldset>
             <?php endif ?>
             <fieldset><legend>Status</legend><label>Record status<select name="is_active"><option value="1"<?= (int) ($record['is_active'] ?? 1) === 1 ? ' selected' : '' ?>>Active</option><option value="0"<?= (int) ($record['is_active'] ?? 1) === 0 ? ' selected' : '' ?>>Inactive</option></select></label></fieldset>
             <button class="rentals-btn rentals-btn--primary" type="submit"><?= $recordId > 0 ? 'Save changes' : 'Add ' . e($newRecordLabel) ?></button>
           </form>
-          <?php if ($section === 'items' && $recordId > 0): ?>
-            <div class="rentals-admin__blackouts"><h3>Manual date blocks</h3><p>Block maintenance or internal-use dates. Customer reservations remain active even if you unblock a period.</p>
+          <?php if ($section === 'items' && $recordId > 0 && (int) ($record['is_service'] ?? 0) === 0): ?>
+            <details class="rentals-admin__blackouts" id="equipment-availability" data-admin-availability data-availability-url="<?= e_attr(url('rentals/admin/items/' . $recordId . '/availability')) ?>">
+              <summary>Manage availability <span aria-hidden="true">＋</span></summary>
+              <p>Select a day or range to block maintenance or internal-use dates. Removing a manual block never removes a customer reservation.</p>
+              <div class="rentals-admin-calendar">
+                <div class="rentals-admin-calendar__head"><button type="button" data-admin-prev aria-label="Previous availability month">←</button><strong data-admin-month></strong><button type="button" data-admin-next aria-label="Next availability month">→</button></div>
+                <div class="rentals-admin-calendar__weekdays" aria-hidden="true"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div>
+                <div class="rentals-admin-calendar__days" data-admin-days></div>
+                <p class="rentals-admin-calendar__legend"><span>Available</span><span class="is-reserved">Customer reserved</span><span class="is-blocked">Admin blocked</span></p>
+                <p data-admin-calendar-message role="status">Select dates to create a manual block.</p>
+                <button type="button" class="rentals-admin-calendar__clear" data-admin-clear>Clear selection</button>
+              </div>
               <form method="post" action="<?= e_attr(url('rentals/admin/items/' . $recordId . '/blackouts')) ?>" class="rentals-admin__blackout-form"><?= csrf_field() ?>
                 <label>From<input type="date" name="start_date" required></label><label>Through<input type="date" name="end_date" required></label><label>Note<input name="note" maxlength="255" placeholder="Maintenance, internal use…"></label><button class="rentals-btn rentals-btn--dark" type="submit">Block dates</button>
               </form>
-              <?php foreach (($blackouts ?? []) as $blackout): ?><div class="rentals-admin__blackout-row"><span><strong><?= e((string) $blackout['start_date']) ?> – <?= e((string) $blackout['end_date']) ?></strong> <?= e((string) ($blackout['note'] ?? '')) ?> · <?= (int) $blackout['is_active'] === 1 ? 'Blocked' : 'Unblocked' ?></span><form method="post" action="<?= e_attr(url('rentals/admin/items/' . $recordId . '/blackouts/' . (int) $blackout['id'] . '/toggle')) ?>"><?= csrf_field() ?><button type="submit"><?= (int) $blackout['is_active'] === 1 ? 'Make available' : 'Block again' ?></button></form></div><?php endforeach ?>
-            </div>
+              <h4>Manual blocks</h4>
+              <?php if (($blackouts ?? []) === []): ?><p>No manual blocks yet.</p><?php endif ?>
+              <?php foreach (($blackouts ?? []) as $blackout): ?><div class="rentals-admin__blackout-row"><span><strong><?= e((string) $blackout['start_date']) ?> – <?= e((string) $blackout['end_date']) ?></strong> <?= e((string) ($blackout['note'] ?? '')) ?> · <?= (int) $blackout['is_active'] === 1 ? 'Blocked' : 'Unblocked' ?></span><form method="post" action="<?= e_attr(url('rentals/admin/items/' . $recordId . '/blackouts/' . (int) $blackout['id'] . '/toggle')) ?>"><?= csrf_field() ?><button type="submit"><?= (int) $blackout['is_active'] === 1 ? 'Remove manual block' : 'Block again' ?></button></form></div><?php endforeach ?>
+            </details>
           <?php endif ?>
         <?php endif ?>
       </div>
@@ -182,7 +201,7 @@ $newRecordLabel = ['items' => 'product', 'categories' => 'category', 'payments' 
             <?php else: ?>
               <td><strong><?= e((string) $row['name']) ?></strong></td><td><?= e((string) $row['email']) ?></td><td><?= e((string) $row['role']) ?></td><td><?= e((string) ($row['last_login'] ?? 'Never')) ?></td>
             <?php endif ?>
-            <?php if ($section !== 'customers'): ?><td><a href="<?= e_attr($sectionUrl . '?edit=' . (int) $row['id']) ?>"><?= $section === 'orders' ? 'View order' : 'Edit' ?> →</a></td><?php endif ?>
+            <?php if ($section !== 'customers'): ?><td><a href="<?= e_attr($sectionUrl . '?edit=' . (int) $row['id']) ?>"><?= $section === 'orders' ? ((int) $row['payment_status'] === 0 ? 'Review payment' : 'View order') : 'Edit' ?> →</a><?php if ($section === 'items' && (int) $row['is_service'] === 0): ?><a href="<?= e_attr($sectionUrl . '?edit=' . (int) $row['id'] . '#equipment-availability') ?>">Manage availability →</a><?php endif ?></td><?php endif ?>
           </tr><?php endforeach ?>
         </tbody></table></div>
         <?php if ($rows === []): ?><p class="rentals-admin__empty">No records match this view.</p><?php elseif (count($rows) === 200): ?><p class="rentals-admin__limit">Showing the latest 200 records.</p><?php endif ?>

@@ -27,15 +27,20 @@ if ($basePath === null) {
     $basePath  = $scriptDir === '' ? '' : $scriptDir;
 }
 
-$basePath = $basePath === '/' ? '' : rtrim((string) $basePath, '/');
+$basePath = trim(str_replace('\\', '/', (string) $basePath), '/');
+$basePath = $basePath === '' || $basePath === '.' ? '' : '/' . $basePath;
 
 $appUrl = rtrim((string) env('APP_URL', 'http://localhost'), '/');
+if ($basePath !== '' && str_ends_with($appUrl, $basePath)) {
+    $appUrl = substr($appUrl, 0, -strlen($basePath));
+}
 
 return [
     'name'     => env('APP_NAME', '3AM Media, Technology and Ventures Inc.'),
     'brand'    => '3AM Digital Media',
     'env'      => env('APP_ENV', 'production'),
-    'debug'    => (bool) env('APP_DEBUG', false),
+    'debug'    => in_array(env('APP_ENV', 'production'), ['local', 'testing', 'development'], true)
+        && (bool) env('APP_DEBUG', false),
     'timezone' => env('APP_TIMEZONE', 'Asia/Manila'),
     'locale'   => 'en_PH',
 

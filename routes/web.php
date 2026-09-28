@@ -34,6 +34,7 @@ $router->get('/information', [PageController::class, 'information'])->name('info
 $router->get('/rentals', [RentalsController::class, 'index'])->name('rentals');
 $router->get('/rentals/cart', [\App\Controllers\Rentals\RentalCartController::class, 'index'])->name('rentals.cart');
 $router->get('/rentals/availability', [\App\Controllers\Rentals\RentalCartController::class, 'availability'])->name('rentals.availability');
+$router->get('/rentals/payment-qr/{id:int}', [\App\Controllers\Rentals\RentalCheckoutController::class, 'paymentQr'])->name('rentals.payment-qr');
 $router->post('/rentals/cart/add', [\App\Controllers\Rentals\RentalCartController::class, 'add'])->name('rentals.cart.add');
 $router->post('/rentals/cart/update', [\App\Controllers\Rentals\RentalCartController::class, 'update'])->name('rentals.cart.update');
 $router->post('/rentals/cart/remove', [\App\Controllers\Rentals\RentalCartController::class, 'remove'])->name('rentals.cart.remove');
@@ -54,6 +55,7 @@ $router->get('/rentals/how-to-rent', [RentalsController::class, 'howToRent'])->n
 $router->get('/rentals/support', [RentalsController::class, 'support'])->name('rentals.support');
 $router->get('/rentals/admin', [\App\Controllers\Rentals\RentalAdminController::class, 'index'])->name('rentals.admin');
 $router->post('/rentals/admin/items/{id:int}/blackouts', [\App\Controllers\Rentals\RentalAdminController::class, 'saveBlackout'])->name('rentals.admin.blackouts.save');
+$router->get('/rentals/admin/items/{id:int}/availability', [\App\Controllers\Rentals\RentalAdminController::class, 'availability'])->name('rentals.admin.availability');
 $router->post('/rentals/admin/items/{id:int}/blackouts/{blackoutId:int}/toggle', [\App\Controllers\Rentals\RentalAdminController::class, 'toggleBlackout'])->name('rentals.admin.blackouts.toggle');
 $router->get('/rentals/admin/proof/{id:int}', [\App\Controllers\Rentals\RentalAdminController::class, 'viewProof'])->name('rentals.admin.proof');
 $router->post('/rentals/admin/orders/{id:int}/review', [\App\Controllers\Rentals\RentalAdminController::class, 'reviewProof'])->name('rentals.admin.review');

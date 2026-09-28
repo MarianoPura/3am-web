@@ -7,11 +7,11 @@ $container = require dirname(__DIR__) . '/bootstrap.php';
 $db = $container->get(App\Core\Database::class);
 $assert = static function (bool $ok, string $message): void { if (!$ok) { throw new RuntimeException($message); } };
 $tables = array_map(static fn (array $row): string => (string) reset($row), $db->select('SHOW TABLES'));
-foreach (['users', 'rental_categories', 'rental_items', 'carts', 'cart_items', 'payment_methods', 'order_header', 'order_details'] as $table) {
+foreach (['users', 'rental_categories', 'rental_items', 'rental_item_blackouts', 'carts', 'cart_items', 'payment_methods', 'order_header', 'order_details'] as $table) {
     $assert(in_array($table, $tables, true), 'Missing core table: ' . $table);
 }
 $columns = array_column($db->select('SHOW COLUMNS FROM order_header'), null, 'Field');
-$assert(isset($columns['payment_status'], $columns['status_token'], $columns['payment_proof_path'])
+$assert(isset($columns['payment_status'], $columns['status_token'], $columns['payment_proof_path'], $columns['payment_reviewed_at'], $columns['payment_reviewed_by'])
     && !isset($columns['status'], $columns['payment_review_status'], $columns['order_status']),
     'Order header has missing or redundant status columns.');
 $assert(str_contains(strtolower((string) $columns['payment_status']['Type']), 'tinyint'), 'Payment status is not an integer.');
@@ -21,4 +21,6 @@ $assert((int) $db->selectValue('SELECT COUNT(*) FROM order_header WHERE status_t
     'An order is missing a secure status token.');
 $assert((int) $db->selectValue('SELECT COUNT(*) FROM order_details d LEFT JOIN order_header h ON h.id = d.order_header_id WHERE h.id IS NULL') === 0,
     'An order detail has no header.');
-echo "PASS: eight core tables, one integer status source, secure tokens and order-detail relationships.\n";
+$paymentColumns = array_column($db->select('SHOW COLUMNS FROM payment_methods'), 'Field');
+$assert(in_array('qr_image_path', $paymentColumns, true), 'Missing payment QR column.');
+echo "PASS: core tables plus blackouts, review/QR fields, one integer status source, secure tokens and order-detail relationships.\n";

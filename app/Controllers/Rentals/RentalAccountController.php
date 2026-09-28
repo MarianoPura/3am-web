@@ -58,8 +58,9 @@ final class RentalAccountController extends Controller
                 unset($_SESSION['rentals_after_auth']);
                 return $this->redirect(url('rentals/admin'));
             }
-            $destination = ($_SESSION['rentals_after_auth'] ?? null) === 'checkout'
-                ? 'rentals/checkout'
+            $returnTo = $_SESSION['rentals_after_auth'] ?? null;
+            $destination = in_array($returnTo, ['checkout', 'orders', 'cart', 'account'], true)
+                ? 'rentals/' . $returnTo
                 : ((new RentalCart())->empty() ? 'rentals/account' : 'rentals/cart');
             unset($_SESSION['rentals_after_auth']);
             return $this->redirect(url($destination));
@@ -84,6 +85,7 @@ final class RentalAccountController extends Controller
     {
         $userId = (int) ((new RentalAccount($this->db(), new RentalCart()))->current()['id'] ?? 0);
         if ($userId < 1) {
+            $_SESSION['rentals_after_auth'] = 'orders';
             return $this->redirect(url('rentals/account'));
         }
 

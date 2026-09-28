@@ -68,31 +68,31 @@ const initRentalsCatalogue = () => {
   const monthOf = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
   let calendarMonth = monthOf(new Date());
   let calendarRequest = 0;
-  const monthCache = new Map();
+  let selectionRequest = 0;
+  let quantityRequest = 0;
   const displayDate = (value) => new Date(`${value}T12:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
   const updateDateLabel = () => {
     dateTrigger.textContent = startInput.value
       ? `${displayDate(startInput.value)}${endInput.value ? ` – ${displayDate(endInput.value)}` : ' – choose end date'}`
       : 'Select rental dates';
   };
-  const getMonth = async (month) => {
-    const key = `${currentDetail.id}:${quantityInput.value}:${month}`;
-    if (monthCache.has(key)) return monthCache.get(key);
+  const getMonth = async (month, detail = currentDetail, quantity = quantityInput.value || '1') => {
     const url = new URL(form.dataset.availabilityUrl, window.location.href);
-    url.searchParams.set('id', currentDetail.id);
+    url.searchParams.set('id', detail.id);
     url.searchParams.set('month', month);
-    url.searchParams.set('quantity', quantityInput.value || '1');
+    url.searchParams.set('quantity', quantity);
     const response = await fetch(url, { credentials: 'same-origin' });
     const data = await response.json();
     if (!response.ok || !data.ok) throw new Error(data.message || 'Availability could not be loaded.');
-    monthCache.set(key, data.days);
     return data.days;
   };
   const rangeAvailable = async (start, end) => {
     let month = start.slice(0, 7);
+    const detail = currentDetail;
+    const quantity = quantityInput.value || '1';
     const lookup = new Map();
     while (month <= end.slice(0, 7)) {
-      (await getMonth(month)).forEach((day) => lookup.set(day.date, day.available));
+      (await getMonth(month, detail, quantity)).forEach((day) => lookup.set(day.date, day.available));
       const [year, number] = month.split('-').map(Number);
       month = monthOf(new Date(year, number, 1));
     }
@@ -106,13 +106,20 @@ const initRentalsCatalogue = () => {
     if (!currentDetail || !currentDetail.canRent) return;
     const thisRequest = ++calendarRequest;
     const days = calendar.querySelector('[data-calendar-days]');
-    days.textContent = 'Loading availability…';
+    const requestedMonth = calendarMonth;
+    const [year, month] = requestedMonth.split('-').map(Number);
+    calendar.querySelector('[data-month-label]').textContent = new Date(year, month - 1, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+    const first = monthOf(new Date());
+    const lastDate = new Date(); lastDate.setDate(1); lastDate.setMonth(lastDate.getMonth() + 12);
+    calendar.querySelector('[data-month-prev]').disabled = requestedMonth <= first;
+    calendar.querySelector('[data-month-next]').disabled = requestedMonth >= monthOf(lastDate);
+    days.setAttribute('aria-busy', 'true');
+    days.querySelectorAll('button').forEach((cell) => { cell.disabled = true; });
+    if (!days.children.length) days.textContent = 'Loading dates…';
     try {
-      const dates = await getMonth(calendarMonth);
+      const dates = await getMonth(requestedMonth);
       if (thisRequest !== calendarRequest) return;
       days.replaceChildren();
-      const [year, month] = calendarMonth.split('-').map(Number);
-      calendar.querySelector('[data-month-label]').textContent = new Date(year, month - 1, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
       const offset = (new Date(year, month - 1, 1).getDay() + 6) % 7;
       for (let i = 0; i < offset; i++) days.append(document.createElement('span'));
       dates.forEach((day) => {
@@ -122,22 +129,26 @@ const initRentalsCatalogue = () => {
         cell.dataset.date = day.date;
         cell.className = day.available ? 'is-available' : 'is-unavailable';
         cell.disabled = !day.available;
-        cell.setAttribute('aria-label', `${day.date}: ${day.available ? `${day.remaining} available` : 'unavailable'}`);
+        cell.setAttribute('aria-label', `${day.date}: ${day.available ? `${day.remaining} available` : (day.admin_blocked ? 'Admin blocked' : 'unavailable')}`);
         if (day.date === startInput.value || day.date === endInput.value) cell.classList.add('is-selected');
         if (startInput.value && endInput.value && day.date > startInput.value && day.date < endInput.value) cell.classList.add('is-in-range');
         cell.addEventListener('click', async () => {
+          const thisSelection = ++selectionRequest;
           if (!startInput.value || endInput.value || day.date < startInput.value) {
             startInput.value = day.date;
             endInput.value = '';
           } else {
             cell.disabled = true;
             try {
-              if (!(await rangeAvailable(startInput.value, day.date))) {
+              const available = await rangeAvailable(startInput.value, day.date);
+              if (thisSelection !== selectionRequest || !dialog.open) return;
+              if (!available) {
                 message.textContent = 'That range contains an unavailable date. Choose another end date.';
                 cell.disabled = false;
                 return;
               }
             } catch (error) {
+              if (thisSelection !== selectionRequest || !dialog.open) return;
               message.textContent = error.message || 'Availability could not be loaded.';
               cell.disabled = false;
               return;
@@ -153,43 +164,83 @@ const initRentalsCatalogue = () => {
         });
         days.append(cell);
       });
-      const first = monthOf(new Date());
-      const lastDate = new Date(); lastDate.setMonth(lastDate.getMonth() + 12);
-      calendar.querySelector('[data-month-prev]').disabled = calendarMonth <= first;
-      calendar.querySelector('[data-month-next]').disabled = calendarMonth >= monthOf(lastDate);
+      while (days.children.length < 42) days.append(document.createElement('span'));
     } catch (error) {
       if (thisRequest === calendarRequest) days.textContent = error.message || 'Availability could not be loaded. Please try again.';
+    } finally {
+      if (thisRequest === calendarRequest) days.setAttribute('aria-busy', 'false');
     }
   };
   calendar.querySelector('[data-month-prev]').addEventListener('click', () => {
+    if (calendarMonth <= monthOf(new Date())) return;
+    selectionRequest++;
     const [year, month] = calendarMonth.split('-').map(Number);
     calendarMonth = monthOf(new Date(year, month - 2, 1)); refreshCalendar();
   });
   calendar.querySelector('[data-month-next]').addEventListener('click', () => {
+    const limit = new Date(); limit.setDate(1); limit.setMonth(limit.getMonth() + 12);
+    if (calendarMonth >= monthOf(limit)) return;
+    selectionRequest++;
     const [year, month] = calendarMonth.split('-').map(Number);
     calendarMonth = monthOf(new Date(year, month, 1)); refreshCalendar();
   });
   dateTrigger.addEventListener('click', () => {
     calendar.hidden = !calendar.hidden;
     dateTrigger.setAttribute('aria-expanded', String(!calendar.hidden));
-    if (!calendar.hidden) { refreshCalendar(); calendar.querySelector('[data-month-prev]').focus(); }
+    if (!calendar.hidden) {
+      calendarMonth = startInput.value ? startInput.value.slice(0, 7) : (calendarMonth < monthOf(new Date()) ? monthOf(new Date()) : calendarMonth);
+      refreshCalendar();
+      calendar.querySelector('[data-month-next]').focus();
+    }
   });
   dialog.querySelector('[data-date-clear]').addEventListener('click', () => {
+    selectionRequest++;
     startInput.value = ''; endInput.value = ''; updateDateLabel(); refreshCalendar();
     message.textContent = 'Select available rental dates.';
   });
-  quantityInput.addEventListener('change', () => {
-    startInput.value = ''; endInput.value = ''; updateDateLabel(); monthCache.clear();
-    message.textContent = 'Quantity changed. Select rental dates again.';
+  quantityInput.addEventListener('input', async () => {
+    const thisQuantity = ++quantityRequest;
+    selectionRequest++;
+    calendarRequest++;
+    const start = startInput.value; const end = endInput.value;
+    if (!quantityInput.checkValidity()) {
+      addButton.disabled = true;
+      calendar.querySelectorAll('[data-calendar-days] button').forEach(cell => { cell.disabled = true; });
+      message.textContent = 'Enter a valid quantity.';
+      return;
+    }
+    addButton.disabled = true;
+    message.textContent = 'Checking availability for the selected quantity…';
     if (!calendar.hidden) refreshCalendar();
+    try {
+      const valid = start ? await rangeAvailable(start, end || start) : false;
+      if (thisQuantity !== quantityRequest || !dialog.open) return;
+      if (startInput.value !== start || endInput.value !== end) return;
+      if (start && !valid) {
+        startInput.value = ''; endInput.value = ''; updateDateLabel();
+        message.textContent = 'These dates are no longer available for the selected quantity. Please choose new dates.';
+        if (!calendar.hidden) refreshCalendar();
+      } else {
+        message.textContent = valid ? 'Dates remain available for the selected quantity.' : 'Select available rental dates.';
+      }
+    } catch (error) {
+      if (thisQuantity !== quantityRequest || !dialog.open) return;
+      if (startInput.value !== start || endInput.value !== end) return;
+      startInput.value = ''; endInput.value = ''; updateDateLabel();
+      message.textContent = error.message || 'Availability could not be checked. Please choose dates again.';
+    } finally {
+      if (thisQuantity === quantityRequest && dialog.open) addButton.disabled = !currentDetail.canRent;
+    }
   });
   detailButtons.forEach((button) => button.addEventListener('click', () => {
     let detail;
     try { detail = JSON.parse(button.dataset.rentalsDetail || '{}'); } catch { return; }
     opener = button;
     currentDetail = detail;
+    calendarRequest++;
+    selectionRequest++;
     form.reset();
-    monthCache.clear();
+    quantityRequest++;
     content.hidden = false;
     success.hidden = true;
     calendar.hidden = true;
@@ -212,11 +263,16 @@ const initRentalsCatalogue = () => {
     addButton.textContent = detail.canRent ? 'Add to Cart' : (detail.isSample ? 'Preview only' : 'Currently unavailable');
     message.textContent = 'Select available rental dates.';
     dialog.showModal();
+    if (detail.canRent) {
+      calendar.hidden = false;
+      dateTrigger.setAttribute('aria-expanded', 'true');
+      refreshCalendar();
+    }
   }));
   dialog.querySelector('[data-detail-continue]').addEventListener('click', () => dialog.close());
   dialog.querySelector('[data-rentals-close]').addEventListener('click', () => dialog.close());
   dialog.addEventListener('click', (event) => { if (event.target === dialog) dialog.close(); });
-  dialog.addEventListener('close', () => { if (opener) opener.focus(); });
+  dialog.addEventListener('close', () => { calendarRequest++; selectionRequest++; quantityRequest++; if (opener) opener.focus(); });
   form.addEventListener('submit', async (event) => {
     if (!window.fetch) return;
     event.preventDefault();
@@ -302,7 +358,33 @@ const initRentalCheckout = () => {
   });
 };
 
-const initRentals = () => { initRentalsCatalogue(); initRentalCart(); initRentalCheckout(); };
+const initRentalHeader = () => {
+  const menu = document.querySelector('[data-account-menu]');
+  if (!menu) return;
+  const trigger = menu.querySelector('summary');
+  let openedByHover = false;
+  const close = (restoreFocus = false) => { openedByHover = false; menu.open = false; if (restoreFocus) trigger.focus(); };
+  menu.addEventListener('toggle', () => trigger.setAttribute('aria-expanded', String(menu.open)));
+  menu.addEventListener('mouseenter', () => {
+    if (matchMedia('(hover: hover) and (pointer: fine)').matches && !menu.open) { openedByHover = true; menu.open = true; }
+  });
+  trigger.addEventListener('click', event => {
+    // Keep a hover-opened panel open on the first click; later clicks toggle normally.
+    if (openedByHover && event.detail > 0) { event.preventDefault(); menu.open = true; }
+    openedByHover = false;
+  });
+  menu.addEventListener('mouseleave', () => { if (!menu.contains(document.activeElement)) close(); });
+  menu.addEventListener('focusout', event => { if (event.relatedTarget && !menu.contains(event.relatedTarget)) close(); });
+  document.addEventListener('click', event => { if (!menu.contains(event.target)) close(); });
+  document.addEventListener('keydown', event => { if (event.key === 'Escape' && menu.open) { event.preventDefault(); close(true); } });
+  const header = menu.closest('header');
+  const updateHeight = () => document.body.style.setProperty('--rentals-header-height', `${header.getBoundingClientRect().height}px`);
+  if ('ResizeObserver' in window) new ResizeObserver(updateHeight).observe(header);
+  else window.addEventListener('resize', updateHeight);
+  updateHeight();
+};
+
+const initRentals = () => { initRentalHeader(); initRentalsCatalogue(); initRentalCart(); initRentalCheckout(); };
 
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', initRentals, { once: true });

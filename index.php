@@ -189,5 +189,5 @@ try {
         exit;
     }
 
-    render_error($container, 500)->send();
+    $secureHeaders->handle($request, static fn (Request $r): Response => render_error($container, 500))->send();
 }

@@ -86,8 +86,16 @@ final class RentalAccount
 
     public function logout(): void
     {
-        unset($_SESSION['user_id']);
-        session_regenerate_id(true);
+        $_SESSION = [];
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            $params = session_get_cookie_params();
+            if (ini_get('session.use_cookies')) {
+                setcookie(session_name(), '', ['expires' => time() - 3600, 'path' => $params['path'],
+                    'domain' => $params['domain'], 'secure' => $params['secure'],
+                    'httponly' => $params['httponly'], 'samesite' => $params['samesite'] ?? 'Lax']);
+            }
+            session_destroy();
+        }
     }
 
     private function startSession(int $userId): void

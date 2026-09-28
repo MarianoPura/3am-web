@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 // Local HTTP workflow test. Only uniquely named test records are removed.
 $base = rtrim((string) ($argv[1] ?? ''), '/');
-if (!preg_match('#^https?://(?:localhost|127\.0\.0\.1)(?::\d+)?$#', $base)) {
+if (!preg_match('#^https?://(?:localhost|127\.0\.0\.1)(?::\d+)?(?:/[A-Za-z0-9_/-]+)?$#', $base)) {
     throw new RuntimeException('Pass a local development base URL.');
 }
 $container = require dirname(__DIR__) . '/bootstrap.php';
@@ -166,8 +166,8 @@ try {
     $assert($status === 200 && (int) $reviewed['payment_status'] === 1 && $reviewed['payment_reviewed_at'] !== null
         && (int) $reviewed['payment_reviewed_by'] === $adminId && $reviewed['paid_at'] !== null, 'Approval did not update one status source.');
     [$status, $salesReport] = $http('/rentals/admin/sales-report');
-    $assert($status === 200 && !str_contains($salesReport, (string) $order['order_number']),
-        'Local [TEST] order appeared as a real sale.');
+    $assert($status === 200 && str_contains($salesReport, (string) $order['order_number']),
+        'Approved order was hidden because its snapshot name starts with [TEST].');
     [$status, $statusPage] = $http('/rentals/order-status/' . $order['status_token']);
     $assert($status === 200 && str_contains($statusPage, 'Approved'), 'Status page did not reflect approval.');
     $db->update('UPDATE users SET role = ? WHERE id = ?', ['superadmin', $adminId]);
@@ -209,9 +209,12 @@ try {
     $assert($status === 200 && str_contains($statusPage, 'Rejected'), 'Status page did not reflect rejection.');
     [$status, $adminPage] = $http('/rentals/admin');
     $http('/rentals/logout', ['_token' => $token($adminPage)]);
+    [$status, , $ordersLogin] = $http('/rentals/orders');
+    $assert($status === 200 && $ordersLogin === $base . '/rentals/account', 'Unauthorized Orders redirect failed.');
     [$status, $login] = $http('/rentals/account');
-    [$status] = $http('/rentals/account', ['_token' => $token($login),
+    [$status, , $ordersReturn] = $http('/rentals/account', ['_token' => $token($login),
         'action' => 'login', 'email' => $email, 'password' => $password]);
+    $assert($status === 200 && $ordersReturn === $base . '/rentals/orders', 'Customer login lost My Rentals return destination.');
     [$status, $myRentals] = $http('/rentals/orders');
     [$status] = $http('/rentals/orders/' . (int) $secondOrder['id'] . '/proof', [
         '_token' => $token($myRentals), 'payment_reference' => 'RETRY-' . $key,
