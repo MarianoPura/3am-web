@@ -54,6 +54,7 @@ $token = static function (string $html): string {
 };
 $adminId = $categoryId = $itemId = $methodId = 0;
 $orderIds = [];
+$extraItemIds = [];
 try {
     foreach (['/rentals/admin' => '/rentals/account', '/rentals/orders' => '/rentals/account', '/rentals/checkout' => '/rentals/cart'] as $path => $destination) {
         [$code, , $final] = $http($path);
@@ -91,6 +92,27 @@ try {
     $item = $db->selectOne('SELECT * FROM rental_items WHERE slug = ?', [$product['slug']]);
     $itemId = (int) ($item['id'] ?? 0);
     $assert($code === 200 && $itemId > 0 && App\Services\RentalManagedImage::publicPath($item['image_path'], 'product') !== null, 'Product + image creation failed.');
+    $assert(!preg_match('/<input[^>]*name="slug"[^>]*required/', $editor), 'Product URL is still required by the browser.');
+    $autoProduct = array_replace($product, ['name' => 'QA Camera ' . $key, 'slug' => '', 'sku' => '']);
+    foreach (['qa-camera-' . $key, 'qa-camera-' . $key . '-2'] as $expectedSlug) {
+        [$code, $saved] = $http('/rentals/admin/items', $autoProduct);
+        $autoItem = $db->selectOne('SELECT * FROM rental_items WHERE slug = ?', [$expectedSlug]);
+        if ($autoItem !== null) { $extraItemIds[] = (int) $autoItem['id']; }
+        $assert($code === 200 && $autoItem !== null && $autoItem['sku'] === null && str_contains($saved, 'Changes saved.'), 'Blank slug/SKU or duplicate-name product creation failed.');
+    }
+    $autoId = $extraItemIds[0];
+    $http('/rentals/admin/items', array_replace($autoProduct, ['id' => $autoId, 'name' => 'QA renamed ' . $key]));
+    $assert($db->selectValue('SELECT slug FROM rental_items WHERE id = ?', [$autoId]) === 'qa-camera-' . $key, 'Blank slug changed an existing product URL.');
+    $http('/rentals/admin/items', array_replace($autoProduct, ['id' => $autoId, 'slug' => 'QA Camera / ' . $key . ' Custom!']));
+    $assert($db->selectValue('SELECT slug FROM rental_items WHERE id = ?', [$autoId]) === 'qa-camera-' . $key . '-custom', 'Friendly product URL was not normalized.');
+    $beforeCount = (int) $db->selectValue('SELECT COUNT(*) FROM rental_items WHERE category_id = ?', [$categoryId]);
+    [$code, $rejected] = $http('/rentals/admin/items', array_replace($autoProduct, ['name' => 'QA rejected ' . $key, 'sku' => $product['sku']]));
+    $assert($code === 200 && str_contains($rejected, 'That SKU is already used') && str_contains($rejected, 'value="QA rejected ' . $key . '"')
+        && str_contains($rejected, 'QA original description') && (int) $db->selectValue('SELECT COUNT(*) FROM rental_items WHERE category_id = ?', [$categoryId]) === $beforeCount,
+        'Duplicate SKU did not show a clear error, retain form input, or prevent insertion.');
+    [$code, $rejected] = $http('/rentals/admin/items', array_replace($autoProduct, ['sku' => str_repeat('x', 81)]));
+    $assert($code === 200 && str_contains($rejected, '80 characters or fewer')
+        && (int) $db->selectValue('SELECT COUNT(*) FROM rental_items WHERE category_id = ?', [$categoryId]) === $beforeCount, 'Overlong SKU was silently truncated or inserted.');
     $oldImage = $item['image_path'];
     [, $public] = $http('/rentals/items');
     $assert(str_contains($public, $name) && str_contains($public, $item['image_path']) && !str_contains($public, $product['sku']), 'Public product/image missing or SKU exposed.');
@@ -259,6 +281,7 @@ try {
     echo "PASS: Admin auth/mounted redirects/logout, category/product CRUD/uploads, malicious files, QR replacement/route, blackouts, searches/status filters, CSRF, reports and production errors.\n";
 } finally {
     foreach ($orderIds as $id) { $db->delete('DELETE FROM order_header WHERE id = ?', [$id]); }
+    foreach ($extraItemIds as $id) { $db->delete('DELETE FROM rental_items WHERE id = ?', [$id]); }
     if ($itemId) {
         $path = $db->selectValue('SELECT image_path FROM rental_items WHERE id = ?', [$itemId]);
         App\Services\RentalManagedImage::remove($path, 'product');
