@@ -86,7 +86,8 @@ try {
         'available_quantity' => '3', 'is_active' => '1'];
     foreach ([$malicious, $large] as $badFile) {
         [$code, $failure] = $http('/rentals/admin/items', $product + ['product_image' => new CURLFile($badFile, 'image/jpeg', 'photo.jpg')]);
-        $assert($code === 200 && !$db->selectValue('SELECT id FROM rental_items WHERE slug = ?', [$product['slug']]), 'Invalid image created a product.');
+        $assert(in_array($code, [200, 413], true) && !$db->selectValue('SELECT id FROM rental_items WHERE slug = ?', [$product['slug']]), 'Invalid image created a product or returned an unexpected response.');
+        if ($code === 413) { $assert(str_contains($failure, 'upload limit'), 'Oversized upload was reported as a session/slug error.'); }
     }
     [$code] = $http('/rentals/admin/items', $product + ['product_image' => new CURLFile($picture, 'image/png', '../unsafe.php.png')]);
     $item = $db->selectOne('SELECT * FROM rental_items WHERE slug = ?', [$product['slug']]);
@@ -113,6 +114,47 @@ try {
     [$code, $rejected] = $http('/rentals/admin/items', array_replace($autoProduct, ['sku' => str_repeat('x', 81)]));
     $assert($code === 200 && str_contains($rejected, '80 characters or fewer')
         && (int) $db->selectValue('SELECT COUNT(*) FROM rental_items WHERE category_id = ?', [$categoryId]) === $beforeCount, 'Overlong SKU was silently truncated or inserted.');
+    foreach ([
+        ['category_id', '', 'Category:'], ['category_id', $categoryId . '.5', 'Category:'], ['category_id', '999999999999999999', 'Choose an existing category'],
+        ['name', '  ', 'Name:'], ['name', str_repeat('é', 191), 'Name:'],
+        ['is_service', 'camera', 'Type:'], ['availability_status', 'unknown', 'availability status'],
+        ['rental_unit', str_repeat('x', 31), 'Rental unit:'], ['ideal_use', str_repeat('x', 501), 'Ideal use:'],
+        ['description', str_repeat('x', 5001), 'Description:'], ['slug', str_repeat('x', 191), 'Slug:'],
+        ['available_quantity', '', 'Available quantity:'], ['available_quantity', '1.5', 'Available quantity:'],
+        ['available_quantity', '-1', 'Available quantity:'], ['available_quantity', 'many', 'Available quantity:'],
+        ['available_quantity', '1000000', 'Available quantity:'],
+        ['rental_rate', '', 'Rate:'], ['rental_rate', '-1', 'Rate:'], ['rental_rate', '1.234', 'Rate:'], ['rental_rate', '10000000000', 'Rate:'],
+        ['security_deposit', '-1', 'Security deposit:'], ['is_active', '2', 'active status'],
+    ] as [$field, $value, $message]) {
+        [$code, $rejected] = $http('/rentals/admin/items', array_replace($autoProduct, [$field => $value]));
+        $assert($code === 200 && str_contains($rejected, $message) && str_contains($rejected, 'role="alert"')
+            && (int) $db->selectValue('SELECT COUNT(*) FROM rental_items WHERE category_id = ?', [$categoryId]) === $beforeCount,
+            'Product validation failed for ' . $field . '.');
+    }
+    $valid = array_replace($autoProduct, ['id' => $autoId, 'name' => str_repeat('é', 190), 'sku' => str_repeat('é', 80),
+        'rental_unit' => str_repeat('é', 30), 'ideal_use' => str_repeat('é', 500), 'description' => str_repeat('é', 5000),
+        'security_deposit' => '', 'rental_rate' => '.50', 'available_quantity' => '999999']);
+    $http('/rentals/admin/items', $valid);
+    $validRow = $db->selectOne('SELECT * FROM rental_items WHERE id = ?', [$autoId]);
+    $assert($validRow['name'] === $valid['name'] && $validRow['sku'] === $valid['sku'] && $validRow['description'] === $valid['description']
+        && $validRow['ideal_use'] === $valid['ideal_use'] && $validRow['rental_unit'] === $valid['rental_unit']
+        && (float) $validRow['security_deposit'] === 0.0 && (float) $validRow['rental_rate'] === .50, 'Valid Unicode text, optional deposit or decimal rate was rejected/truncated.');
+    foreach (['0', '1'] as $type) {
+        foreach (['available', 'unavailable', 'out_of_stock', 'reserved', 'inquire'] as $availability) {
+            $http('/rentals/admin/items', array_replace($autoProduct, ['id' => $autoId, 'is_service' => $type, 'availability_status' => $availability, 'rental_unit' => 'event']));
+            $actual = $db->selectOne('SELECT is_service, availability_status, rental_unit FROM rental_items WHERE id = ?', [$autoId]);
+            $assert((string) $actual['is_service'] === $type && $actual['availability_status'] === $availability && $actual['rental_unit'] === 'event', 'Valid product type/availability/unit was rejected.');
+        }
+    }
+    $externalImage = App\Services\RentalStorage::path($item['image_path']);
+    $assert($externalImage !== null && str_starts_with($externalImage, App\Services\RentalStorage::root() . '/')
+        && !is_file(BASE_PATH . '/' . $item['image_path']), 'Product upload was saved inside the checkout.');
+    [$imageCode, $imageBytes, , $imageHeaders] = $http('/' . $item['image_path']);
+    $assert($imageCode === 200 && $imageBytes === $png && stripos($imageHeaders, 'Content-Type: image/png') !== false, 'Externally stored product image route failed.');
+    foreach (['/micro/rentals/products/' . str_repeat('a', 32) . '.php', '/micro/rentals/products/not-an-image.png'] as $badPath) {
+        [$code] = $http($badPath);
+        $assert($code === 404, 'Invalid managed product image path was served.');
+    }
     $oldImage = $item['image_path'];
     [, $public] = $http('/rentals/items');
     $assert(str_contains($public, $name) && str_contains($public, $item['image_path']) && !str_contains($public, $product['sku']), 'Public product/image missing or SKU exposed.');
@@ -127,7 +169,7 @@ try {
         && (float) $item['security_deposit'] === 9000.0 && (int) $item['available_quantity'] === 2 && $item['image_path'] === $oldImage, 'Product edit did not persist/retain image.');
     $http('/rentals/admin/items', $product + ['product_image' => new CURLFile($picture, 'image/png', 'replacement.png')]);
     $item = $db->selectOne('SELECT * FROM rental_items WHERE id = ?', [$itemId]);
-    $assert($item['image_path'] !== $oldImage && !is_file(BASE_PATH . '/' . $oldImage), 'Managed product replacement failed.');
+    $assert($item['image_path'] !== $oldImage && App\Services\RentalStorage::path($oldImage) === null, 'Managed product replacement failed.');
     [, $public] = $http('/rentals/items');
     $assert(str_contains($public, $product['description']) && str_contains($public, $product['name']), 'Public product data was stale.');
     [, $editor] = $http('/rentals/admin/payments?new=1');
@@ -147,7 +189,7 @@ try {
     $http('/rentals/admin/payments', $payment);
     $assert($db->selectValue('SELECT qr_image_path FROM payment_methods WHERE id = ?', [$methodId]) === $oldQr, 'QR was lost without replacement.');
     $http('/rentals/admin/payments', $payment + ['qr_image' => new CURLFile($picture, 'image/png', 'qr-replacement.png')]);
-    $assert(!is_file(BASE_PATH . '/' . $oldQr), 'Old managed QR remained after successful replacement.');
+    $assert(App\Services\RentalStorage::path($oldQr) === null, 'Old managed QR remained after successful replacement.');
     [$code, $qr] = $http('/rentals/payment-qr/' . $methodId);
     $assert($code === 200 && $qr === $png, 'Protected-folder QR route failed.');
     $date = (new DateTimeImmutable('today'))->modify('+60 days')->format('Y-m-d');
@@ -199,9 +241,20 @@ try {
         [, $orders] = $http('/rentals/admin/orders?q=' . rawurlencode($name) . '&status=' . $state);
         $assert(str_contains($orders, 'QA-' . $key . '-' . $state) && str_contains($orders, 'rentals-payment-badge--' . $badge), 'Order filter/badge failed.');
     }
-    [, $report] = $http('/rentals/admin/payment-report?method=' . $methodId);
-    $assert(str_contains($report, 'QA-' . $key . '-0') && str_contains($report, 'Approved total collected')
+    [$code, $report] = $http('/rentals/admin/payment-report?method=' . $methodId);
+    $assert($code === 200 && str_contains($report, 'QA-' . $key . '-0') && str_contains($report, 'Approved total collected')
         && str_contains($report, 'Pending amount') && str_contains($report, '9,300.00'), 'Payment report failed.');
+    foreach ([0 => 'pending', 1 => 'approved', 2 => 'rejected'] as $state => $badge) {
+        [$code, $filteredReport] = $http('/rentals/admin/payment-report?method=' . $methodId . '&payment_status=' . $state);
+        $assert($code === 200 && str_contains($filteredReport, 'QA-' . $key . '-' . $state)
+            && str_contains($filteredReport, 'rentals-payment-badge--' . $badge), 'Payment report HTTP/status filter failed.');
+    }
+    $db->update('UPDATE payment_methods SET is_active=0 WHERE id=?', [$methodId]);
+    [$code, $historicalReport] = $http('/rentals/admin/payment-report?method=' . $methodId);
+    $assert($code === 200 && str_contains($historicalReport, 'QA-' . $key . '-1'), 'Inactive method hid historical payment.');
+    $db->update('UPDATE payment_methods SET is_active=1 WHERE id=?', [$methodId]);
+    [$code, $emptyReport] = $http('/rentals/admin/payment-report?method=' . $methodId . '&from=2099-01-01');
+    $assert($code === 200 && str_contains($emptyReport, 'No payments match these filters.'), 'Empty Payment Report did not return HTTP 200.');
     $insights = new App\Services\RentalAdminInsights($db);
     $expected = $db->selectValue('SELECT COALESCE(SUM(h.subtotal),0) FROM order_header h WHERE h.payment_status = 1 AND EXISTS (SELECT 1 FROM order_details d WHERE d.order_header_id = h.id)');
     $assert((float) $insights->dashboard()['metrics']['Total rental sales'] === (float) $expected, 'Dashboard sales include deposits or hide [TEST] snapshots.');

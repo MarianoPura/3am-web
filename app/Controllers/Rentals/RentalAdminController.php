@@ -55,7 +55,13 @@ final class RentalAdminController extends Controller
         } elseif ($section === 'sales-report') {
             $data['report'] = (new RentalAdminInsights($db))->salesReport($request);
         } elseif ($section === 'payment-report') {
-            $data['report'] = (new RentalAdminInsights($db))->paymentReport($request);
+            try {
+                $data['report'] = (new RentalAdminInsights($db))->paymentReport($request);
+            } catch (Throwable $e) {
+                $cause = $e->getPrevious() ?? $e;
+                error_log('Rentals Payment Report failed: ' . $cause->getMessage());
+                throw $e;
+            }
         } elseif ($section === 'items') {
             $term = substr($request->string('q'), 0, 100);
             $categoryId = max(0, $request->int('category'));
@@ -110,6 +116,8 @@ final class RentalAdminController extends Controller
         }
         $data['notice'] = $_SESSION['rentals_admin_notice'] ?? null;
         unset($_SESSION['rentals_admin_notice']);
+        $data['noticeIsError'] = (bool) ($_SESSION['rentals_admin_notice_error'] ?? false);
+        unset($_SESSION['rentals_admin_notice_error']);
         $draft = $_SESSION['rentals_admin_product_draft'] ?? null;
         if ($section === 'items' && $showEditor && is_array($draft) && (int) $draft['id'] === $id) {
             $data['record'] = array_replace($data['record'] ?? [], $draft['fields']);
@@ -137,17 +145,29 @@ final class RentalAdminController extends Controller
             $_SESSION['rentals_admin_notice'] = $e->getMessage();
         } catch (Throwable $e) {
             $failed = true;
-            error_log('Rentals admin save failed: ' . $e->getMessage());
-            $_SESSION['rentals_admin_notice'] = 'Could not save. Check required fields and unique slug or SKU.';
+            $reference = bin2hex(random_bytes(4));
+            $cause = $e->getPrevious() ?? $e;
+            $code = $cause instanceof \PDOException ? (int) ($cause->errorInfo[1] ?? 0) : 0;
+            error_log('Rentals admin save failed [' . $reference . '], section=' . $section . ', database code=' . $code . ': ' . $e->getMessage());
+            $_SESSION['rentals_admin_notice'] = $section === 'items'
+                ? match ($code) {
+                    1062 => 'A product URL or SKU was just used by another product. Leave the slug blank and use a different SKU, then try again.',
+                    1048, 1054, 1146, 1265, 1364, 1406 => 'A server configuration problem prevented this product from being saved. Your entries have been kept. Reference: ' . $reference,
+                    1452 => 'The selected category is no longer available. Choose a category again.',
+                    default => 'The product could not be saved right now. Your entries have been kept. Reference: ' . $reference,
+                }
+                : 'Could not save. Check required fields and unique slug or SKU.';
         }
         if ($failed && $section === 'items') {
             $fields = [];
             foreach (['category_id', 'name', 'slug', 'sku', 'description', 'ideal_use', 'is_service',
                 'availability_status', 'rental_unit', 'rental_rate', 'security_deposit', 'available_quantity', 'is_active'] as $field) {
-                $fields[$field] = substr($request->string($field), 0, 5000);
+                preg_match('/^.{0,5000}/us', $request->string($field), $text);
+                $fields[$field] = $text[0] ?? '';
             }
             $_SESSION['rentals_admin_product_draft'] = ['id' => $id, 'fields' => $fields];
         }
+        $_SESSION['rentals_admin_notice_error'] = $failed;
         $query = $id > 0 ? '?edit=' . $id : ($failed && $section !== 'orders' ? '?new=1' : '');
         return $this->redirect(url('rentals/admin/' . $section . $query));
     }
@@ -350,29 +370,38 @@ final class RentalAdminController extends Controller
 
     private function saveItem(Request $request, int $id): void
     {
-        $category = max(0, $request->int('category_id'));
+        $categoryValue = $request->string('category_id');
+        if (!preg_match('/^[1-9][0-9]{0,17}$/D', $categoryValue)) {
+            throw new \InvalidArgumentException('Category: choose an existing category from the list.');
+        }
+        $category = (int) $categoryValue;
         if ($this->db()->selectOne('SELECT id FROM rental_categories WHERE id = ?', [$category]) === null) {
             throw new \InvalidArgumentException('Choose an existing category.');
         }
-        $name = $this->name($request);
-        $sku = $request->string('sku');
-        if (strlen($sku) > 80) { throw new \InvalidArgumentException('Keep the SKU to 80 characters or fewer, or leave it blank.'); }
+        $name = $this->productText($request, 'name', 'Name', 190, true);
+        $sku = $this->productText($request, 'sku', 'SKU', 80);
         if ($sku !== '' && $this->db()->selectValue('SELECT id FROM rental_items WHERE sku = ? AND id <> ? LIMIT 1', [$sku, $id]) !== null) {
             throw new \InvalidArgumentException('That SKU is already used by another product. Enter a different SKU or leave it blank.');
         }
-        $description = substr($request->string('description'), 0, 5000);
-        $ideal = substr($request->string('ideal_use'), 0, 500);
+        $description = $this->productText($request, 'description', 'Description', 5000);
+        $ideal = $this->productText($request, 'ideal_use', 'Ideal use', 500);
+        $this->productText($request, 'slug', 'Slug', 190);
         $existing = $id > 0 ? $this->db()->selectOne('SELECT image_path, slug FROM rental_items WHERE id = ?', [$id]) : null;
         if ($id > 0 && $existing === null) { throw new \InvalidArgumentException('That product no longer exists.'); }
         $slug = $this->productSlug($request, $name, $id, $existing['slug'] ?? null);
-        $service = $request->string('is_service') === '1' ? 1 : 0;
+        $type = $request->string('is_service');
+        if (!in_array($type, ['0', '1'], true)) { throw new \InvalidArgumentException('Type: choose Equipment or Service.'); }
+        $service = (int) $type;
         $status = $request->string('availability_status');
         if (!in_array($status, self::AVAILABILITY, true)) { throw new \InvalidArgumentException('Choose a valid availability status.'); }
-        $unit = substr($request->string('rental_unit'), 0, 30);
-        $rate = $this->money($request->string('rental_rate'));
-        $deposit = $this->money($request->string('security_deposit'));
-        $quantity = $request->int('available_quantity');
-        if ($quantity < 0 || $quantity > 999999) { throw new \InvalidArgumentException('Enter a valid available quantity.'); }
+        $unit = $this->productText($request, 'rental_unit', 'Rental unit', 30);
+        $rate = $this->money($request->string('rental_rate'), 'Rate');
+        $deposit = $this->money($request->string('security_deposit'), 'Security deposit', true);
+        $quantityValue = $request->string('available_quantity');
+        if (!preg_match('/^[0-9]{1,6}$/D', $quantityValue)) {
+            throw new \InvalidArgumentException('Available quantity: enter a whole number from 0 to 999999.');
+        }
+        $quantity = (int) $quantityValue;
         $active = $this->active($request, 'rental_items', $id);
         // Finish validation before writing a file, so failed form validation
         // cannot leave an orphaned upload behind.
@@ -425,10 +454,24 @@ final class RentalAdminController extends Controller
         if ($uploaded !== null) { RentalManagedImage::remove($existing['qr_image_path'] ?? null, 'qr'); }
     }
 
-    private function money(string $value): float
+    private function productText(Request $request, string $field, string $label, int $max, bool $required = false): string
     {
-        if (!preg_match('/^\d{1,10}(?:\.\d{1,2})?$/', $value)) { throw new \InvalidArgumentException('Enter a valid nonnegative amount with up to two decimals.'); }
-        return (float) $value;
+        $value = $request->string($field);
+        if ($required && $value === '') { throw new \InvalidArgumentException($label . ': enter a value.'); }
+        $length = preg_match_all('/./us', $value);
+        if ($length === false || $length > $max) {
+            throw new \InvalidArgumentException($label . ': use valid text with ' . $max . ' characters or fewer.');
+        }
+        return $value;
+    }
+
+    private function money(string $value, string $label, bool $optional = false): string
+    {
+        if ($value === '' && $optional) { return '0.00'; }
+        if (!preg_match('/^(?:[0-9]{1,10}(?:\.[0-9]{1,2})?|\.[0-9]{1,2})$/D', $value)) {
+            throw new \InvalidArgumentException($label . ': enter an amount from 0 to 9999999999.99 with up to two decimal places.');
+        }
+        return $value;
     }
 
     private function active(Request $request, string $table, int $id): int

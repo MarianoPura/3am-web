@@ -247,6 +247,9 @@ final class RentalCatalog
     public static function imagePath(?string $path): ?string
     {
         $path = trim((string) $path);
+        if (str_starts_with($path, 'micro/')) {
+            return \App\Services\RentalManagedImage::publicPath($path, 'product');
+        }
         if ($path === '' || !preg_match('#^(?:(?:media|uploads)/[A-Za-z0-9_./-]+|micro/rentals/products/[a-f0-9]{32})\.(?:jpe?g|png|webp|avif)$#i', $path)
             || str_contains($path, '..') || !is_file(BASE_PATH . '/' . $path)) {
             return null;

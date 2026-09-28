@@ -86,3 +86,15 @@ document.querySelectorAll('[data-admin-availability]').forEach((panel) => {
   panel.addEventListener('toggle', () => { if (panel.open) load(); else request++; });
   if (location.hash === '#equipment-availability') panel.open = true;
 });
+// The live host may accept smaller uploads than the application's 5 MB limit.
+document.querySelector('[data-admin-save-error]')?.scrollIntoView({ block: 'center' });
+document.querySelectorAll('[data-product-image-limit]').forEach(input => {
+  const validate = () => {
+    const file = input.files[0];
+    const limit = Number(input.dataset.productImageLimit);
+    input.setCustomValidity(file && file.size > limit
+      ? `Choose an image no larger than ${(limit / (1024 * 1024)).toFixed(2)} MB on this server.` : '');
+  };
+  input.addEventListener('change', validate);
+  validate();
+});

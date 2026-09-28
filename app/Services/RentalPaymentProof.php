@@ -7,7 +7,7 @@ namespace App\Services;
 use App\Core\Response;
 use RuntimeException;
 
-/** Private proof storage in the deployed web root's micro/payment directory. */
+/** Encrypted payment proofs in external micro/payment storage. */
 final class RentalPaymentProof
 {
     private const LEGACY_GUARD = '<?php http_response_code(404); exit; __halt_compiler();';
@@ -28,10 +28,7 @@ final class RentalPaymentProof
         }
         $extension = self::TYPES[(new \finfo(FILEINFO_MIME_TYPE))->file($source)] ?? null;
         if ($extension === null) { throw new RuntimeException('Use a JPG, PNG, WebP or PDF payment proof.'); }
-        $directory = BASE_PATH . '/micro/payment';
-        if (!is_dir($directory) && !@mkdir($directory, 0700, true) && !is_dir($directory)) {
-            throw new RuntimeException('Payment proof storage is unavailable.');
-        }
+        $directory = RentalStorage::directory('payment');
         $plain = @file_get_contents($source);
         if ($plain === false || strlen($plain) !== $size) { throw new RuntimeException('Payment proof could not be read.'); }
         $nonce = random_bytes(12);
@@ -39,7 +36,7 @@ final class RentalPaymentProof
         $ciphertext = openssl_encrypt($plain, 'aes-256-gcm', self::key(), OPENSSL_RAW_DATA, $nonce, $tag);
         if ($ciphertext === false) { throw new RuntimeException('Payment proof could not be secured.'); }
         $relative = 'micro/payment/' . bin2hex(random_bytes(16)) . '.' . $extension;
-        $path = BASE_PATH . '/' . $relative;
+        $path = $directory . '/' . basename($relative);
         $stream = @fopen($path, 'xb');
         if ($stream === false) { throw new RuntimeException('Payment proof could not be saved.'); }
         $closed = false;
@@ -60,11 +57,11 @@ final class RentalPaymentProof
     public static function path(?string $reference): ?string
     {
         if ($reference !== null && preg_match('#^micro/payment/[a-f0-9]{32}\.(?:jpg|png|webp|pdf)$#', $reference) === 1) {
-            $path = BASE_PATH . '/' . $reference;
+            $path = RentalStorage::path($reference);
         } elseif ($reference !== null && preg_match('/^[a-f0-9]{32}\.(?:jpg|png|webp|pdf)\.php$/', $reference) === 1) {
             $path = BASE_PATH . '/storage/rentals/payment-proofs/' . $reference;
         } else { return null; }
-        return is_file($path) ? $path : null;
+        return $path !== null && is_file($path) ? $path : null;
     }
 
     public static function remove(?string $reference): void
