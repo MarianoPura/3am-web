@@ -61,7 +61,7 @@ $hero   = $landing['hero'];
       <p class="lp-hero__lede"><?= e($hero['lede']) ?></p>
       <div class="lp-hero__media">
         <?php if (($video['kind'] ?? 'none') === 'file'): ?>
-          <video controls playsinline preload="none" poster="<?= e_attr($poster ?? '') ?>">
+          <video autoplay muted loop playsinline preload="auto" controls poster="<?= e_attr($poster ?? '') ?>">
             <source src="<?= e_attr($video['src']) ?>" type="video/mp4">
           </video>
         <?php else: ?>

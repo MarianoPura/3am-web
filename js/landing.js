@@ -556,6 +556,27 @@
     startAutoScroll();
   }
 
+  // ── Hero Video Autoplay & Loop ──────────────────────────────────────────
+  function setupHeroVideo() {
+    const video = document.querySelector('.lp-hero__media video');
+    if (!video) return;
+
+    video.muted = true;
+    video.defaultMuted = true;
+    video.loop = true;
+
+    const playPromise = video.play();
+    if (playPromise !== undefined) {
+      playPromise.catch(() => {
+        const tryPlay = () => {
+          video.play().catch(() => {});
+        };
+        window.addEventListener('click', tryPlay, { once: true, passive: true });
+        window.addEventListener('touchstart', tryPlay, { once: true, passive: true });
+      });
+    }
+  }
+
   // ── Initialise ──────────────────────────────────────────────────────────
   initPixel();
   captureUtms();
@@ -564,5 +585,6 @@
   setupStickyCTA();
   setupCTAScroll();
   setupServicesCarousel();
+  setupHeroVideo();
 
 })();
