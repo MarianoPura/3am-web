@@ -331,17 +331,63 @@
   function setupCTAScroll() {
     document.querySelectorAll('[data-lp-cta]').forEach(cta => {
       cta.addEventListener('click', (e) => {
-        const target = document.querySelector(cta.getAttribute('href'));
+        const href = cta.getAttribute('href');
+        if (!href || !href.startsWith('#')) return;
+        const target = document.querySelector(href);
         if (!target) return;
         e.preventDefault();
-        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
+        const isDesktop = window.innerWidth >= 992;
         const firstInput = target.querySelector('input:not([type="hidden"]), select, textarea');
+
+        // On desktop, if already at the hero section, avoid scrolling down and cutting the top
+        if (isDesktop && href === '#lead-form' && window.scrollY < 160) {
+          if (firstInput) {
+            firstInput.focus({ preventScroll: true });
+          }
+          return;
+        }
+
+        // Calculate destination with sticky navbar clearance
+        const nav = document.querySelector('.nav');
+        const navHeight = nav ? nav.offsetHeight : 68;
+        const targetTop = (isDesktop && href === '#lead-form')
+          ? 0
+          : Math.max(0, target.getBoundingClientRect().top + window.pageYOffset - (navHeight + 16));
+
+        window.scrollTo({
+          top: targetTop,
+          behavior: 'smooth'
+        });
+
         if (firstInput) {
-          setTimeout(() => firstInput.focus(), 500);
+          setTimeout(() => firstInput.focus({ preventScroll: true }), 450);
         }
       });
     });
+
+    // Handle initial #lead-form hash if visitor arrives with direct anchor
+    if (window.location.hash === '#lead-form') {
+      setTimeout(() => {
+        const target = document.getElementById('lead-form');
+        if (!target) return;
+        const isDesktop = window.innerWidth >= 992;
+        const nav = document.querySelector('.nav');
+        const navHeight = nav ? nav.offsetHeight : 68;
+        const targetTop = isDesktop
+          ? 0
+          : Math.max(0, target.getBoundingClientRect().top + window.pageYOffset - (navHeight + 16));
+        window.scrollTo({ top: targetTop, behavior: 'smooth' });
+      }, 100);
+    }
+
+    // Toggle condensed styling on minimal header when scrolling
+    const navMinimal = document.querySelector('.nav--minimal');
+    if (navMinimal) {
+      window.addEventListener('scroll', () => {
+        navMinimal.classList.toggle('is-condensed', window.scrollY > 40);
+      }, { passive: true });
+    }
   }
 
   // ── Services Section Carousel ───────────────────────────────────────────

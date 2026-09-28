@@ -6,6 +6,18 @@
  */
 
 /* ── Minimal Header ────────────────────────────────────────── */
+.nav--minimal {
+  background: var(--c-void) !important;
+  border-bottom: 1px solid transparent;
+  transition: background var(--m-ui) var(--ease),
+              border-color var(--m-ui) var(--ease);
+}
+
+.nav--minimal.is-condensed {
+  background: var(--c-void) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
 .nav--minimal .nav__inner {
   display: flex;
   align-items: center;
@@ -64,9 +76,7 @@
 .lp-hero {
   position: relative;
   padding-block: calc(var(--header-offset, 64px) + 0.75rem) 2.25rem;
-  background: radial-gradient(circle at 80% 20%, rgba(246, 196, 83, 0.09), transparent 50%),
-    radial-gradient(circle at 10% 80%, rgba(30, 80, 160, 0.12), transparent 50%),
-    var(--bg);
+  background: var(--c-void) !important;
   overflow: visible;
 }
 
@@ -80,14 +90,15 @@
 
 @media (min-width: 992px) {
   .lp-hero {
-    overflow: hidden;
-    padding-block: calc(var(--header-offset, 68px) + 0.5rem) 1.25rem;
+    overflow: visible;
+    padding-block: calc(var(--header-offset, 68px) + 0.5rem) 1.5rem;
   }
   .lp-hero__grid {
-    grid-template-columns: minmax(0, 1.2fr) minmax(360px, 450px);
+    grid-template-columns: minmax(0, 1.2fr) minmax(360px, 460px);
     gap: clamp(1.25rem, 2.5vw, 2.5rem);
     align-items: center;
-    height: 780px;
+    height: auto;
+    min-height: auto;
   }
 }
 
@@ -228,6 +239,17 @@
   border-radius: var(--radius, 8px);
 }
 
+@media (min-width: 992px) {
+  .lp-hero__media {
+    max-height: min(480px, 52vh);
+  }
+  .lp-hero__media video,
+  .lp-hero__media img,
+  .lp-hero__media .frame {
+    max-height: min(480px, 52vh);
+  }
+}
+
 .lp-hero__quick-cta {
   display: flex;
   align-items: center;
@@ -264,6 +286,7 @@
 /* ── Lead Form Card (Crisp White Card) ─────────────────────── */
 .lp-hero__form {
   min-width: 0;
+  width: 100%;
 }
 
 .lp-form-card {
@@ -275,6 +298,13 @@
   padding: 1.15rem 1.35rem;
   box-shadow: 0 20px 48px rgba(0, 0, 0, 0.35);
   position: relative;
+  width: 100%;
+  box-sizing: border-box;
+  scroll-margin-top: calc(var(--header-offset, 68px) + 1.25rem);
+}
+
+#lead-form {
+  scroll-margin-top: calc(var(--header-offset, 68px) + 1.25rem);
 }
 
 .lp-form-card__title {
@@ -391,6 +421,14 @@
   .lp-form-card {
     padding: 1.15rem 1rem;
     border-radius: var(--radius-lg, 10px);
+    scroll-margin-top: calc(var(--header-offset, 64px) + 0.85rem);
+  }
+  .lp-form-card__title {
+    font-size: 1.18rem;
+  }
+  .lp-form-card__lede {
+    font-size: 0.78rem;
+    margin-bottom: 0.5rem;
   }
   .lp-form-card .lp-form__row {
     grid-template-columns: 1fr;
