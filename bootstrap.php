@@ -213,6 +213,7 @@ $container->bind(\App\Services\InquiryStore::class, static fn (Container $c): \A
     tracking:    $c->get(\App\Services\TrackingService::class),
     mailConfig:  (array) $c->config('mail.inquiry', []),
     company:     (array) $c->config('app.company', []),
+    view:        $c->get(\App\Core\View::class),
 ));
 
 $container->bind(Vite::class, static fn (Container $c): Vite => new Vite(

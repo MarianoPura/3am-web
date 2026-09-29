@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Core\Database;
+use App\Core\View;
 use RuntimeException;
 use Throwable;
 
@@ -37,6 +38,7 @@ final class InquiryStore
         private readonly ?TrackingService $tracking = null,
         private readonly array $mailConfig = [],
         private readonly array $company = [],
+        private readonly ?View $view = null,
     ) {
     }
 
@@ -213,6 +215,7 @@ final class InquiryStore
                     body: $this->clientConfirmationBody($record),
                     cc: $ccList,
                     replyTo: $replyTo !== '' ? $replyTo : null,
+                    html: $this->clientConfirmationHtml($record),
                 );
                 return;
             } catch (Throwable $e) {
@@ -229,10 +232,62 @@ final class InquiryStore
                     body: $this->internalNotificationBody($record),
                     cc: $ccList,
                     replyTo: filter_var($clientEmail, FILTER_VALIDATE_EMAIL) ? $clientEmail : null,
+                    html: $this->internalNotificationHtml($record),
                 );
             } catch (Throwable $e) {
                 error_log(sprintf('[inquiry %s] internal notification email failed: %s', $record['reference'], $e->getMessage()));
             }
+        }
+    }
+
+    /**
+     * Render HTML confirmation email sent to the client.
+     */
+    private function clientConfirmationHtml(array $record): ?string
+    {
+        if ($this->view === null) {
+            return null;
+        }
+
+        $address = $this->company['address'] ?? [];
+        $formattedAddress = implode(', ', array_filter([
+            $address['street'] ?? '',
+            $address['locality'] ?? '',
+            $address['region'] ?? '',
+            $address['country'] ?? '',
+        ]));
+
+        try {
+            return $this->view->render('emails.inquiry-confirmation', [
+                'record'           => $record,
+                'siteName'         => $this->siteName,
+                'company'          => $this->company,
+                'formattedAddress' => $formattedAddress,
+            ]);
+        } catch (Throwable $e) {
+            error_log(sprintf('[inquiry %s] rendering client confirmation email template failed: %s', $record['reference'] ?? 'unknown', $e->getMessage()));
+            return null;
+        }
+    }
+
+    /**
+     * Render HTML internal alert email sent to the team.
+     */
+    private function internalNotificationHtml(array $record): ?string
+    {
+        if ($this->view === null) {
+            return null;
+        }
+
+        try {
+            return $this->view->render('emails.inquiry-notification', [
+                'record'   => $record,
+                'siteName' => $this->siteName,
+                'company'  => $this->company,
+            ]);
+        } catch (Throwable $e) {
+            error_log(sprintf('[inquiry %s] rendering internal notification email template failed: %s', $record['reference'] ?? 'unknown', $e->getMessage()));
+            return null;
         }
     }
 
@@ -253,7 +308,7 @@ final class InquiryStore
         $lines = [
             'Hi ' . trim((string) $record['name']) . ',',
             '',
-            'Thank you for reaching out to ' . $this->siteName . '. We have received your',
+            'Thank you for reaching out to ' . $this->siteName . ' We have received your',
             'inquiry and our production team will review your requirements.',
             'We usually get back to you within one business day.',
             '',

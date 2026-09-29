@@ -11,7 +11,7 @@ $brandMark = site_media(config('assets.brand.mark'));
 ?>
 <header class="nav nav--minimal" data-nav>
   <div class="nav__inner">
-    <div class="nav__brand-group">
+    <a class="nav__brand-group" href="#" data-lp-logo-home aria-label="<?= e_attr(config('app.brand')) ?> — Back to top">
       <span class="nav__mark">
         <?php if ($brandMark !== null): ?>
           <img src="<?= e_attr($brandMark) ?>" width="36" height="36" alt="<?= e_attr(config('app.brand')) ?>">
@@ -26,10 +26,10 @@ $brandMark = site_media(config('assets.brand.mark'));
         <?php endif ?>
       </span>
       <span class="mono nav__brand"><?= e(config('app.brand')) ?></span>
-    </div>
+    </a>
 
     <?php if (!empty($cta)): ?>
-      <a class="btn btn--sm nav__cta-minimal" href="#lead-form" data-lp-cta><?= e($cta) ?></a>
+      <a class="btn btn--sm nav__cta-minimal" href="#lead-form" data-lp-cta data-lp-modal-trigger><?= e($cta) ?></a>
     <?php endif ?>
   </div>
 </header>

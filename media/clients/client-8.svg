@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 50" width="200" height="50" fill="none">
+  <path d="M13 36L26 12L39 36H31L26 24L21 36H13Z" fill="#F1F5F9"/>
+  <circle cx="26" cy="7" r="2.5" fill="#F1F5F9"/>
+  <text x="54" y="32" fill="#F1F5F9" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="20" font-weight="800" letter-spacing="3">ZENITH</text>
+</svg>
