@@ -82,7 +82,12 @@ const initRentalsCatalogue = () => {
     url.searchParams.set('month', month);
     url.searchParams.set('quantity', quantity);
     const response = await fetch(url, { credentials: 'same-origin' });
-    const data = await response.json();
+    let data;
+    try {
+      data = JSON.parse(await response.text());
+    } catch {
+      throw new Error(`Availability request returned an invalid response (HTTP ${response.status}). Check the server route and error log.`);
+    }
     if (!response.ok || !data.ok) throw new Error(data.message || 'Availability could not be loaded.');
     return data.days;
   };

@@ -3,6 +3,13 @@ document.querySelectorAll('[data-admin-availability]').forEach((panel) => {
   const form = panel.querySelector('.rentals-admin__blackout-form');
   const start = form.elements.start_date;
   const end = form.elements.end_date;
+  // Enter inside the reservation fields must not trigger the first (Block dates) button.
+  form.querySelector('.rentals-admin__reservation')?.addEventListener('keydown', event => {
+    if (event.key === 'Enter' && event.target.matches('input:not([type="file"])')) {
+      event.preventDefault();
+      form.requestSubmit(form.querySelector('button[value="reserved"]'));
+    }
+  });
   const grid = panel.querySelector('[data-admin-days]');
   const message = panel.querySelector('[data-admin-calendar-message]');
   const previous = panel.querySelector('[data-admin-prev]');
@@ -50,13 +57,13 @@ document.querySelectorAll('[data-admin-availability]').forEach((panel) => {
         const date = document.createElement('strong'); date.textContent = String(Number(day.date.slice(-2)));
         const status = document.createElement('small'); status.textContent = label;
         cell.append(date, status);
-        cell.setAttribute('aria-label', `${day.date}: ${label}; ${day.reserved} reserved, ${day.remaining} remaining. Select manual block dates.`);
+        cell.setAttribute('aria-label', `${day.date}: ${label}; ${day.reserved} reserved, ${day.remaining} remaining. Select availability dates.`);
         cell.title = `${label} · ${day.reserved} reserved · ${day.remaining} remaining`;
         cell.addEventListener('click', () => {
           if (anchor === null) { anchor = day.date; start.value = day.date; end.value = day.date; }
           else { start.value = anchor < day.date ? anchor : day.date; end.value = anchor > day.date ? anchor : day.date; anchor = null; }
           highlight();
-          message.textContent = `Selected ${start.value} to ${end.value}. Add a note and use Block dates to save.`;
+          message.textContent = `Selected ${start.value} to ${end.value}. Block dates, make available, or open Customer reserved to create an order.`;
         });
         grid.append(cell);
       });
