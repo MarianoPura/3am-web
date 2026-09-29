@@ -768,6 +768,7 @@
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
+  padding-bottom: 6vh;
   margin-bottom: var(--s-6);
 }
 
