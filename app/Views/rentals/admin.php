@@ -146,17 +146,33 @@ $newRecordLabel = ['items' => 'product', 'categories' => 'category', 'payments' 
           <?php if ($section === 'items' && $recordId > 0 && (int) ($record['is_service'] ?? 0) === 0): ?>
             <details class="rentals-admin__blackouts" id="equipment-availability" data-admin-availability data-availability-url="<?= e_attr(url('rentals/admin/items/' . $recordId . '/availability')) ?>">
               <summary>Manage availability <span aria-hidden="true">＋</span></summary>
-              <p>Select a day or range to block maintenance or internal-use dates. Removing a manual block never removes a customer reservation.</p>
+              <p>Select a day or range, then block dates or make them available. Making dates available removes manual blocks only; customer reservations still apply.</p>
               <div class="rentals-admin-calendar">
                 <div class="rentals-admin-calendar__head"><button type="button" data-admin-prev aria-label="Previous availability month">←</button><strong data-admin-month></strong><button type="button" data-admin-next aria-label="Next availability month">→</button></div>
                 <div class="rentals-admin-calendar__weekdays" aria-hidden="true"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div>
                 <div class="rentals-admin-calendar__days" data-admin-days></div>
                 <p class="rentals-admin-calendar__legend"><span>Available</span><span class="is-reserved">Customer reserved</span><span class="is-blocked">Admin blocked</span></p>
-                <p data-admin-calendar-message role="status">Select dates to create a manual block.</p>
+                <p data-admin-calendar-message role="status">Select dates to manage availability.</p>
                 <button type="button" class="rentals-admin-calendar__clear" data-admin-clear>Clear selection</button>
               </div>
-              <form method="post" action="<?= e_attr(url('rentals/admin/items/' . $recordId . '/blackouts')) ?>" class="rentals-admin__blackout-form"><?= csrf_field() ?>
-                <label>From<input type="date" name="start_date" required></label><label>Through<input type="date" name="end_date" required></label><label>Note<input name="note" maxlength="255" placeholder="Maintenance, internal use…"></label><button class="rentals-btn rentals-btn--dark" type="submit">Block dates</button>
+              <form method="post" enctype="multipart/form-data" action="<?= e_attr(url('rentals/admin/items/' . $recordId . '/blackouts')) ?>" class="rentals-admin__blackout-form"><?= csrf_field() ?>
+                <label>From<input type="date" name="start_date" value="<?= e_attr($reservationInput['start_date'] ?? '') ?>" required></label><label>Through<input type="date" name="end_date" value="<?= e_attr($reservationInput['end_date'] ?? '') ?>" required></label><label>Note<input name="note" maxlength="255" placeholder="Maintenance, internal use…"></label><button class="rentals-btn rentals-btn--dark" type="submit" name="availability_action" value="blocked">Block dates</button>
+                <button class="rentals-btn" type="submit" name="availability_action" value="available">Make available</button>
+                <details class="rentals-admin__reservation" <?= ($reservationInput ?? []) !== [] ? 'open' : '' ?>>
+                  <summary>Customer reserved — create order</summary>
+                  <p>Use an existing customer's account email. The selected dates above and current equipment rate determine the total. Payment proof is required; the order reserves stock while payment awaits review.</p>
+                  <input type="hidden" name="reservation_nonce" value="<?= e_attr($_SESSION['reservation_nonce'][$recordId] ?? '') ?>">
+                  <div class="rentals-admin__reservation-fields">
+                    <label>Customer email<input name="customer_email" value="<?= e_attr($reservationInput['customer_email'] ?? '') ?>" maxlength="190" autocomplete="off"></label>
+                    <label>Quantity<input type="number" name="quantity" min="1" value="<?= e_attr($reservationInput['quantity'] ?? '1') ?>"></label>
+                    <label>Phone (optional)<input name="customer_phone" maxlength="40" value="<?= e_attr($reservationInput['customer_phone'] ?? '') ?>"></label>
+                    <label>Payment method<select name="payment_method_id"><option value="">Select a payment method</option><?php foreach (($reservationPayments ?? []) as $payment): ?><option value="<?= (int) $payment['id'] ?>" <?= (string) ($reservationInput['payment_method_id'] ?? '') === (string) $payment['id'] ? 'selected' : '' ?>><?= e($payment['name']) ?></option><?php endforeach ?></select></label>
+                    <label>Payment reference (optional)<input name="payment_reference" maxlength="190" value="<?= e_attr($reservationInput['payment_reference'] ?? '') ?>"></label>
+                    <label>Payment proof (max <?= e(number_format(\App\Services\RentalPaymentProof::maxUploadBytes() / 1048576, 2)) ?> MB)<input type="file" name="proof" accept="image/jpeg,image/png,image/webp,application/pdf"></label>
+                    <label>Order notes (optional)<input name="notes" maxlength="4000" value="<?= e_attr($reservationInput['notes'] ?? '') ?>"></label>
+                    <button class="rentals-btn rentals-btn--dark" type="submit" name="availability_action" value="reserved">Create customer reservation</button>
+                  </div>
+                </details>
               </form>
               <h4>Manual blocks</h4>
               <?php if (($blackouts ?? []) === []): ?><p>No manual blocks yet.</p><?php endif ?>

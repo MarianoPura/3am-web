@@ -80,6 +80,10 @@ final class RentalAdminController extends Controller
             );
             $data['record'] = $id ? $db->selectOne('SELECT * FROM rental_items WHERE id = ?', [$id]) : null;
             $data['blackouts'] = $id ? $db->select('SELECT * FROM rental_item_blackouts WHERE rental_item_id = ? ORDER BY start_date DESC, id DESC', [$id]) : [];
+            $data['reservationPayments'] = (new \App\Services\RentalCheckout($db, new RentalCart()))->activePaymentMethods();
+            if ($id > 0) { $_SESSION['reservation_nonce'][$id] ??= bin2hex(random_bytes(24)); }
+            $data['reservationInput'] = $_SESSION['reservation_input'][$id] ?? [];
+            unset($_SESSION['reservation_input'][$id]);
         } elseif ($section === 'categories') {
             $data['rows'] = $db->select('SELECT * FROM rental_categories ORDER BY name, id');
             $data['record'] = $id ? $db->selectOne('SELECT * FROM rental_categories WHERE id = ?', [$id]) : null;
@@ -224,14 +228,50 @@ final class RentalAdminController extends Controller
         if ($denial = $this->deny()) { return $denial; }
         $itemId = (int) $id;
         $return = url('rentals/admin/items?edit=' . $itemId . '#equipment-availability');
+        if ($request->string('availability_action') === 'reserved') {
+            $data = [];
+            foreach (['start_date', 'end_date', 'quantity', 'customer_email', 'customer_phone', 'payment_method_id', 'payment_reference', 'notes'] as $field) { $data[$field] = $request->string($field); }
+            try {
+                $nonce = (string) ($_SESSION['reservation_nonce'][$itemId] ?? '');
+                if ($nonce === '' || !hash_equals($nonce, $request->string('reservation_nonce'))) { throw new \RuntimeException('This reservation form has already been submitted or expired. Reload the product before trying again.'); }
+                $orderId = (new \App\Services\RentalAdminReservation($this->db()))->create($itemId, $data, $request->file('proof'));
+                unset($_SESSION['reservation_nonce'][$itemId]);
+                $_SESSION['rentals_admin_notice'] = 'Customer reservation created. Payment is pending review; stock is reserved for these dates.';
+                return $this->redirect(url('rentals/admin/orders?edit=' . $orderId));
+            } catch (\RuntimeException $e) {
+                $_SESSION['reservation_input'][$itemId] = $data;
+                $_SESSION['rentals_admin_notice'] = $e->getMessage();
+                return $this->redirect($return);
+            }
+        }
         $start = $request->string('start_date');
         $end = $request->string('end_date');
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/D', $start) || !preg_match('/^\d{4}-\d{2}-\d{2}$/D', $end)) {
+            $_SESSION['rentals_admin_notice'] = 'Choose a valid date range.';
+            return $this->redirect($return);
+        }
         $first = \DateTimeImmutable::createFromFormat('!Y-m-d', $start);
         $last = \DateTimeImmutable::createFromFormat('!Y-m-d', $end);
         if ($itemId < 1 || !$first || !$last || $first->format('Y-m-d') !== $start
             || $last->format('Y-m-d') !== $end || $first > $last
             || $this->db()->selectOne('SELECT id FROM rental_items WHERE id = ? AND is_service = 0', [$itemId]) === null) {
             $_SESSION['rentals_admin_notice'] = 'Choose a valid equipment item and date range.';
+            return $this->redirect($return);
+        }
+        if ($request->string('availability_action') === 'available') {
+            $this->db()->transaction(function ($db) use ($itemId, $start, $end, $first, $last): void {
+                $db->selectOne('SELECT id FROM rental_items WHERE id = ? FOR UPDATE', [$itemId]);
+                $blocks = $db->select('SELECT * FROM rental_item_blackouts WHERE rental_item_id = ? AND is_active = 1 AND start_date <= ? AND end_date >= ? FOR UPDATE', [$itemId, $end, $start]);
+                foreach ($blocks as $block) {
+                    $db->update('UPDATE rental_item_blackouts SET is_active = 0 WHERE id = ?', [$block['id']]);
+                    foreach ([[$block['start_date'], $first->modify('-1 day')->format('Y-m-d')], [$last->modify('+1 day')->format('Y-m-d'), $block['end_date']]] as [$from, $through]) {
+                        if ($from <= $through) {
+                            $db->insert('INSERT INTO rental_item_blackouts (rental_item_id, start_date, end_date, note) VALUES (?, ?, ?, ?)', [$itemId, $from, $through, $block['note']]);
+                        }
+                    }
+                }
+            });
+            $_SESSION['rentals_admin_notice'] = 'Manual blocks removed for the selected dates. Customer reservations and equipment stock status still apply.';
             return $this->redirect($return);
         }
         $this->db()->insert('INSERT INTO rental_item_blackouts (rental_item_id, start_date, end_date, note) VALUES (?, ?, ?, ?)',

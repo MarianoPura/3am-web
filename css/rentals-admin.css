@@ -161,6 +161,11 @@
 .rentals-admin-module .rentals-admin__blackouts { margin-top: 2rem; padding: 1.3rem; border: 1px solid var(--c-blue-line); background: var(--c-white); }
 .rentals-admin-module .rentals-admin__blackout-form { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: .8rem; align-items: end; }
 .rentals-admin-module .rentals-admin__blackout-form label { display: grid; gap: .3rem; }
+.rentals-admin-module .rentals-admin__reservation { grid-column: 1 / -1; border-top: 1px solid var(--c-blue-line); padding-top: 1rem; }
+.rentals-admin-module .rentals-admin__reservation summary { cursor: pointer; font-weight: 700; padding: .5rem 0; }
+.rentals-admin-module .rentals-admin__reservation-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .8rem; align-items: end; }
+.rentals-admin-module .rentals-admin__reservation-fields select { width: 100%; min-width: 0; padding: .65rem; border: 1px solid var(--c-blue-line); background: white; color: inherit; }
+@media (max-width: 600px) { .rentals-admin-module .rentals-admin__reservation-fields { grid-template-columns: 1fr; } }
 .rentals-admin-module .rentals-admin__blackout-form input { min-width: 0; width: 100%; padding: .65rem; border: 1px solid var(--c-blue-line); }
 .rentals-admin-module .rentals-admin__blackout-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .8rem 0; border-bottom: 1px solid var(--c-blue-line); }
 .rentals-admin-module .rentals-admin__blackout-row button { padding: .45rem .7rem; border: 1px solid var(--c-blue-line); background: var(--c-white); cursor: pointer; }
