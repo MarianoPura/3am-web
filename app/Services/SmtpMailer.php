@@ -50,13 +50,19 @@ final class SmtpMailer
     }
 
     /**
-     * Send one plain-text message.
+     * Send one message (plain-text or multipart/alternative with HTML).
      *
      * @param list<string> $to
      * @param list<string> $cc
      */
-    public function send(array $to, string $subject, string $body, array $cc = [], ?string $replyTo = null): void
-    {
+    public function send(
+        array $to,
+        string $subject,
+        string $body,
+        array $cc = [],
+        ?string $replyTo = null,
+        ?string $html = null
+    ): void {
         if (!$this->isConfigured()) {
             throw new RuntimeException('SMTP is not configured or is disabled in config.');
         }
@@ -82,7 +88,7 @@ final class SmtpMailer
             }
 
             $this->command('DATA', [354]);
-            $this->write($this->message($to, $cc, $subject, $body, $replyTo) . "\r\n.\r\n");
+            $this->write($this->message($to, $cc, $subject, $body, $replyTo, $html) . "\r\n.\r\n");
             $this->expect([250]);
 
             $this->command('QUIT', [221]);
@@ -224,7 +230,7 @@ final class SmtpMailer
      * @param list<string> $to
      * @param list<string> $cc
      */
-    private function message(array $to, array $cc, string $subject, string $body, ?string $replyTo): string
+    private function message(array $to, array $cc, string $subject, string $body, ?string $replyTo, ?string $html = null): string
     {
         $from   = $this->config['from'];
         $domain = substr((string) strrchr($from['address'], '@'), 1) ?: 'localhost';
@@ -246,13 +252,39 @@ final class SmtpMailer
         $headers[] = 'Subject: ' . $this->encodeHeader($subject);
         $headers[] = sprintf('Message-ID: <%s@%s>', bin2hex(random_bytes(12)), $domain);
         $headers[] = 'MIME-Version: 1.0';
+
+        $normalisedBody = str_replace(["\r\n", "\r"], "\n", $body);
+
+        if ($html !== null && trim($html) !== '') {
+            $boundary = '=_alt_' . bin2hex(random_bytes(16));
+            $headers[] = 'Content-Type: multipart/alternative; boundary="' . $boundary . '"';
+
+            $normalisedHtml = str_replace(["\r\n", "\r"], "\n", $html);
+
+            $parts = [
+                '--' . $boundary,
+                'Content-Type: text/plain; charset=UTF-8',
+                'Content-Transfer-Encoding: base64',
+                '',
+                rtrim(chunk_split(base64_encode(str_replace("\n", "\r\n", $normalisedBody)), 76, "\r\n")),
+                '',
+                '--' . $boundary,
+                'Content-Type: text/html; charset=UTF-8',
+                'Content-Transfer-Encoding: base64',
+                '',
+                rtrim(chunk_split(base64_encode(str_replace("\n", "\r\n", $normalisedHtml)), 76, "\r\n")),
+                '',
+                '--' . $boundary . '--',
+            ];
+
+            return implode("\r\n", $headers) . "\r\n\r\n" . implode("\r\n", $parts);
+        }
+
         $headers[] = 'Content-Type: text/plain; charset=UTF-8';
         $headers[] = 'Content-Transfer-Encoding: base64';
 
-        $normalised = str_replace(["\r\n", "\r"], "\n", $body);
-
         return implode("\r\n", $headers) . "\r\n\r\n"
-            . rtrim(chunk_split(base64_encode(str_replace("\n", "\r\n", $normalised)), 76, "\r\n"));
+            . rtrim(chunk_split(base64_encode(str_replace("\n", "\r\n", $normalisedBody)), 76, "\r\n"));
     }
 
     private function mailbox(string $address, string $name): string
