@@ -68,6 +68,9 @@ try {
     foreach (['Content-Security-Policy:', 'X-Frame-Options:', 'Referrer-Policy:', 'X-Content-Type-Options:'] as $header) {
         $assert(stripos($errorHeaders, $header) !== false, 'Error response lost security header: ' . $header);
     }
+    [$code, $sessionError, , $sessionHeaders] = $http('/_qa-session-error');
+    $assert($code === 500 && !str_contains($sessionError, 'session_start') && !str_contains($sessionError, dirname(__DIR__))
+        && stripos($sessionHeaders, 'Content-Security-Policy:') !== false, 'Session failure exposed internals or lost security headers.');
     $adminId = $db->insert('INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)',
         [$name, $email, password_hash($password, PASSWORD_DEFAULT), 'admin']);
     [, $login] = $http('/rentals/account');

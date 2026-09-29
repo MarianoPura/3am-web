@@ -43,25 +43,28 @@ $container = require __DIR__ . '/bootstrap.php';
 // and users get logged out of /armonyx unpredictably — an intermittent bug that
 // would be very hard to trace back here. Distinct name AND distinct store.
 // ─────────────────────────────────────────────────────────────
-$sessionPath = BASE_PATH . '/storage/sessions';
+$startSession = static function (): void {
+    $sessionPath = BASE_PATH . '/storage/sessions';
 
-if (!is_dir($sessionPath)) {
-    mkdir($sessionPath, 0770, true);
-}
+    if ((!is_dir($sessionPath) && !@mkdir($sessionPath, 0770, true) && !is_dir($sessionPath))
+        || !is_writable($sessionPath)) {
+        throw new RuntimeException('Application session directory is unavailable or not writable.');
+    }
 
-session_name((string) env('SESSION_NAME', 'TAM_SESS'));
-session_save_path($sessionPath);
+    session_name((string) env('SESSION_NAME', 'TAM_SESS'));
+    session_save_path($sessionPath);
 
-session_set_cookie_params([
-    'lifetime' => 0,
-    'path'     => (config('app.base_path') ?: '/'),
-    'domain'   => '',
-    'secure'   => (bool) config('app.force_https'),
-    'httponly' => true,
-    'samesite' => 'Lax',
-]);
+    session_set_cookie_params([
+        'lifetime' => 0,
+        'path'     => (config('app.base_path') ?: '/'),
+        'domain'   => '',
+        'secure'   => (bool) config('app.force_https'),
+        'httponly' => true,
+        'samesite' => 'Lax',
+    ]);
 
-session_start();
+    if (!session_start()) { throw new RuntimeException('Application session could not be started.'); }
+};
 
 // ─────────────────────────────────────────────────────────────
 // Request
@@ -125,11 +128,13 @@ $dispatch = static function (Request $request) use ($router, $container): Respon
     }
 
     // PHP discards both POST fields and the CSRF token when an upload exceeds
-    // post_max_size. Reject this Rentals product request without dispatching a write.
-    if ($request->isPost() && $request->path() === '/rentals/admin/items') {
+    // post_max_size. Reject oversized Rentals uploads without dispatching a write.
+    $rentalsUpload = in_array($request->path(), ['/rentals/admin/items', '/rentals/admin/payments', '/rentals/checkout'], true)
+        || preg_match('#^/rentals/orders/[0-9]+/proof$#D', $request->path());
+    if ($request->isPost() && $rentalsUpload) {
         $postLimit = \App\Services\RentalManagedImage::maxRequestBytes();
         if ($postLimit > 0 && $request->contentLength() > $postLimit) {
-            return render_error($container, 413, 'The product form exceeds this server\'s upload limit. Go back, choose a smaller image, and submit again.');
+            return render_error($container, 413, 'The form exceeds this server\'s upload limit. Go back, choose a smaller file, and submit again.');
         }
     }
 
@@ -172,6 +177,7 @@ function render_error(Container $container, int $status, string $message = ''): 
 }
 
 try {
+    $startSession();
     $handler($request)->send();
 } catch (Throwable $e) {
     error_log(sprintf(

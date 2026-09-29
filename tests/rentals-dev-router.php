@@ -15,7 +15,13 @@ $_ENV['APP_ENV'] = 'testing';
 $_ENV['APP_DEBUG'] = 'false';
 $_ENV['FORCE_HTTPS'] = 'false';
 $_SERVER['SCRIPT_NAME'] = $mount . '/index.php';
-if ($relative === '/_qa-error') {
+if ($relative === '/_qa-session-error') {
+    $_ENV['APP_ENV'] = 'production';
+    $_ENV['APP_DEBUG'] = 'true';
+    session_set_save_handler(new class extends SessionHandler {
+        public function open(string $path, string $name): bool { return false; }
+    }, true);
+} elseif ($relative === '/_qa-error') {
     // Exercise the real production catch path with a failed read, including
     // APP_DEBUG accidentally enabled. Never create/drop/alter a database.
     $_ENV['APP_ENV'] = 'production';

@@ -39,15 +39,7 @@ final class RentalCheckoutController extends Controller
             }
             $catalog = new RentalCatalog($this->db());
             $record = $catalog->find((string) $line['item_id']);
-            $concurrent = 0;
-            foreach ($summary['items'] as $other) {
-                if ((int) $other['db_id'] === (int) $line['db_id']
-                    && (string) $other['rental_start_date'] <= $end
-                    && (string) $other['rental_end_date'] >= $start) {
-                    $concurrent += (int) $other['quantity'];
-                }
-            }
-            if ($record === null || !$catalog->isAvailable($record, $concurrent, $start, $end)) {
+            if ($record === null || !$catalog->isAvailableForLines($record, $summary['items'], $start, $end)) {
                 $_SESSION['rentals_notice'] = 'An item is unavailable for the selected dates or quantity.';
                 return $this->redirect(url('rentals/cart'));
             }

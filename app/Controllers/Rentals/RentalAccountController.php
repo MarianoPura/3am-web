@@ -151,15 +151,7 @@ final class RentalAccountController extends Controller
                                 throw new RuntimeException('Rental dates are missing from this order. Please contact support.');
                             }
                             $item = $catalog->find((string) $line['rental_item_id']);
-                            $overlappingQuantity = 0;
-                            foreach ($lines as $other) {
-                                if ((int) $other['rental_item_id'] === (int) $line['rental_item_id']
-                                    && $other['rental_start_date'] <= $line['rental_end_date']
-                                    && $other['rental_end_date'] >= $line['rental_start_date']) {
-                                    $overlappingQuantity += (int) $other['quantity'];
-                                }
-                            }
-                            if ($item === null || !$catalog->isAvailable($item, $overlappingQuantity, $line['rental_start_date'], $line['rental_end_date'])) {
+                            if ($item === null || !$catalog->isAvailableForLines($item, $lines, $line['rental_start_date'], $line['rental_end_date'])) {
                                 throw new RuntimeException('This order is no longer available for its rental dates. Please contact support.');
                             }
                         }
