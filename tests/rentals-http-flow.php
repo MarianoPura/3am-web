@@ -161,7 +161,7 @@ try {
         [$status] = $http('/rentals/admin/' . $section);
         $assert($status === 200, 'Admin section failed: ' . $section);
     }
-    [$status, $orderView] = $http('/rentals/admin/orders?edit=' . (int) $order['id']);
+    [$status, $orderView] = $http('/rentals/admin/orders/' . (int) $order['id']);
     $assert($status === 200 && str_contains($orderView, 'Payment proof review'), 'Admin review page failed.');
     [$status] = $http('/rentals/admin/orders/' . (int) $order['id'] . '/review',
         ['_token' => $token($orderView), 'decision' => 'approved']);
@@ -200,7 +200,7 @@ try {
     [$status, , $finalUrl] = $http('/rentals/account', ['_token' => $token($login),
         'action' => 'login', 'email' => $adminEmail, 'password' => $adminPassword]);
     $assert($status === 200 && str_ends_with($finalUrl, '/rentals/admin'), 'Superadmin direct login failed.');
-    [$status, $orderView] = $http('/rentals/admin/orders?edit=' . (int) $secondOrder['id']);
+    [$status, $orderView] = $http('/rentals/admin/orders/' . (int) $secondOrder['id']);
     [$status] = $http('/rentals/admin/orders/' . (int) $secondOrder['id'] . '/review',
         ['_token' => $token($orderView), 'decision' => 'rejected']);
     $rejected = $db->selectOne('SELECT payment_status, payment_reviewed_at, payment_reviewed_by, paid_at FROM order_header WHERE id = ?', [(int) $secondOrder['id']]);

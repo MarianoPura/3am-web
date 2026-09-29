@@ -76,12 +76,12 @@ try {
     [, $login] = $http('/rentals/account');
     [$code, $dashboard, $final] = $http('/rentals/account', ['_token' => $token($login), 'action' => 'login', 'email' => $email, 'password' => $password]);
     $assert($code === 200 && $final === $base . '/rentals/admin', 'Admin direct-login URL failed.');
-    [, $editor] = $http('/rentals/admin/categories?new=1');
+    [, $editor] = $http('/rentals/admin/categories/new');
     [$code, $categoryList] = $http('/rentals/admin/categories', ['_token' => $token($editor), 'name' => $name, 'slug' => 'qa-' . $key, 'is_active' => '1']);
     $categoryId = (int) $db->selectValue('SELECT id FROM rental_categories WHERE slug = ?', ['qa-' . $key]);
     $assert($code === 200 && $categoryId > 0 && str_contains($categoryList, $name), 'Category creation failed.');
-    [, $editor, $addUrl] = $http('/rentals/admin/items?new=1');
-    $assert($addUrl === $base . '/rentals/admin/items?new=1' && str_contains($editor, $name), 'Product category dropdown or Add URL failed.');
+    [, $editor, $addUrl] = $http('/rentals/admin/items/new');
+    $assert($addUrl === $base . '/rentals/admin/items/new' && str_contains($editor, $name), 'Product category dropdown or Add URL failed.');
     $product = ['_token' => $token($editor), 'category_id' => (string) $categoryId, 'name' => $name,
         'slug' => 'qa-product-' . $key, 'sku' => 'PRIVATE-' . $key, 'description' => 'QA original description',
         'ideal_use' => 'QA production', 'is_service' => '0', 'availability_status' => 'available',
@@ -164,7 +164,7 @@ try {
     $product['id'] = (string) $itemId;
     $product['name'] .= ' edited'; $product['description'] = 'QA edited description';
     $product['rental_rate'] = '150.00'; $product['security_deposit'] = '9000.00'; $product['available_quantity'] = '2';
-    [, $editor] = $http('/rentals/admin/items?edit=' . $itemId);
+    [, $editor] = $http('/rentals/admin/items/' . $itemId . '/edit');
     $product['_token'] = $token($editor);
     $http('/rentals/admin/items', $product);
     $item = $db->selectOne('SELECT * FROM rental_items WHERE id = ?', [$itemId]);
@@ -175,7 +175,7 @@ try {
     $assert($item['image_path'] !== $oldImage && App\Services\RentalStorage::path($oldImage) === null, 'Managed product replacement failed.');
     [, $public] = $http('/rentals/items');
     $assert(str_contains($public, $product['description']) && str_contains($public, $product['name']), 'Public product data was stale.');
-    [, $editor] = $http('/rentals/admin/payments?new=1');
+    [, $editor] = $http('/rentals/admin/payments/new');
     $payment = ['_token' => $token($editor), 'name' => $name, 'type' => 'manual', 'provider' => 'QA Bank',
         'account_name' => 'QA Account', 'account_number' => '0000000000', 'is_active' => '1'];
     $http('/rentals/admin/payments', array_replace($payment, ['account_name' => '']));
@@ -196,7 +196,7 @@ try {
     [$code, $qr] = $http('/rentals/payment-qr/' . $methodId);
     $assert($code === 200 && $qr === $png, 'Protected-folder QR route failed.');
     $date = (new DateTimeImmutable('today'))->modify('+60 days')->format('Y-m-d');
-    [, $editor] = $http('/rentals/admin/items?edit=' . $itemId);
+    [, $editor] = $http('/rentals/admin/items/' . $itemId . '/edit');
     $csrf = $token($editor);
     $http('/rentals/admin/items/' . $itemId . '/blackouts', ['_token' => $csrf, 'start_date' => $date, 'end_date' => $date, 'note' => 'QA maintenance']);
     $blackoutId = (int) $db->selectValue('SELECT id FROM rental_item_blackouts WHERE rental_item_id = ?', [$itemId]);

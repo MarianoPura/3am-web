@@ -18,7 +18,7 @@ $upcomingRentals = is_array($upcomingRentals ?? null) ? $upcomingRentals : [];
     <div class="rentals-admin__heading"><div><p class="rentals-card__meta">Latest activity</p><h2 id="recent-orders-heading">Recent orders</h2></div><a href="<?= e_attr(url('rentals/admin/orders')) ?>">View all →</a></div>
     <?php if ($recentOrders === []): ?><p class="rentals-admin__empty">No orders yet.</p><?php else: ?>
       <div class="rentals-admin__table-wrap"><table class="rentals-admin__table"><thead><tr><th>Order</th><th>Customer</th><th>Method</th><th>Status</th><th>Total</th></tr></thead><tbody>
-        <?php foreach ($recentOrders as $order): ?><tr><td><a href="<?= e_attr(url('rentals/admin/orders?edit=' . (int) $order['id'])) ?>"><?= e((string) $order['order_number']) ?></a><small><?= e((string) $order['created_at']) ?></small></td><td><?= e((string) $order['customer_name']) ?></td><td><?= e((string) ($order['payment_method'] ?? '—')) ?></td><td><?= $this->partial('rentals.partials.payment-status-badge', ['status' => $order['payment_status']]) ?></td><td>₱<?= e(number_format((float) $order['total_amount'], 2)) ?></td></tr><?php endforeach ?>
+        <?php foreach ($recentOrders as $order): ?><tr><td><a href="<?= e_attr(url('rentals/admin/orders/' . (int) $order['id'])) ?>"><?= e((string) $order['order_number']) ?></a><small><?= e((string) $order['created_at']) ?></small></td><td><?= e((string) $order['customer_name']) ?></td><td><?= e((string) ($order['payment_method'] ?? '—')) ?></td><td><?= $this->partial('rentals.partials.payment-status-badge', ['status' => $order['payment_status']]) ?></td><td>₱<?= e(number_format((float) $order['total_amount'], 2)) ?></td></tr><?php endforeach ?>
       </tbody></table></div>
     <?php endif ?>
   </section>
@@ -26,7 +26,7 @@ $upcomingRentals = is_array($upcomingRentals ?? null) ? $upcomingRentals : [];
     <div class="rentals-admin__heading"><div><p class="rentals-card__meta">Scheduled equipment</p><h2 id="upcoming-rentals-heading">Upcoming rentals</h2></div></div>
     <?php if ($upcomingRentals === []): ?><p class="rentals-admin__empty">No upcoming rentals.</p><?php else: ?>
       <div class="rentals-admin__table-wrap"><table class="rentals-admin__table"><thead><tr><th>Item</th><th>Customer</th><th>Dates</th><th>Qty</th><th>Status</th></tr></thead><tbody>
-        <?php foreach ($upcomingRentals as $row): ?><tr><td><a href="<?= e_attr(url('rentals/admin/orders?edit=' . (int) $row['id'])) ?>"><?= e((string) $row['item_name']) ?></a></td><td><?= e((string) $row['customer_name']) ?></td><td><?= e((string) $row['rental_start_date']) ?> – <?= e((string) $row['rental_end_date']) ?></td><td><?= (int) $row['quantity'] ?></td><td><?= $this->partial('rentals.partials.payment-status-badge', ['status' => $row['payment_status']]) ?></td></tr><?php endforeach ?>
+        <?php foreach ($upcomingRentals as $row): ?><tr><td><a href="<?= e_attr(url('rentals/admin/orders/' . (int) $row['id'])) ?>"><?= e((string) $row['item_name']) ?></a></td><td><?= e((string) $row['customer_name']) ?></td><td><?= e((string) $row['rental_start_date']) ?> – <?= e((string) $row['rental_end_date']) ?></td><td><?= (int) $row['quantity'] ?></td><td><?= $this->partial('rentals.partials.payment-status-badge', ['status' => $row['payment_status']]) ?></td></tr><?php endforeach ?>
       </tbody></table></div>
     <?php endif ?>
   </section>
