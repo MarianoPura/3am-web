@@ -115,15 +115,15 @@
 
               <!-- Event Details -->
               <?php if (trim((string) $record['details']) !== ''): ?>
+                <?php
+                $cleanDetails = trim((string) $record['details']);
+                $cleanDetails = implode("\n", array_map('trim', explode("\n", str_replace(["\r\n", "\r"], "\n", $cleanDetails))));
+                ?>
                 <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 22px;">
                   <tr>
-                    <td style="background-color: #F8FAFC; border: 1px solid #D7E3EE; border-left: 4px solid #FFB300; border-radius: 4px; padding: 14px 18px;">
-                      <div style="font-family: 'JetBrains Mono', Consolas, monospace; font-size: 11px; font-weight: 700; color: #152B45; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">
-                        Event Details:
-                      </div>
-                      <div style="font-family: 'Inter', Arial, sans-serif; font-size: 13px; line-height: 1.6; color: #2E4763; white-space: pre-wrap;">
-                        <?= nl2br(e(trim((string) $record['details']))) ?>
-                      </div>
+                    <td align="left" style="background-color: #F8FAFC; border: 1px solid #D7E3EE; border-left: 4px solid #FFB300; border-radius: 4px; padding: 14px 18px; text-align: left;">
+                      <div style="font-family: 'JetBrains Mono', Consolas, monospace; font-size: 11px; font-weight: 700; color: #152B45; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; text-align: left; font-weight:bold;">Event Details:</div>
+                      <div style="font-family: 'Inter', Arial, sans-serif; font-size: 13px; line-height: 1.6; color: #2E4763; text-align: left; margin: 0; padding: 0;"><?= nl2br(e($cleanDetails)) ?></div>
                     </td>
                   </tr>
                 </table>
