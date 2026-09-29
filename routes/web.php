@@ -20,6 +20,7 @@ declare(strict_types=1);
  * @var App\Core\Router $router
  */
 
+use App\Controllers\Analytics\AnalyticsController;
 use App\Controllers\Rentals\RentalsController;
 use App\Controllers\Web\HomeController;
 use App\Controllers\Web\InquiryController;
@@ -88,6 +89,14 @@ $router->post('/track-event', [\App\Controllers\Web\TrackingController::class, '
 // ── Operational ──────────────────────────────────────────────
 // Used by bin/deploy.sh to verify a release before the symlink swap.
 $router->get('/health', [HomeController::class, 'health'])->name('health');
+
+// ── Analytics (admin-only, Meta Pixel data) ───────────────
+$router->get('/analytics/login',  [AnalyticsController::class, 'loginShow'])->name('analytics.login');
+$router->post('/analytics/login', [AnalyticsController::class, 'loginSubmit'])->name('analytics.login.submit');
+$router->post('/analytics/logout',[AnalyticsController::class, 'logout'])->name('analytics.logout');
+$router->get('/analytics',        [AnalyticsController::class, 'dashboard'])->name('analytics.dashboard');
+$router->get('/analytics/events', [AnalyticsController::class, 'events'])->name('analytics.events');
+$router->get('/analytics/visitors',[AnalyticsController::class, 'visitors'])->name('analytics.visitors');
 
 
 /*
