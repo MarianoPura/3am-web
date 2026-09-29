@@ -10,7 +10,7 @@
   background: var(--c-void) !important;
   border-bottom: 1px solid transparent;
   transition: background var(--m-ui) var(--ease),
-              border-color var(--m-ui) var(--ease);
+    border-color var(--m-ui) var(--ease);
 }
 
 .nav--minimal.is-condensed {
@@ -93,6 +93,7 @@
   align-items: center;
   height: auto;
   min-height: auto;
+  padding-bottom: 10vh;
 }
 
 @media (min-width: 992px) {
@@ -100,6 +101,7 @@
     overflow: visible;
     padding-block: calc(var(--header-offset, 68px) + 0.5rem) 1.5rem;
   }
+
   .lp-hero__grid {
     grid-template-columns: minmax(0, 1.2fr) minmax(360px, 460px);
     gap: clamp(1.25rem, 2.5vw, 2.5rem);
@@ -115,58 +117,73 @@
   .lp-hero {
     padding-block: calc(var(--header-offset, 68px) + 0.15rem) 0.75rem;
   }
+
   .lp-hero__grid {
     gap: clamp(0.75rem, 1.5vw, 1.5rem);
     align-items: start;
   }
+
   .lp-hero__copy {
     gap: 0.2rem;
   }
+
   .lp-hero__title {
     font-size: clamp(1.35rem, 3.2vw, 2.1rem);
     line-height: 1.08;
   }
+
   .lp-hero__lede {
     font-size: clamp(0.8rem, 0.95vw, 0.95rem);
     line-height: 1.35;
   }
+
   .lp-hero__media {
     margin-top: 0.2rem;
   }
+
   .lp-trust {
     margin: 0.2rem 0 0;
     gap: clamp(0.25rem, 0.5vw, 0.55rem);
   }
+
   .lp-form-card {
     padding: 0.85rem 1.1rem;
   }
+
   .lp-form-card__title {
     font-size: 1.1rem;
     margin-bottom: 0.05rem;
   }
+
   .lp-form-card__lede {
     font-size: 0.74rem;
     margin-bottom: 0.4rem;
   }
+
   .lp-form {
     gap: 0.38rem;
   }
+
   .lp-form .field {
     gap: 0.1rem;
   }
+
   .lp-form-card .field__input {
     min-height: 32px;
     padding: 0.3rem 0.6rem;
     font-size: 0.82rem;
   }
+
   .lp-form-card .lp-form__area {
     min-height: 38px;
   }
+
   .lp-form-card .lp-form__submit {
     min-height: 36px;
     font-size: 0.85rem;
     margin-top: 0.1rem;
   }
+
   .lp-hero__quick-cta {
     display: none !important;
   }
@@ -266,6 +283,7 @@
   .lp-hero__copy {
     gap: 0.35rem;
   }
+
   .lp-trust {
     display: flex;
     flex-wrap: nowrap;
@@ -275,6 +293,7 @@
     margin: 0.35rem 0 0;
     width: 100%;
   }
+
   .lp-trust li {
     background: transparent;
     border: none;
@@ -288,6 +307,7 @@
     display: inline-flex;
     align-items: center;
   }
+
   .lp-trust li::before {
     position: absolute;
     left: 0;
@@ -498,21 +518,26 @@
     border-radius: var(--radius-lg, 10px);
     scroll-margin-top: calc(var(--header-offset, 64px) + 0.85rem);
   }
+
   .lp-form-card__title {
     font-size: 1.18rem;
   }
+
   .lp-form-card__lede {
     font-size: 0.78rem;
     margin-bottom: 0.5rem;
   }
+
   .lp-form-card .lp-form__row {
     grid-template-columns: 1fr;
     gap: 0.55rem;
   }
+
   .lp-form-card .field__input {
     min-height: 44px;
     font-size: 16px !important;
   }
+
   .lp-form-card .lp-form__submit {
     min-height: 48px;
     font-size: 1rem;
@@ -762,6 +787,7 @@
     gap: var(--s-6);
     margin-top: 0;
   }
+
   .lp-carousel__dots,
   .lp-carousel__arrows {
     display: none !important;
@@ -1074,7 +1100,8 @@
 /* The modal is only active on mobile (<992px); on desktop the form
    stays in the hero grid and the modal is never shown.             */
 .lp-modal {
-  display: none; /* overridden to flex via JS */
+  display: none;
+  /* overridden to flex via JS */
   position: fixed;
   inset: 0;
   z-index: 1000;
@@ -1111,8 +1138,15 @@
 }
 
 @keyframes lp-sheet-up {
-  from { transform: translateY(100%); opacity: 0; }
-  to   { transform: translateY(0);   opacity: 1; }
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
 .lp-modal.is-closing .lp-modal__sheet {
@@ -1120,8 +1154,15 @@
 }
 
 @keyframes lp-sheet-down {
-  from { transform: translateY(0);   opacity: 1; }
-  to   { transform: translateY(100%); opacity: 0; }
+  from {
+    transform: translateY(0);
+    opacity: 1;
+  }
+
+  to {
+    transform: translateY(100%);
+    opacity: 0;
+  }
 }
 
 .lp-modal__header {
@@ -1265,8 +1306,15 @@
 }
 
 @keyframes lp-logos-scroll {
-  0%   { transform: translateX(0); }
-  100% { transform: translateX(-50%); } /* half = one complete set */
+  0% {
+    transform: translateX(0);
+  }
+
+  100% {
+    transform: translateX(-50%);
+  }
+
+  /* half = one complete set */
 }
 
 /* Plain logo items — NO container, no border, no background */
@@ -1307,6 +1355,7 @@
 }
 
 @media (min-width: 768px) {
+
   .lp-logos-track-wrapper::before,
   .lp-logos-track-wrapper::after {
     width: 120px;
@@ -1332,8 +1381,8 @@
   .lp-logos-track {
     animation: none;
   }
+
   .lp-modal__sheet {
     animation: none;
   }
 }
-
