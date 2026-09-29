@@ -79,7 +79,7 @@ $customer = is_array($customer ?? null) ? $customer : [];
               </div>
             <?php endforeach ?>
             <label class="rentals-date-field" style="margin-top:1rem;">Payment reference (optional)<input name="payment_reference" maxlength="190" value="<?= e_attr((string) ($customer['payment_reference'] ?? '')) ?>"></label>
-            <label class="rentals-date-field" style="margin-top:1rem;">Proof of payment · JPG, PNG, WebP or PDF (5 MB max)<input type="file" name="proof" accept="image/jpeg,image/png,image/webp,application/pdf" required></label>
+            <label class="rentals-date-field" style="margin-top:1rem;">Proof of payment · JPG, PNG, WebP or PDF (<?= e(number_format(\App\Services\RentalPaymentProof::maxUploadBytes() / 1048576, 2)) ?> MB max)<input type="file" name="proof" accept="image/jpeg,image/png,image/webp,application/pdf" required></label>
           <?php else: ?>
             <p role="status" style="margin-top:1rem;">No payment method is currently available. Please <a href="<?= e_attr(url('rentals/support')) ?>">contact Rental Support</a>; requests cannot be submitted yet.</p>
           <?php endif ?>

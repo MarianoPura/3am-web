@@ -42,7 +42,7 @@ unset($_SESSION['rentals_notice']);
             <form method="post" enctype="multipart/form-data" action="<?= e_attr(url('rentals/orders/' . (int) $order['id'] . '/proof')) ?>" class="rentals-proof-upload">
               <?= csrf_field() ?>
               <label>Payment reference (optional)<input name="payment_reference" maxlength="190" value="<?= e_attr((string) ($order['payment_reference'] ?? '')) ?>"></label>
-              <label>Payment proof · JPG, PNG, WebP or PDF, up to 5 MB<input type="file" name="proof" accept="image/jpeg,image/png,image/webp,application/pdf" required></label>
+              <label>Payment proof · JPG, PNG, WebP or PDF, up to <?= e(number_format(\App\Services\RentalPaymentProof::maxUploadBytes() / 1048576, 2)) ?> MB<input type="file" name="proof" accept="image/jpeg,image/png,image/webp,application/pdf" required></label>
               <button class="rentals-btn rentals-btn--primary" type="submit"><?= ($order['payment_proof_path'] ?? '') !== '' ? 'Replace proof' : 'Submit proof' ?></button>
             </form>
           <?php endif ?>

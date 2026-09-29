@@ -99,9 +99,12 @@ try {
     $assert($status === 422 && (int) $db->selectValue('SELECT COUNT(*) FROM order_header WHERE user_id = ?', [$userId]) === 0,
         'Checkout accepted a missing payment proof.');
     foreach ([$invalidProof => 'invalid', $largeProof => 'oversized'] as $file => $reason) {
-        [$status] = $http('/rentals/checkout', $baseCheckout + ['proof' => new CURLFile($file, 'image/png', 'proof.png')]);
-        $assert($status === 422 && (int) $db->selectValue('SELECT COUNT(*) FROM order_header WHERE user_id = ?', [$userId]) === 0,
+        [$status, $errorBody] = $http('/rentals/checkout', $baseCheckout + ['proof' => new CURLFile($file, 'image/png', 'proof.png')]);
+        $assert(($status === 422 || ($reason === 'oversized' && $status === 413 && str_contains($errorBody, 'upload limit')))
+            && (int) $db->selectValue('SELECT COUNT(*) FROM order_header WHERE user_id = ?', [$userId]) === 0,
             'Checkout accepted an ' . $reason . ' payment proof.');
+        $assert((int) $db->selectValue('SELECT COUNT(*) FROM cart_items ci JOIN carts c ON c.id = ci.cart_id WHERE c.user_id = ?', [$userId]) === 2,
+            'Rejected payment proof cleared the customer cart.');
     }
     $db->update('UPDATE payment_methods SET is_active = 0 WHERE id = ?', [$methodId]);
     [$status] = $http('/rentals/checkout', $baseCheckout + ['proof' => new CURLFile($proof, 'image/png', 'proof.png')]);

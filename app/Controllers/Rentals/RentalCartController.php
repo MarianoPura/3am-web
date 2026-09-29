@@ -30,7 +30,7 @@ final class RentalCartController extends Controller
         $last = $first->modify('last day of this month');
         $remaining = (new RentalCatalog($this->db()))->availabilityByDate($item, $first->format('Y-m-d'), $last->format('Y-m-d'));
         $stockStatus = strtolower((string) ($item['availability_status'] ?? ''));
-        $canRent = !in_array($stockStatus, ['unavailable', 'out_of_stock', 'inactive', 'reserved'], true);
+        $canRent = $stockStatus === 'available';
         $days = [];
         foreach ($remaining as $date => $day) {
             $days[] = ['date' => $date, 'remaining' => $day['remaining'], 'admin_blocked' => $day['admin_blocked'],
@@ -181,7 +181,7 @@ final class RentalCartController extends Controller
         }
 
         $status = strtolower((string) ($item['availability_status'] ?? ''));
-        return !in_array($status, ['unavailable', 'out_of_stock', 'inactive', 'reserved'], true)
+        return $status === 'available'
             && $quantity > 0
             && $this->minimumRemainingWithCart($item, $cart, $start, $end, $excludeLine) >= $quantity;
     }

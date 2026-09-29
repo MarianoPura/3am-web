@@ -46,9 +46,9 @@ final class RentalAccount
         if (filter_var($email, FILTER_VALIDATE_EMAIL) === false || strlen($email) > 190) {
             throw new RuntimeException('Enter a valid email address.');
         }
-        if (strlen($password) < 8) {
-            throw new RuntimeException('Use a password with at least 8 characters.');
-        }
+        if (strlen($password) < 8) { throw new RuntimeException('Use a password with at least 8 characters.'); }
+        if (strlen($password) > 72) { throw new RuntimeException('That password is too long. Use a shorter password.'); }
+        if (str_contains($password, "\0")) { throw new RuntimeException('That password contains an unsupported character. Choose a different password.'); }
         if ($this->db->selectOne('SELECT id FROM users WHERE email = ?', [$email])) {
             throw new RuntimeException('An account already exists for that email.');
         }

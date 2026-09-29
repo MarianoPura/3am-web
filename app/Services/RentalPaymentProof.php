@@ -16,19 +16,37 @@ final class RentalPaymentProof
         'image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp', 'application/pdf' => 'pdf',
     ];
 
+    public static function maxUploadBytes(): int
+    {
+        return RentalManagedImage::maxUploadBytes();
+    }
+
     public static function store(?array $upload): string
     {
-        if ($upload === null || (int) ($upload['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
-            throw new RuntimeException('Choose a JPG, PNG, WebP or PDF payment proof.');
+        $error = (int) ($upload['error'] ?? UPLOAD_ERR_NO_FILE);
+        if ($upload === null || $error !== UPLOAD_ERR_OK) {
+            throw new RuntimeException(match ($error) {
+                UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE => 'Payment proof exceeds the upload limit. Choose a smaller file.',
+                UPLOAD_ERR_PARTIAL => 'Payment proof upload was interrupted. Please try again.',
+                default => 'Choose a JPG, PNG, WebP or PDF payment proof.',
+            });
         }
         $source = $upload['tmp_name'] ?? null;
         $size = (int) ($upload['size'] ?? 0);
-        if (!is_string($source) || !is_uploaded_file($source) || $size < 1 || $size > 5 * 1024 * 1024) {
-            throw new RuntimeException('Payment proof must be a valid file no larger than 5 MB.');
+        if (!is_string($source) || !is_uploaded_file($source) || $size < 1 || $size > self::maxUploadBytes()) {
+            throw new RuntimeException('Choose a valid payment proof within the upload limit shown on the form.');
+        }
+        if (!class_exists(\finfo::class) || !function_exists('openssl_encrypt')) {
+            error_log('Rentals payment proof upload requires PHP Fileinfo and OpenSSL.');
+            throw new RuntimeException('Payment proof uploads are unavailable right now. Please try again later.');
         }
         $extension = self::TYPES[(new \finfo(FILEINFO_MIME_TYPE))->file($source)] ?? null;
         if ($extension === null) { throw new RuntimeException('Use a JPG, PNG, WebP or PDF payment proof.'); }
-        $directory = RentalStorage::directory('payment');
+        try { $directory = RentalStorage::directory('payment'); }
+        catch (RuntimeException $e) {
+            error_log('Rentals payment proof storage failed: ' . $e->getMessage());
+            throw new RuntimeException('Payment proof could not be saved right now. Please try again later.', 0, $e);
+        }
         $plain = @file_get_contents($source);
         if ($plain === false || strlen($plain) !== $size) { throw new RuntimeException('Payment proof could not be read.'); }
         $nonce = random_bytes(12);

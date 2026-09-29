@@ -171,7 +171,7 @@ final class RentalCatalog
 
         $status = strtolower(trim((string) ($item['availability_status'] ?? '')));
         if ((int) ($item['is_service'] ?? 0) === 1
-            || in_array($status, ['unavailable', 'out_of_stock', 'inactive', 'reserved'], true)
+            || $status !== 'available'
             || $quantity < 1) {
             return false;
         }
@@ -185,6 +185,25 @@ final class RentalCatalog
         if ($days === []) { return false; }
         foreach ($days as $remaining) {
             if ($remaining < $quantity) { return false; }
+        }
+        return true;
+    }
+
+    /** Check the peak requested quantity on each day, not the sum of disjoint ranges. */
+    public function isAvailableForLines(array $item, array $lines, string $start, string $end): bool
+    {
+        if (($item['is_sample'] ?? false) || !$this->isAvailable($item, 1, null, null)) { return false; }
+        $remaining = $this->remainingByDate($item, $start, $end);
+        if ($remaining === []) { return false; }
+        foreach ($remaining as $date => $units) {
+            $requested = 0;
+            foreach ($lines as $line) {
+                if ((int) ($line['db_id'] ?? $line['rental_item_id'] ?? 0) === (int) $item['db_id']
+                    && (string) $line['rental_start_date'] <= $date && (string) $line['rental_end_date'] >= $date) {
+                    $requested += (int) $line['quantity'];
+                }
+            }
+            if ($requested < 1 || $requested > $units) { return false; }
         }
         return true;
     }

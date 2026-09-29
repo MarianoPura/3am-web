@@ -24,7 +24,7 @@ try {
         [$categoryId, '[TEST] Camera', 'completion-' . $key, 'available', 'day', 125, 40, 1]);
     $paymentId = $db->insert('INSERT INTO payment_methods (name, type, provider, account_name, account_number) VALUES (?, ?, ?, ?, ?)', ['[TEST] Manual', 'manual', 'Test Bank', 'Test Account', '0000000000']);
     $userId = $db->insert('INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)',
-        ['[TEST] Customer', 'completion-' . $key . '@example.test', password_hash(random_bytes(16), PASSWORD_DEFAULT), 'customer']);
+        ['[TEST] Customer', 'completion-' . $key . '@example.test', password_hash(bin2hex(random_bytes(16)), PASSWORD_DEFAULT), 'customer']);
     $_SESSION['user_id'] = $userId;
     $cartController = new App\Controllers\Rentals\RentalCartController($container);
     $cartController->add($request(['id' => 'completion-' . $key]));
@@ -135,7 +135,7 @@ try {
     $assert($admin->availability($request([], 'GET'), (string) $multiId)->status() === 403, 'Customer accessed Admin availability.');
     $assert($admin->reviewProof($request(['decision'=>'rejected']), (string) $orderId)->status() === 403, 'Customer could reject an order.');
     $adminId = $db->insert('INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)',
-        ['[TEST] Admin', 'completion-admin-' . $key . '@example.test', password_hash(random_bytes(16), PASSWORD_DEFAULT), 'admin']);
+        ['[TEST] Admin', 'completion-admin-' . $key . '@example.test', password_hash(bin2hex(random_bytes(16)), PASSWORD_DEFAULT), 'admin']);
     $_SESSION['user_id'] = $adminId;
     $assert($admin->index($request([], 'GET'))->status() === 200, 'Admin dashboard failed.');
     $assert($admin->section($request([], 'GET'), 'analytics')->status() === 200, 'Analytics page failed.');
