@@ -609,6 +609,22 @@ final class RentalAdminController extends Controller
             $_SESSION['rentals_admin_notice'] = 'Choose a valid equipment item and date range.';
             return $this->redirect($return);
         }
+        if ($request->string('availability_action') === 'available') {
+            $this->db()->transaction(function ($db) use ($itemId, $start, $end, $first, $last): void {
+                $db->selectOne('SELECT id FROM rental_items WHERE id = ? FOR UPDATE', [$itemId]);
+                $blocks = $db->select('SELECT * FROM rental_item_blackouts WHERE rental_item_id = ? AND is_active = 1 AND start_date <= ? AND end_date >= ? FOR UPDATE', [$itemId, $end, $start]);
+                foreach ($blocks as $block) {
+                    $db->update('UPDATE rental_item_blackouts SET is_active = 0 WHERE id = ?', [$block['id']]);
+                    foreach ([[$block['start_date'], $first->modify('-1 day')->format('Y-m-d')], [$last->modify('+1 day')->format('Y-m-d'), $block['end_date']]] as [$from, $through]) {
+                        if ($from <= $through) {
+                            $db->insert('INSERT INTO rental_item_blackouts (rental_item_id, start_date, end_date, note) VALUES (?, ?, ?, ?)', [$itemId, $from, $through, $block['note']]);
+                        }
+                    }
+                }
+            });
+            $_SESSION['rentals_admin_notice'] = 'Manual blocks removed for the selected dates. Customer reservations and equipment stock status still apply.';
+            return $this->redirect($return);
+        }
         $this->db()->insert('INSERT INTO rental_item_blackouts (rental_item_id, start_date, end_date, note) VALUES (?, ?, ?, ?)',
             [$itemId, $start, $end, substr($request->string('note'), 0, 255) ?: null]);
         $_SESSION['rentals_admin_notice'] = 'Dates blocked. Existing reservations remain unchanged.';

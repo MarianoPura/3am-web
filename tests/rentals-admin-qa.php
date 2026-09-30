@@ -52,7 +52,8 @@ $token = static function (string $html): string {
     if (!preg_match('/name="_token" value="([^"<>]+)"/', $html, $m)) { throw new RuntimeException('Missing form token.'); }
     return html_entity_decode($m[1], ENT_QUOTES, 'UTF-8');
 };
-$adminId = $categoryId = $itemId = $methodId = 0;
+$adminId = $categoryId = $itemId = $methodId = $reservationCustomerId = 0;
+$reservationOrderIds = [];
 $orderIds = [];
 $extraItemIds = [];
 try {
@@ -216,6 +217,40 @@ try {
     $assert($code === 422, 'Admin calendar accepted an invalid month.');
     $http('/rentals/admin/items/' . $itemId . '/blackouts/' . $blackoutId . '/toggle', ['_token' => $csrf]);
     $assert($catalog->isAvailable($record, 2, $date, $date), 'Unblocking failed.');
+    $before = (new DateTimeImmutable($date))->modify('-1 day')->format('Y-m-d');
+    $after = (new DateTimeImmutable($date))->modify('+1 day')->format('Y-m-d');
+    $http('/rentals/admin/items/' . $itemId . '/blackouts', ['_token' => $csrf, 'start_date' => $before, 'end_date' => $after]);
+    $http('/rentals/admin/items/' . $itemId . '/blackouts', ['_token' => $csrf, 'start_date' => $date, 'end_date' => $date, 'availability_action' => 'available']);
+    $assert($catalog->isAvailable($record, 1, $date, $date) && !$catalog->isAvailable($record, 1, $before, $before)
+        && !$catalog->isAvailable($record, 1, $after, $after), 'Make available did not preserve surrounding blocked dates.');
+    $reservationCustomerId = $db->insert('INSERT INTO users (name,email,password,role) VALUES (?,?,?,?)', [$name, 'reservation-' . $key . '@example.test', password_hash($password, PASSWORD_DEFAULT), 'customer']);
+    [, $editor] = $http('/rentals/admin/items?edit=' . $itemId);
+    preg_match('/name="reservation_nonce" value="([^"]+)"/', $editor, $nonce);
+    $reservation = ['_token' => $token($editor), 'reservation_nonce' => $nonce[1] ?? '', 'availability_action' => 'reserved',
+        'start_date' => $date, 'end_date' => $date, 'quantity' => '2', 'customer_email' => 'reservation-' . $key . '@example.test',
+        'payment_method_id' => (string) $methodId, 'payment_reference' => 'QA reservation'];
+    $http('/rentals/admin/items/' . $itemId . '/blackouts', $reservation);
+    $assert(!(int) $db->selectValue('SELECT COUNT(*) FROM order_header WHERE user_id=?', [$reservationCustomerId]), 'Reservation accepted missing proof.');
+    [$code, $orderPage] = $http('/rentals/admin/items/' . $itemId . '/blackouts', $reservation + ['proof' => new CURLFile($picture, 'image/png', 'proof.png')]);
+    $reservationOrderIds = array_column($db->select('SELECT id FROM order_header WHERE user_id=?', [$reservationCustomerId]), 'id');
+    $assert($code === 200 && count($reservationOrderIds) === 1, 'Customer reservation order was not created.');
+    $created = $db->selectOne('SELECT * FROM order_header WHERE id=?', [$reservationOrderIds[0]]);
+    $assert((int) $created['payment_status'] === 0 && App\Services\RentalPaymentProof::path($created['payment_proof_path']) !== null, 'Reservation proof or pending status missing.');
+    $assert((float) $created['subtotal'] === (float) $record['rental_rate'] * 2
+        && (float) $created['security_deposit'] === (float) $record['security_deposit'] * 2, 'Reservation totals did not use database rates.');
+    $http('/rentals/admin/items/' . $itemId . '/blackouts', $reservation + ['proof' => new CURLFile($picture, 'image/png', 'proof.png')]);
+    $assert((int) $db->selectValue('SELECT COUNT(*) FROM order_header WHERE user_id=?', [$reservationCustomerId]) === 1, 'Repeated submit created a duplicate reservation.');
+    [, $editor] = $http('/rentals/admin/items?edit=' . $itemId);
+    preg_match('/name="reservation_nonce" value="([^"]+)"/', $editor, $nextNonce);
+    $http('/rentals/admin/items/' . $itemId . '/blackouts', array_replace($reservation, ['reservation_nonce' => $nextNonce[1], 'quantity' => '9999', 'proof' => new CURLFile($picture, 'image/png', 'proof.png')]));
+    $assert((int) $db->selectValue('SELECT COUNT(*) FROM order_header WHERE user_id=?', [$reservationCustomerId]) === 1, 'Overbooking created an order.');
+    $http('/rentals/admin/items/' . $itemId . '/blackouts', ['_token' => $csrf, 'start_date' => $date, 'end_date' => $date, 'availability_action' => 'available']);
+    $assert(!$catalog->isAvailable($record, (int) $record['available_quantity'], $date, $date), 'Make available erased customer reservation stock.');
+    foreach ($reservationOrderIds as $reservationId) {
+        App\Services\RentalPaymentProof::remove($db->selectValue('SELECT payment_proof_path FROM order_header WHERE id=?', [$reservationId]));
+        $db->delete('DELETE FROM order_header WHERE id=?', [$reservationId]);
+    }
+    $reservationOrderIds = [];
     foreach ([0, 1, 2] as $state) {
         $orderId = $db->insert('INSERT INTO order_header (order_number, user_id, customer_name, customer_email, payment_method_id,
             payment_status, status_token, subtotal, security_deposit, total_amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
@@ -336,6 +371,13 @@ try {
     $assert(str_starts_with($final, $base . '/rentals/account'), 'Guest accessed Admin availability API.');
     echo "PASS: Admin auth/mounted redirects/logout, category/product CRUD/uploads, malicious files, QR replacement/route, blackouts, searches/status filters, CSRF, reports and production errors.\n";
 } finally {
+    if ($reservationCustomerId) {
+        foreach ($db->select('SELECT id,payment_proof_path FROM order_header WHERE user_id=?', [$reservationCustomerId]) as $row) {
+            App\Services\RentalPaymentProof::remove($row['payment_proof_path']);
+            $db->delete('DELETE FROM order_header WHERE id=?', [$row['id']]);
+        }
+        $db->delete('DELETE FROM users WHERE id=?', [$reservationCustomerId]);
+    }
     foreach ($orderIds as $id) { $db->delete('DELETE FROM order_header WHERE id = ?', [$id]); }
     foreach ($extraItemIds as $id) { $db->delete('DELETE FROM rental_items WHERE id = ?', [$id]); }
     if ($itemId) {
