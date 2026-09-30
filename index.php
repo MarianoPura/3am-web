@@ -130,8 +130,8 @@ $dispatch = static function (Request $request) use ($router, $container): Respon
     // PHP discards both POST fields and the CSRF token when an upload exceeds
     // post_max_size. Reject oversized Rentals uploads without dispatching a write.
     $rentalsUpload = in_array($request->path(), ['/rentals/admin/items', '/rentals/admin/payments', '/rentals/checkout'], true)
-        || preg_match('#^/rentals/orders/[0-9]+/proof$#D', $request->path())
-        || preg_match('#^/rentals/admin/items/[0-9]+/blackouts$#D', $request->path());
+        || preg_match('#^/rentals/admin/(?:items|payments)/[0-9]+/edit$#D', $request->path())
+        || preg_match('#^/rentals/orders/[0-9]+/proof$#D', $request->path());
     if ($request->isPost() && $rentalsUpload) {
         $postLimit = \App\Services\RentalManagedImage::maxRequestBytes();
         if ($postLimit > 0 && $request->contentLength() > $postLimit) {

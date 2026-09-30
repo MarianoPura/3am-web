@@ -20,192 +20,563 @@ use Throwable;
 /** Rentals-only administration. */
 final class RentalAdminController extends Controller
 {
-    private const SECTIONS = ['analytics', 'sales-report', 'payment-report', 'items', 'categories', 'orders', 'payments', 'customers'];
-    private const WRITABLE_SECTIONS = ['items', 'categories', 'payments'];
     private const AVAILABILITY = ['available', 'unavailable', 'out_of_stock', 'reserved', 'inquire'];
     private ?array $adminUser = null;
+
+    // ── Section entry points ───────────────────────────────────
 
     public function index(Request $request): Response
     {
         if ($denial = $this->deny()) { return $denial; }
         $insights = new RentalAdminInsights($this->db());
         $dashboard = $insights->dashboard();
-        $notice = $_SESSION['rentals_admin_notice'] ?? null;
-        unset($_SESSION['rentals_admin_notice']);
-        return $this->render('rentals.admin', [
-            'section' => 'dashboard', 'metrics' => $dashboard['metrics'],
-            'recentOrders' => $dashboard['recentOrders'], 'upcomingRentals' => $dashboard['upcomingRentals'],
-            'notice' => $notice,
+        $notice = $this->popNotice();
+        return $this->render('rentals.admin.dashboard', [
+            'section'         => 'dashboard',
+            'metrics'         => $dashboard['metrics'],
+            'recentOrders'    => $dashboard['recentOrders'],
+            'upcomingRentals' => $dashboard['upcomingRentals'],
+            'notice'          => $notice,
+            'adminUser'       => $this->adminUser,
+        ])->noCache();
+    }
+
+    public function analytics(Request $request): Response
+    {
+        if ($denial = $this->deny()) { return $denial; }
+        return $this->render('rentals.admin.analytics', [
+            'section'   => 'analytics',
+            'insights'  => (new RentalAdminInsights($this->db()))->analytics($request),
             'adminUser' => $this->adminUser,
         ])->noCache();
     }
 
-    public function section(Request $request, string $section): Response
+    public function salesReport(Request $request): Response
     {
         if ($denial = $this->deny()) { return $denial; }
-        if (!in_array($section, self::SECTIONS, true)) { return Response::notFound(); }
-        $id = max(0, $request->int('edit'));
-        $showEditor = $id > 0 || ($request->string('new') === '1' && in_array($section, ['items', 'categories', 'payments'], true));
-        $data = ['section' => $section, 'rows' => [], 'record' => null, 'categories' => [], 'images' => [],
-            'details' => [], 'showEditor' => $showEditor, 'adminUser' => $this->adminUser];
-        $db = $this->db();
+        return $this->render('rentals.admin.sales-report', [
+            'section'   => 'sales-report',
+            'report'    => (new RentalAdminInsights($this->db()))->salesReport($request),
+            'adminUser' => $this->adminUser,
+        ])->noCache();
+    }
 
-        if ($section === 'analytics') {
-            $data['insights'] = (new RentalAdminInsights($db))->analytics($request);
-        } elseif ($section === 'sales-report') {
-            $data['report'] = (new RentalAdminInsights($db))->salesReport($request);
-        } elseif ($section === 'payment-report') {
-            try {
-                $data['report'] = (new RentalAdminInsights($db))->paymentReport($request);
-            } catch (Throwable $e) {
-                $cause = $e->getPrevious() ?? $e;
-                error_log('Rentals Payment Report failed: ' . $cause->getMessage());
-                throw $e;
-            }
-        } elseif ($section === 'items') {
-            $term = substr($request->string('q'), 0, 100);
-            $categoryId = max(0, $request->int('category'));
-            $type = in_array($request->string('type'), ['equipment', 'service'], true) ? $request->string('type') : 'all';
-            $typeValue = $type === 'equipment' ? 0 : ($type === 'service' ? 1 : -1);
-            $data['term'] = $term;
-            $data['categoryFilter'] = $categoryId;
-            $data['typeFilter'] = $type;
-            $data['categories'] = $db->select('SELECT id, name, is_active FROM rental_categories ORDER BY name, id');
-            $data['rows'] = $db->select(
-                'SELECT i.*, c.name AS category_name FROM rental_items i JOIN rental_categories c ON c.id = i.category_id
-                 WHERE (? = 0 OR i.category_id = ?) AND (? = \'\' OR i.name LIKE ? OR i.sku LIKE ?)
-                   AND (? = -1 OR i.is_service = ?)
-                 ORDER BY i.updated_at DESC, i.id DESC LIMIT 200',
-                [$categoryId, $categoryId, $term, '%' . $term . '%', '%' . $term . '%', $typeValue, $typeValue]
-            );
-            $data['record'] = $id ? $db->selectOne('SELECT * FROM rental_items WHERE id = ?', [$id]) : null;
-            $data['blackouts'] = $id ? $db->select('SELECT * FROM rental_item_blackouts WHERE rental_item_id = ? ORDER BY start_date DESC, id DESC', [$id]) : [];
-            $data['reservationPayments'] = (new \App\Services\RentalCheckout($db, new RentalCart()))->activePaymentMethods();
-            if ($id > 0) { $_SESSION['reservation_nonce'][$id] ??= bin2hex(random_bytes(24)); }
-            $data['reservationInput'] = $_SESSION['reservation_input'][$id] ?? [];
-            unset($_SESSION['reservation_input'][$id]);
-        } elseif ($section === 'categories') {
-            $data['rows'] = $db->select('SELECT * FROM rental_categories ORDER BY name, id');
-            $data['record'] = $id ? $db->selectOne('SELECT * FROM rental_categories WHERE id = ?', [$id]) : null;
-        } elseif ($section === 'orders') {
-            $term = substr($request->string('q'), 0, 100);
-            $status = $request->string('status');
-            $status = in_array($status, ['0', '1', '2'], true) ? $status : 'all';
-            $data['term'] = $term;
-            $data['statusFilter'] = $status;
-            $data['rows'] = $db->select(
-                'SELECT h.*, p.name AS payment_method FROM order_header h LEFT JOIN payment_methods p ON p.id = h.payment_method_id
-                 WHERE (? = \'\' OR h.order_number LIKE ? OR h.customer_name LIKE ? OR h.customer_email LIKE ?)
-                   AND (? = \'all\' OR h.payment_status = ?)
-                 ORDER BY (h.payment_status = 0) DESC, h.created_at DESC, h.id DESC LIMIT 200',
-                [$term, '%' . $term . '%', '%' . $term . '%', '%' . $term . '%', $status, $status]
-            );
-            $data['record'] = $id ? $db->selectOne('SELECT h.*, p.name AS payment_method, p.type AS payment_type FROM order_header h LEFT JOIN payment_methods p ON p.id = h.payment_method_id WHERE h.id = ?', [$id]) : null;
-            if ($data['record'] !== null) {
-                $data['details'] = $db->select('SELECT * FROM order_details WHERE order_header_id = ? ORDER BY id', [$id]);
-            }
-        } elseif ($section === 'payments') {
-            $data['rows'] = $db->select('SELECT * FROM payment_methods ORDER BY name, id');
-            $data['record'] = $id ? $db->selectOne('SELECT * FROM payment_methods WHERE id = ?', [$id]) : null;
-        } else {
-            if ($id > 0) { return Response::notFound(); }
-            $data['rows'] = $db->select('SELECT id, name, email, role, last_login FROM users ORDER BY created_at DESC, id DESC LIMIT 200');
+    public function paymentReport(Request $request): Response
+    {
+        if ($denial = $this->deny()) { return $denial; }
+        try {
+            $report = (new RentalAdminInsights($this->db()))->paymentReport($request);
+        } catch (Throwable $e) {
+            $cause = $e->getPrevious() ?? $e;
+            error_log('Rentals Payment Report failed: ' . $cause->getMessage());
+            throw $e;
         }
-        if ($id > 0 && $data['record'] === null) { return Response::notFound(); }
-        if (in_array($section, ['items', 'categories'], true)) {
-            foreach (glob(BASE_PATH . '/media/rentals-*') ?: [] as $file) {
-                $path = 'media/' . basename($file);
-                if (RentalCatalog::imagePath($path) !== null) { $data['images'][] = $path; }
-            }
+        return $this->render('rentals.admin.payment-report', [
+            'section'   => 'payment-report',
+            'report'    => $report,
+            'adminUser' => $this->adminUser,
+        ])->noCache();
+    }
+
+    public function items(Request $request): Response
+    {
+        if ($denial = $this->deny()) { return $denial; }
+
+        if ($request->string('new') === '1') {
+            return $this->redirect(url('rentals/admin/items/new'));
         }
-        $data['notice'] = $_SESSION['rentals_admin_notice'] ?? null;
-        unset($_SESSION['rentals_admin_notice']);
-        $data['noticeIsError'] = (bool) ($_SESSION['rentals_admin_notice_error'] ?? false);
-        unset($_SESSION['rentals_admin_notice_error']);
-        $draft = $_SESSION['rentals_admin_product_draft'] ?? null;
-        if ($section === 'items' && $showEditor && is_array($draft) && (int) $draft['id'] === $id) {
-            $data['record'] = array_replace($data['record'] ?? [], $draft['fields']);
+        $editId = max(0, $request->int('edit'));
+        if ($editId > 0) {
+            return $this->redirect(url('rentals/admin/items/' . $editId . '/edit'));
+        }
+
+        $db = $this->db();
+        $term       = substr($request->string('q'), 0, 100);
+        $categoryId = max(0, $request->int('category'));
+        $type       = in_array($request->string('type'), ['equipment', 'service'], true) ? $request->string('type') : 'all';
+        $typeValue  = $type === 'equipment' ? 0 : ($type === 'service' ? 1 : -1);
+        $categories = $db->select('SELECT id, name, is_active FROM rental_categories ORDER BY name, id');
+        $rows       = $db->select(
+            'SELECT i.*, c.name AS category_name FROM rental_items i JOIN rental_categories c ON c.id = i.category_id
+             WHERE (? = 0 OR i.category_id = ?) AND (? = \'\' OR i.name LIKE ? OR i.sku LIKE ?)
+               AND (? = -1 OR i.is_service = ?)
+             ORDER BY i.updated_at DESC, i.id DESC LIMIT 200',
+            [$categoryId, $categoryId, $term, '%' . $term . '%', '%' . $term . '%', $typeValue, $typeValue]
+        );
+
+        return $this->render('rentals.admin.items', [
+            'section'        => 'items',
+            'rows'           => $rows,
+            'categories'     => $categories,
+            'images'         => $this->localImages(),
+            'term'           => $term,
+            'categoryFilter' => $categoryId,
+            'typeFilter'     => $type,
+            'notice'         => $this->popNotice(),
+            'noticeIsError'  => $this->popNoticeError(),
+            'adminUser'      => $this->adminUser,
+        ])->noCache();
+    }
+
+    public function itemsNew(Request $request): Response
+    {
+        if ($denial = $this->deny()) { return $denial; }
+
+        $draft = $_SESSION['rentals_admin_product_draft']['fields'] ?? [];
+        unset($_SESSION['rentals_admin_product_draft']);
+
+        $db = $this->db();
+        return $this->render('rentals.admin.items-create', [
+            'section'       => 'items',
+            'categories'    => $db->select('SELECT id, name, is_active FROM rental_categories ORDER BY name, id'),
+            'images'        => $this->localImages(),
+            'draft'         => $draft,
+            'notice'        => $this->popNotice(),
+            'noticeIsError' => $this->popNoticeError(),
+            'adminUser'     => $this->adminUser,
+        ])->noCache();
+    }
+
+    public function itemsEdit(Request $request, string $id): Response
+    {
+        if ($denial = $this->deny()) { return $denial; }
+
+        $itemId = (int) $id;
+        if ($itemId < 1) { return Response::notFound(); }
+
+        $db   = $this->db();
+        $item = $db->selectOne('SELECT * FROM rental_items WHERE id = ?', [$itemId]);
+        if ($item === null) { return Response::notFound(); }
+
+        if (isset($_SESSION['rentals_admin_product_draft']) && (int) ($_SESSION['rentals_admin_product_draft']['id'] ?? 0) === $itemId) {
+            $draft = $_SESSION['rentals_admin_product_draft']['fields'] ?? [];
             unset($_SESSION['rentals_admin_product_draft']);
+            if (!empty($draft)) {
+                $item = array_merge($item, $draft);
+            }
         }
-        return $this->render('rentals.admin', $data)->noCache();
+
+        return $this->render('rentals.admin.items-edit', [
+            'section'       => 'items',
+            'itemId'        => $itemId,
+            'item'          => $item,
+            'record'        => $item,
+            'categories'    => $db->select('SELECT id, name, is_active FROM rental_categories ORDER BY name, id'),
+            'blackouts'     => $db->select('SELECT * FROM rental_item_blackouts WHERE rental_item_id = ? ORDER BY start_date DESC, id DESC', [$itemId]),
+            'images'        => $this->localImages(),
+            'notice'        => $this->popNotice(),
+            'noticeIsError' => $this->popNoticeError(),
+            'adminUser'     => $this->adminUser,
+        ])->noCache();
+    }
+
+    public function categories(Request $request): Response
+    {
+        if ($denial = $this->deny()) { return $denial; }
+
+        if ($request->string('new') === '1') {
+            return $this->redirect(url('rentals/admin/categories/new'));
+        }
+        $editId = max(0, $request->int('edit'));
+        if ($editId > 0) {
+            return $this->redirect(url('rentals/admin/categories/' . $editId . '/edit'));
+        }
+
+        $rows = $this->db()->select('SELECT * FROM rental_categories ORDER BY name, id');
+        return $this->render('rentals.admin.categories', [
+            'section'       => 'categories',
+            'rows'          => $rows,
+            'images'        => $this->localImages(),
+            'notice'        => $this->popNotice(),
+            'noticeIsError' => $this->popNoticeError(),
+            'adminUser'     => $this->adminUser,
+        ])->noCache();
+    }
+
+    public function categoriesNew(Request $request): Response
+    {
+        if ($denial = $this->deny()) { return $denial; }
+
+        return $this->render('rentals.admin.categories-create', [
+            'section'       => 'categories',
+            'images'        => $this->localImages(),
+            'notice'        => $this->popNotice(),
+            'noticeIsError' => $this->popNoticeError(),
+            'adminUser'     => $this->adminUser,
+        ])->noCache();
+    }
+
+    public function categoriesEdit(Request $request, string $id): Response
+    {
+        if ($denial = $this->deny()) { return $denial; }
+
+        $categoryId = (int) $id;
+        if ($categoryId < 1) { return Response::notFound(); }
+
+        $category = $this->db()->selectOne('SELECT * FROM rental_categories WHERE id = ?', [$categoryId]);
+        if ($category === null) { return Response::notFound(); }
+
+        return $this->render('rentals.admin.categories-edit', [
+            'section'       => 'categories',
+            'category'      => $category,
+            'record'        => $category,
+            'images'        => $this->localImages(),
+            'notice'        => $this->popNotice(),
+            'noticeIsError' => $this->popNoticeError(),
+            'adminUser'     => $this->adminUser,
+        ])->noCache();
+    }
+
+    public function orders(Request $request): Response
+    {
+        if ($denial = $this->deny()) { return $denial; }
+
+        $editId = max(0, $request->int('edit'));
+        if ($editId > 0) {
+            return $this->redirect(url('rentals/admin/orders/' . $editId));
+        }
+
+        $db     = $this->db();
+        $term   = substr($request->string('q'), 0, 100);
+        $status = $request->string('status');
+        $status = in_array($status, ['0', '1', '2'], true) ? $status : 'all';
+        $rows   = $db->select(
+            'SELECT h.*, p.name AS payment_method FROM order_header h LEFT JOIN payment_methods p ON p.id = h.payment_method_id
+             WHERE (? = \'\' OR h.order_number LIKE ? OR h.customer_name LIKE ? OR h.customer_email LIKE ?)
+               AND (? = \'all\' OR h.payment_status = ?)
+             ORDER BY (h.payment_status = 0) DESC, h.created_at DESC, h.id DESC LIMIT 200',
+            [$term, '%' . $term . '%', '%' . $term . '%', '%' . $term . '%', $status, $status]
+        );
+
+        return $this->render('rentals.admin.orders', [
+            'section'       => 'orders',
+            'rows'          => $rows,
+            'term'          => $term,
+            'statusFilter'  => $status,
+            'notice'        => $this->popNotice(),
+            'noticeIsError' => $this->popNoticeError(),
+            'adminUser'     => $this->adminUser,
+        ])->noCache();
+    }
+
+    public function ordersView(Request $request, string $id): Response
+    {
+        if ($denial = $this->deny()) { return $denial; }
+
+        $orderId = (int) $id;
+        if ($orderId < 1) { return Response::notFound(); }
+
+        $db     = $this->db();
+        $record = $db->selectOne('SELECT h.*, p.name AS payment_method, p.type AS payment_type FROM order_header h LEFT JOIN payment_methods p ON p.id = h.payment_method_id WHERE h.id = ?', [$orderId]);
+        if ($record === null) { return Response::notFound(); }
+
+        return $this->render('rentals.admin.orders-view', [
+            'section'       => 'orders',
+            'record'        => $record,
+            'details'       => $db->select('SELECT * FROM order_details WHERE order_header_id = ? ORDER BY id', [$orderId]),
+            'notice'        => $this->popNotice(),
+            'noticeIsError' => $this->popNoticeError(),
+            'adminUser'     => $this->adminUser,
+        ])->noCache();
+    }
+
+    public function payments(Request $request): Response
+    {
+        if ($denial = $this->deny()) { return $denial; }
+
+        if ($request->string('new') === '1') {
+            return $this->redirect(url('rentals/admin/payments/new'));
+        }
+        $editId = max(0, $request->int('edit'));
+        if ($editId > 0) {
+            return $this->redirect(url('rentals/admin/payments/' . $editId . '/edit'));
+        }
+
+        $rows = $this->db()->select('SELECT * FROM payment_methods ORDER BY name, id');
+        return $this->render('rentals.admin.payments', [
+            'section'       => 'payments',
+            'rows'          => $rows,
+            'notice'        => $this->popNotice(),
+            'noticeIsError' => $this->popNoticeError(),
+            'adminUser'     => $this->adminUser,
+        ])->noCache();
+    }
+
+    public function paymentsNew(Request $request): Response
+    {
+        if ($denial = $this->deny()) { return $denial; }
+
+        return $this->render('rentals.admin.payments-create', [
+            'section'       => 'payments',
+            'notice'        => $this->popNotice(),
+            'noticeIsError' => $this->popNoticeError(),
+            'adminUser'     => $this->adminUser,
+        ])->noCache();
+    }
+
+    public function paymentsEdit(Request $request, string $id): Response
+    {
+        if ($denial = $this->deny()) { return $denial; }
+
+        $paymentId = (int) $id;
+        if ($paymentId < 1) { return Response::notFound(); }
+
+        $payment = $this->db()->selectOne('SELECT * FROM payment_methods WHERE id = ?', [$paymentId]);
+        if ($payment === null) { return Response::notFound(); }
+
+        return $this->render('rentals.admin.payments-edit', [
+            'section'       => 'payments',
+            'payment'       => $payment,
+            'record'        => $payment,
+            'notice'        => $this->popNotice(),
+            'noticeIsError' => $this->popNoticeError(),
+            'adminUser'     => $this->adminUser,
+        ])->noCache();
+    }
+
+    public function customers(Request $request): Response
+    {
+        if ($denial = $this->deny()) { return $denial; }
+        $rows = $this->db()->select('SELECT id, name, email, role, last_login FROM users ORDER BY created_at DESC, id DESC LIMIT 200');
+        return $this->render('rentals.admin.customers', [
+            'section'       => 'customers',
+            'rows'          => $rows,
+            'notice'        => $this->popNotice(),
+            'noticeIsError' => $this->popNoticeError(),
+            'adminUser'     => $this->adminUser,
+        ])->noCache();
+    }
+
+    // ── Write actions ──────────────────────────────────────────
+
+    public function itemsStore(Request $request): Response
+    {
+        if ($denial = $this->deny()) { return $denial; }
+
+        $id = max(0, $request->int('id'));
+        if ($id > 0) {
+            return $this->itemsUpdate($request, (string) $id);
+        }
+
+        try {
+            $this->validateAndSaveItem($request, 0);
+            $_SESSION['rentals_admin_notice'] = 'Changes saved.';
+            unset($_SESSION['rentals_admin_product_draft']);
+            return $this->redirect(url('rentals/admin/items'));
+        } catch (\InvalidArgumentException $e) {
+            $this->saveProductDraft($request, 0);
+            $_SESSION['rentals_admin_notice'] = $e->getMessage();
+            $_SESSION['rentals_admin_notice_error'] = true;
+            return $this->redirect(url('rentals/admin/items/new'));
+        } catch (Throwable $e) {
+            error_log('Failed to save rental item: ' . $e->getMessage());
+            $this->saveProductDraft($request, 0);
+            $_SESSION['rentals_admin_notice'] = 'The product could not be saved right now. Your entries have been kept.';
+            $_SESSION['rentals_admin_notice_error'] = true;
+            return $this->redirect(url('rentals/admin/items/new'));
+        }
+    }
+
+    public function itemsUpdate(Request $request, string $id): Response
+    {
+        if ($denial = $this->deny()) { return $denial; }
+
+        $itemId = (int) $id;
+        if ($itemId < 1) { return Response::notFound(); }
+
+        try {
+            $this->validateAndSaveItem($request, $itemId);
+            $_SESSION['rentals_admin_notice'] = 'Changes saved.';
+            unset($_SESSION['rentals_admin_product_draft']);
+            return $this->redirect(url('rentals/admin/items/' . $itemId . '/edit'));
+        } catch (\InvalidArgumentException $e) {
+            $this->saveProductDraft($request, $itemId);
+            $_SESSION['rentals_admin_notice'] = $e->getMessage();
+            $_SESSION['rentals_admin_notice_error'] = true;
+            return $this->redirect(url('rentals/admin/items/' . $itemId . '/edit'));
+        } catch (Throwable $e) {
+            error_log('Failed to update rental item ' . $itemId . ': ' . $e->getMessage());
+            $this->saveProductDraft($request, $itemId);
+            $_SESSION['rentals_admin_notice'] = 'The product could not be saved right now. Your entries have been kept.';
+            $_SESSION['rentals_admin_notice_error'] = true;
+            return $this->redirect(url('rentals/admin/items/' . $itemId . '/edit'));
+        }
+    }
+
+    public function saveItems(Request $request): Response
+    {
+        $id = max(0, $request->int('id'));
+        return $id > 0 ? $this->itemsUpdate($request, (string) $id) : $this->itemsStore($request);
+    }
+
+    public function categoriesStore(Request $request): Response
+    {
+        if ($denial = $this->deny()) { return $denial; }
+
+        $id = max(0, $request->int('id'));
+        if ($id > 0) {
+            return $this->categoriesUpdate($request, (string) $id);
+        }
+
+        try {
+            $this->validateAndSaveCategory($request, 0);
+            $_SESSION['rentals_admin_notice'] = 'Changes saved.';
+            return $this->redirect(url('rentals/admin/categories'));
+        } catch (\InvalidArgumentException $e) {
+            $_SESSION['rentals_admin_notice'] = $e->getMessage();
+            $_SESSION['rentals_admin_notice_error'] = true;
+            return $this->redirect(url('rentals/admin/categories/new'));
+        } catch (Throwable $e) {
+            error_log('Failed to save rental category: ' . $e->getMessage());
+            $_SESSION['rentals_admin_notice'] = 'Could not save. Check required fields and unique slug.';
+            $_SESSION['rentals_admin_notice_error'] = true;
+            return $this->redirect(url('rentals/admin/categories/new'));
+        }
+    }
+
+    public function categoriesUpdate(Request $request, string $id): Response
+    {
+        if ($denial = $this->deny()) { return $denial; }
+
+        $categoryId = (int) $id;
+        if ($categoryId < 1) { return Response::notFound(); }
+
+        try {
+            $this->validateAndSaveCategory($request, $categoryId);
+            $_SESSION['rentals_admin_notice'] = 'Changes saved.';
+            return $this->redirect(url('rentals/admin/categories/' . $categoryId . '/edit'));
+        } catch (\InvalidArgumentException $e) {
+            $_SESSION['rentals_admin_notice'] = $e->getMessage();
+            $_SESSION['rentals_admin_notice_error'] = true;
+            return $this->redirect(url('rentals/admin/categories/' . $categoryId . '/edit'));
+        } catch (Throwable $e) {
+            error_log('Failed to update rental category ' . $categoryId . ': ' . $e->getMessage());
+            $_SESSION['rentals_admin_notice'] = 'Could not save. Check required fields and unique slug.';
+            $_SESSION['rentals_admin_notice_error'] = true;
+            return $this->redirect(url('rentals/admin/categories/' . $categoryId . '/edit'));
+        }
+    }
+
+    public function saveCategories(Request $request): Response
+    {
+        $id = max(0, $request->int('id'));
+        return $id > 0 ? $this->categoriesUpdate($request, (string) $id) : $this->categoriesStore($request);
+    }
+
+    public function paymentsStore(Request $request): Response
+    {
+        if ($denial = $this->deny()) { return $denial; }
+
+        $id = max(0, $request->int('id'));
+        if ($id > 0) {
+            return $this->paymentsUpdate($request, (string) $id);
+        }
+
+        try {
+            $this->validateAndSavePayment($request, 0);
+            $_SESSION['rentals_admin_notice'] = 'Changes saved.';
+            return $this->redirect(url('rentals/admin/payments'));
+        } catch (\InvalidArgumentException $e) {
+            $_SESSION['rentals_admin_notice'] = $e->getMessage();
+            $_SESSION['rentals_admin_notice_error'] = true;
+            return $this->redirect(url('rentals/admin/payments/new'));
+        } catch (Throwable $e) {
+            error_log('Failed to save payment method: ' . $e->getMessage());
+            $_SESSION['rentals_admin_notice'] = 'Could not save. Check required fields and unique name.';
+            $_SESSION['rentals_admin_notice_error'] = true;
+            return $this->redirect(url('rentals/admin/payments/new'));
+        }
+    }
+
+    public function paymentsUpdate(Request $request, string $id): Response
+    {
+        if ($denial = $this->deny()) { return $denial; }
+
+        $paymentId = (int) $id;
+        if ($paymentId < 1) { return Response::notFound(); }
+
+        try {
+            $this->validateAndSavePayment($request, $paymentId);
+            $_SESSION['rentals_admin_notice'] = 'Changes saved.';
+            return $this->redirect(url('rentals/admin/payments/' . $paymentId . '/edit'));
+        } catch (\InvalidArgumentException $e) {
+            $_SESSION['rentals_admin_notice'] = $e->getMessage();
+            $_SESSION['rentals_admin_notice_error'] = true;
+            return $this->redirect(url('rentals/admin/payments/' . $paymentId . '/edit'));
+        } catch (Throwable $e) {
+            error_log('Failed to update payment method ' . $paymentId . ': ' . $e->getMessage());
+            $_SESSION['rentals_admin_notice'] = 'Could not save. Check required fields and unique name.';
+            $_SESSION['rentals_admin_notice_error'] = true;
+            return $this->redirect(url('rentals/admin/payments/' . $paymentId . '/edit'));
+        }
+    }
+
+    public function savePayments(Request $request): Response
+    {
+        $id = max(0, $request->int('id'));
+        return $id > 0 ? $this->paymentsUpdate($request, (string) $id) : $this->paymentsStore($request);
+    }
+
+    public function section(Request $request, string $section): Response
+    {
+        return match ($section) {
+            'analytics'      => $this->analytics($request),
+            'sales-report'   => $this->salesReport($request),
+            'payment-report' => $this->paymentReport($request),
+            'orders'         => $this->orders($request),
+            'items'          => $this->items($request),
+            'categories'     => $this->categories($request),
+            'payments'       => $this->payments($request),
+            default          => Response::notFound(),
+        };
     }
 
     public function save(Request $request, string $section): Response
     {
-        if ($denial = $this->deny()) { return $denial; }
-        if (!in_array($section, self::WRITABLE_SECTIONS, true)) { return Response::notFound(); }
-        $id = max(0, $request->int('id'));
-        $failed = false;
-        try {
-            match ($section) {
-                'categories' => $this->saveCategory($request, $id),
-                'items' => $this->saveItem($request, $id),
-                'payments' => $this->savePayment($request, $id),
-            };
-            $_SESSION['rentals_admin_notice'] = 'Changes saved.';
-            if ($section === 'items') { unset($_SESSION['rentals_admin_product_draft']); }
-        } catch (\InvalidArgumentException $e) {
-            $failed = true;
-            $_SESSION['rentals_admin_notice'] = $e->getMessage();
-        } catch (Throwable $e) {
-            $failed = true;
-            $reference = bin2hex(random_bytes(4));
-            $cause = $e->getPrevious() ?? $e;
-            $code = $cause instanceof \PDOException ? (int) ($cause->errorInfo[1] ?? 0) : 0;
-            error_log('Rentals admin save failed [' . $reference . '], section=' . $section . ', database code=' . $code . ': ' . $e->getMessage());
-            $_SESSION['rentals_admin_notice'] = $section === 'items'
-                ? match ($code) {
-                    1062 => 'A product URL or SKU was just used by another product. Leave the slug blank and use a different SKU, then try again.',
-                    1048, 1054, 1146, 1265, 1364, 1406 => 'A server configuration problem prevented this product from being saved. Your entries have been kept. Reference: ' . $reference,
-                    1452 => 'The selected category is no longer available. Choose a category again.',
-                    default => 'The product could not be saved right now. Your entries have been kept. Reference: ' . $reference,
-                }
-                : 'Could not save. Check required fields and unique slug or SKU.';
-        }
-        if ($failed && $section === 'items') {
-            $fields = [];
-            foreach (['category_id', 'name', 'slug', 'sku', 'description', 'ideal_use', 'is_service',
-                'availability_status', 'rental_unit', 'rental_rate', 'security_deposit', 'available_quantity', 'is_active'] as $field) {
-                preg_match('/^.{0,5000}/us', $request->string($field), $text);
-                $fields[$field] = $text[0] ?? '';
-            }
-            $_SESSION['rentals_admin_product_draft'] = ['id' => $id, 'fields' => $fields];
-        }
-        $_SESSION['rentals_admin_notice_error'] = $failed;
-        $query = $id > 0 ? '?edit=' . $id : ($failed && $section !== 'orders' ? '?new=1' : '');
-        return $this->redirect(url('rentals/admin/' . $section . $query));
+        return match ($section) {
+            'items'      => $this->saveItems($request),
+            'categories' => $this->saveCategories($request),
+            'payments'   => $this->savePayments($request),
+            default      => Response::notFound(),
+        };
     }
 
-    public function toggle(Request $request, string $section): Response
+    public function toggleItems(Request $request): Response
+    {
+        return $this->toggleRecord($request, 'items', 'rental_items');
+    }
+
+    public function toggleCategories(Request $request): Response
+    {
+        return $this->toggleRecord($request, 'categories', 'rental_categories');
+    }
+
+    public function togglePayments(Request $request): Response
     {
         if ($denial = $this->deny()) { return $denial; }
-        $table = match ($section) {
-            'items' => 'rental_items', 'categories' => 'rental_categories', 'payments' => 'payment_methods', default => null,
-        };
-        if ($table === null) { return Response::notFound(); }
         $id = max(0, $request->int('id'));
         if ($id > 0) {
-            if ($section === 'payments') {
-                $method = $this->db()->selectOne('SELECT type, account_name, account_number, is_active FROM payment_methods WHERE id = ?', [$id]);
-                if ($method !== null && (int) $method['is_active'] === 0 && $method['type'] === 'manual'
-                    && (trim((string) $method['account_name']) === '' || trim((string) $method['account_number']) === '')) {
-                    $_SESSION['rentals_admin_notice'] = 'Add an account name and number before activating a manual method.';
-                    return $this->redirect(url('rentals/admin/payments?edit=' . $id));
-                }
+            $method = $this->db()->selectOne('SELECT type, account_name, account_number, is_active FROM payment_methods WHERE id = ?', [$id]);
+            if ($method !== null && (int) $method['is_active'] === 0 && $method['type'] === 'manual'
+                && (trim((string) $method['account_name']) === '' || trim((string) $method['account_number']) === '')) {
+                $_SESSION['rentals_admin_notice'] = 'Add an account name and number before activating a manual method.';
+                return $this->redirect(url('rentals/admin/payments/' . $id . '/edit'));
             }
-            $this->db()->update("UPDATE {$table} SET is_active = IF(is_active = 1, 0, 1) WHERE id = ?", [$id]);
+            $this->db()->update('UPDATE payment_methods SET is_active = IF(is_active = 1, 0, 1) WHERE id = ?', [$id]);
             $_SESSION['rentals_admin_notice'] = 'Active status updated.';
         }
-        return $this->redirect(url('rentals/admin/' . $section));
+        return $this->redirect(url('rentals/admin/payments'));
     }
+
+    // ── Availability / blackouts ───────────────────────────────
 
     public function availability(Request $request, string $id): Response
     {
         if ($denial = $this->deny()) { return $denial; }
         $item = $this->db()->selectOne('SELECT * FROM rental_items WHERE id = ? AND is_service = 0', [(int) $id]);
         if ($item === null) { return Response::notFound(); }
-        $month = $request->string('month');
-        $first = \DateTimeImmutable::createFromFormat('!Y-m-d', $month . '-01');
+        $month   = $request->string('month');
+        $first   = \DateTimeImmutable::createFromFormat('!Y-m-d', $month . '-01');
         $current = new \DateTimeImmutable('first day of this month');
         if (!$first || $first->format('Y-m') !== $month || $first < $current->modify('-12 months')
             || $first > $current->modify('+12 months')) {
@@ -213,11 +584,11 @@ final class RentalAdminController extends Controller
         }
         $item['db_id'] = (int) $item['id'];
         $dates = (new RentalCatalog($this->db()))->availabilityByDate($item, $first->format('Y-m-d'), $first->modify('last day of this month')->format('Y-m-d'));
-        $days = [];
-          foreach ($dates as $date => $day) {
-              if ((int) $item['is_active'] !== 1 || $item['availability_status'] !== 'available') { $day['remaining'] = 0; }
-              $days[] = ['date' => $date] + $day;
-          }
+        $days  = [];
+        foreach ($dates as $date => $day) {
+            if ((int) $item['is_active'] !== 1 || $item['availability_status'] !== 'available') { $day['remaining'] = 0; }
+            $days[] = ['date' => $date] + $day;
+        }
         return Response::json(['ok' => true, 'month' => $month, 'capacity' => (int) $item['available_quantity'],
             'stock_status' => (string) $item['availability_status'], 'active' => (int) $item['is_active'] === 1,
             'days' => $days])->noCache();
@@ -227,31 +598,11 @@ final class RentalAdminController extends Controller
     {
         if ($denial = $this->deny()) { return $denial; }
         $itemId = (int) $id;
-        $return = url('rentals/admin/items?edit=' . $itemId . '#equipment-availability');
-        if ($request->string('availability_action') === 'reserved') {
-            $data = [];
-            foreach (['start_date', 'end_date', 'quantity', 'customer_email', 'customer_phone', 'payment_method_id', 'payment_reference', 'notes'] as $field) { $data[$field] = $request->string($field); }
-            try {
-                $nonce = (string) ($_SESSION['reservation_nonce'][$itemId] ?? '');
-                if ($nonce === '' || !hash_equals($nonce, $request->string('reservation_nonce'))) { throw new \RuntimeException('This reservation form has already been submitted or expired. Reload the product before trying again.'); }
-                $orderId = (new \App\Services\RentalAdminReservation($this->db()))->create($itemId, $data, $request->file('proof'));
-                unset($_SESSION['reservation_nonce'][$itemId]);
-                $_SESSION['rentals_admin_notice'] = 'Customer reservation created. Payment is pending review; stock is reserved for these dates.';
-                return $this->redirect(url('rentals/admin/orders?edit=' . $orderId));
-            } catch (\RuntimeException $e) {
-                $_SESSION['reservation_input'][$itemId] = $data;
-                $_SESSION['rentals_admin_notice'] = $e->getMessage();
-                return $this->redirect($return);
-            }
-        }
-        $start = $request->string('start_date');
-        $end = $request->string('end_date');
-        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/D', $start) || !preg_match('/^\d{4}-\d{2}-\d{2}$/D', $end)) {
-            $_SESSION['rentals_admin_notice'] = 'Choose a valid date range.';
-            return $this->redirect($return);
-        }
-        $first = \DateTimeImmutable::createFromFormat('!Y-m-d', $start);
-        $last = \DateTimeImmutable::createFromFormat('!Y-m-d', $end);
+        $return = url('rentals/admin/items/' . $itemId . '/edit#equipment-availability');
+        $start  = $request->string('start_date');
+        $end    = $request->string('end_date');
+        $first  = \DateTimeImmutable::createFromFormat('!Y-m-d', $start);
+        $last   = \DateTimeImmutable::createFromFormat('!Y-m-d', $end);
         if ($itemId < 1 || !$first || !$last || $first->format('Y-m-d') !== $start
             || $last->format('Y-m-d') !== $end || $first > $last
             || $this->db()->selectOne('SELECT id FROM rental_items WHERE id = ? AND is_service = 0', [$itemId]) === null) {
@@ -287,8 +638,10 @@ final class RentalAdminController extends Controller
         $this->db()->update('UPDATE rental_item_blackouts SET is_active = IF(is_active = 1, 0, 1) WHERE id = ? AND rental_item_id = ?',
             [(int) $blackoutId, $itemId]);
         $_SESSION['rentals_admin_notice'] = 'Manual date block updated. Customer reservations still apply.';
-        return $this->redirect(url('rentals/admin/items?edit=' . $itemId . '#equipment-availability'));
+        return $this->redirect(url('rentals/admin/items/' . $itemId . '/edit#equipment-availability'));
     }
+
+    // ── Payment proof ──────────────────────────────────────────
 
     public function viewProof(Request $request, string $id): Response
     {
@@ -300,7 +653,7 @@ final class RentalAdminController extends Controller
     public function reviewProof(Request $request, string $id): Response
     {
         if ($denial = $this->deny()) { return $denial; }
-        $orderId = (int) $id;
+        $orderId  = (int) $id;
         $decision = $request->string('decision');
         if (!in_array($decision, ['approved', 'rejected'], true)) { return Response::forbidden('Invalid review action.'); }
         try {
@@ -333,7 +686,18 @@ final class RentalAdminController extends Controller
             error_log('Rentals proof review failed: ' . $e->getMessage());
             $_SESSION['rentals_admin_notice'] = 'Payment proof review could not be saved.';
         }
-        return $this->redirect(url('rentals/admin/orders?edit=' . $orderId));
+        return $this->redirect(url('rentals/admin/orders/' . $orderId));
+    }
+
+    private function toggleRecord(Request $request, string $section, string $table): Response
+    {
+        if ($denial = $this->deny()) { return $denial; }
+        $id = max(0, $request->int('id'));
+        if ($id > 0) {
+            $this->db()->update("UPDATE {$table} SET is_active = IF(is_active = 1, 0, 1) WHERE id = ?", [$id]);
+            $_SESSION['rentals_admin_notice'] = 'Active status updated.';
+        }
+        return $this->redirect(url('rentals/admin/' . $section));
     }
 
     private function deny(): ?Response
@@ -347,189 +711,375 @@ final class RentalAdminController extends Controller
         return null;
     }
 
-    private function name(Request $request, int $max = 190): string
+    private function popNotice(): ?string
     {
-        $name = $request->string('name');
-        if ($name === '' || strlen($name) > $max) { throw new \InvalidArgumentException('Enter a valid name.'); }
-        return $name;
+        $notice = $_SESSION['rentals_admin_notice'] ?? null;
+        unset($_SESSION['rentals_admin_notice']);
+        return is_string($notice) ? $notice : null;
     }
 
-    private function slug(Request $request, int $max = 190): string
+    private function popNoticeError(): bool
     {
-        $slug = strtolower($request->string('slug'));
-        if ($slug === '' || strlen($slug) > $max || preg_match('/^[a-z0-9]+(?:-[a-z0-9]+)*$/', $slug) !== 1) {
-            throw new \InvalidArgumentException('Use a lowercase slug with letters, numbers and hyphens.');
+        $error = (bool) ($_SESSION['rentals_admin_notice_error'] ?? false);
+        unset($_SESSION['rentals_admin_notice_error']);
+        return $error;
+    }
+
+    /** @return list<string> */
+    private function localImages(): array
+    {
+        $images = [];
+        foreach (glob(BASE_PATH . '/media/rentals-*') ?: [] as $file) {
+            $path = 'media/' . basename($file);
+            if (RentalCatalog::imagePath($path) !== null) { $images[] = $path; }
         }
-        return $slug;
+        return $images;
     }
 
-    private function image(Request $request): ?string
-    {
-        $path = $request->string('image_path');
-        if ($path === '') { return null; }
-        $valid = RentalCatalog::imagePath($path);
-        if ($valid === null) { throw new \InvalidArgumentException('Choose an existing local image from the available Rentals images.'); }
-        return $valid;
-    }
-
-    /** Generate a usable, unique product URL without requiring a technical field. */
-    private function productSlug(Request $request, string $name, int $id, ?string $existing): string
-    {
-        $source = $request->string('slug');
-        // Editing a name must not unexpectedly break the existing product URL.
-        if ($source === '' && $existing !== null && $existing !== '') { return $existing; }
-        $source = $source !== '' ? $source : $name;
-        if (function_exists('iconv')) {
-            $source = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $source) ?: $source;
-        }
-        $base = trim(substr(trim(preg_replace('/[^a-z0-9]+/', '-', strtolower($source)) ?? '', '-'), 0, 190), '-');
-        $base = $base !== '' ? $base : 'product';
-        $slug = $base;
-        $suffix = 1;
-        while ($this->db()->selectValue('SELECT id FROM rental_items WHERE slug = ? AND id <> ? LIMIT 1', [$slug, $id]) !== null) {
-            $ending = '-' . ++$suffix;
-            $slug = rtrim(substr($base, 0, 190 - strlen($ending)), '-') . $ending;
-        }
-        return $slug;
-    }
-
-    private function saveCategory(Request $request, int $id): void
-    {
-        $name = $this->name($request, 120);
-        $slug = $this->slug($request, 150);
-        $description = substr($request->string('description'), 0, 5000);
-        $image = $this->image($request);
-        $active = $this->active($request, 'rental_categories', $id);
-        if ($id > 0) {
-            $this->requireRecord('rental_categories', $id);
-            $this->db()->update('UPDATE rental_categories SET name = ?, slug = ?, description = ?, image_path = ?, is_active = ? WHERE id = ?', [$name, $slug, $description, $image, $active, $id]);
-        } else {
-            $this->db()->insert('INSERT INTO rental_categories (name, slug, description, image_path, is_active) VALUES (?, ?, ?, ?, ?)', [$name, $slug, $description, $image, $active]);
-        }
-    }
-
-    private function saveItem(Request $request, int $id): void
+    private function validateAndSaveItem(Request $request, int $id): void
     {
         $categoryValue = $request->string('category_id');
         if (!preg_match('/^[1-9][0-9]{0,17}$/D', $categoryValue)) {
             throw new \InvalidArgumentException('Category: choose an existing category from the list.');
         }
-        $category = (int) $categoryValue;
-        if ($this->db()->selectOne('SELECT id FROM rental_categories WHERE id = ?', [$category]) === null) {
+        $categoryId = (int) $categoryValue;
+        if ($this->db()->selectOne('SELECT id FROM rental_categories WHERE id = ?', [$categoryId]) === null) {
             throw new \InvalidArgumentException('Choose an existing category.');
         }
-        $name = $this->productText($request, 'name', 'Name', 190, true);
-        $sku = $this->productText($request, 'sku', 'SKU', 80);
-        if ($sku !== '' && $this->db()->selectValue('SELECT id FROM rental_items WHERE sku = ? AND id <> ? LIMIT 1', [$sku, $id]) !== null) {
-            throw new \InvalidArgumentException('That SKU is already used by another product. Enter a different SKU or leave it blank.');
+
+        $name = trim($request->string('name'));
+        if ($name === '') {
+            throw new \InvalidArgumentException('Name: enter a value.');
         }
-        $description = $this->productText($request, 'description', 'Description', 5000);
-        $ideal = $this->productText($request, 'ideal_use', 'Ideal use', 500);
-        $this->productText($request, 'slug', 'Slug', 190);
-        $existing = $id > 0 ? $this->db()->selectOne('SELECT image_path, slug FROM rental_items WHERE id = ?', [$id]) : null;
-        if ($id > 0 && $existing === null) { throw new \InvalidArgumentException('That product no longer exists.'); }
-        $slug = $this->productSlug($request, $name, $id, $existing['slug'] ?? null);
+        if (mb_strlen($name, 'UTF-8') > 190) {
+            throw new \InvalidArgumentException('Name: use valid text with 190 characters or fewer.');
+        }
+
+        $existing = $id > 0 ? $this->db()->selectOne('SELECT id, slug, image_path, is_active FROM rental_items WHERE id = ?', [$id]) : null;
+        if ($id > 0 && $existing === null) {
+            throw new \InvalidArgumentException('That product no longer exists.');
+        }
+
+        $slugInput = trim($request->string('slug'));
+        if (mb_strlen($slugInput, 'UTF-8') > 190) {
+            throw new \InvalidArgumentException('Slug: use valid text with 190 characters or fewer.');
+        }
+
+        if ($id > 0 && $slugInput === '' && !empty($existing['slug'])) {
+            $slug = $existing['slug'];
+        } else {
+            $baseSlug = $slugInput !== '' ? $slugInput : $name;
+            $slug = $this->normalizeSlug($baseSlug);
+            $slug = $this->uniqueItemSlug($slug, $id);
+        }
+
+        $skuInput = trim($request->string('sku'));
+        if ($skuInput !== '') {
+            if (mb_strlen($skuInput, 'UTF-8') > 80) {
+                throw new \InvalidArgumentException('SKU: use valid text with 80 characters or fewer.');
+            }
+            $duplicateSku = $this->db()->selectValue('SELECT id FROM rental_items WHERE sku = ? AND id <> ? LIMIT 1', [$skuInput, $id]);
+            if ($duplicateSku !== null) {
+                throw new \InvalidArgumentException('That SKU is already used by another product. Enter a different SKU or leave it blank.');
+            }
+            $sku = $skuInput;
+        } else {
+            $sku = null;
+        }
+
+        $description = $request->string('description');
+        if (mb_strlen($description, 'UTF-8') > 5000) {
+            throw new \InvalidArgumentException('Description: use valid text with 5000 characters or fewer.');
+        }
+
+        $idealUse = $request->string('ideal_use');
+        if (mb_strlen($idealUse, 'UTF-8') > 500) {
+            throw new \InvalidArgumentException('Ideal use: use valid text with 500 characters or fewer.');
+        }
+        $idealUse = $idealUse !== '' ? $idealUse : null;
+
         $type = $request->string('is_service');
-        if (!in_array($type, ['0', '1'], true)) { throw new \InvalidArgumentException('Type: choose Equipment or Service.'); }
-        $service = (int) $type;
+        if (!in_array($type, ['0', '1'], true)) {
+            throw new \InvalidArgumentException('Type: choose Equipment or Service.');
+        }
+        $isService = (int) $type;
+
         $status = $request->string('availability_status');
-        if (!in_array($status, self::AVAILABILITY, true)) { throw new \InvalidArgumentException('Choose a valid availability status.'); }
-        $unit = $this->productText($request, 'rental_unit', 'Rental unit', 30);
-        $rate = $this->money($request->string('rental_rate'), 'Rate');
-        $deposit = $this->money($request->string('security_deposit'), 'Security deposit', true);
-        $quantityValue = $request->string('available_quantity');
-        if (!preg_match('/^[0-9]{1,6}$/D', $quantityValue)) {
+        if (!in_array($status, self::AVAILABILITY, true)) {
+            throw new \InvalidArgumentException('Choose a valid availability status.');
+        }
+
+        $rentalUnit = $request->string('rental_unit');
+        if (mb_strlen($rentalUnit, 'UTF-8') > 30) {
+            throw new \InvalidArgumentException('Rental unit: use valid text with 30 characters or fewer.');
+        }
+        $rentalUnit = $rentalUnit !== '' ? $rentalUnit : null;
+
+        $rateInput = $request->string('rental_rate');
+        if (!preg_match('/^(?:[0-9]{1,10}(?:\.[0-9]{1,2})?|\.[0-9]{1,2})$/D', $rateInput)) {
+            throw new \InvalidArgumentException('Rate: enter an amount from 0 to 9999999999.99 with up to two decimal places.');
+        }
+        $rate = $rateInput;
+
+        $depositInput = $request->string('security_deposit');
+        if ($depositInput === '') {
+            $deposit = '0.00';
+        } else {
+            if (!preg_match('/^(?:[0-9]{1,10}(?:\.[0-9]{1,2})?|\.[0-9]{1,2})$/D', $depositInput)) {
+                throw new \InvalidArgumentException('Security deposit: enter an amount from 0 to 9999999999.99 with up to two decimal places.');
+            }
+            $deposit = $depositInput;
+        }
+
+        $quantityInput = $request->string('available_quantity');
+        if (!preg_match('/^[0-9]{1,6}$/D', $quantityInput)) {
             throw new \InvalidArgumentException('Available quantity: enter a whole number from 0 to 999999.');
         }
-        $quantity = (int) $quantityValue;
-        $active = $this->active($request, 'rental_items', $id);
-        // Finish validation before writing a file, so failed form validation
-        // cannot leave an orphaned upload behind.
+        $quantity = (int) $quantityInput;
+
+        if ($request->has('is_active')) {
+            $activeInput = $request->string('is_active');
+            if (!in_array($activeInput, ['0', '1'], true)) {
+                throw new \InvalidArgumentException('Choose an active status.');
+            }
+            $isActive = (int) $activeInput;
+        } else {
+            $isActive = $id > 0 ? (int) ($existing['is_active'] ?? 1) : 1;
+        }
+
         $uploaded = RentalManagedImage::store($request->file('product_image'), 'product');
-        $image = $uploaded ?? ($existing['image_path'] ?? null);
-        $values = [$category, $name, $slug, $sku !== '' ? $sku : null, $description, $ideal, $image, $service, $status, $unit !== '' ? $unit : null, $rate, $deposit, $quantity, $active];
+        $imagePath = $uploaded ?? ($existing['image_path'] ?? null);
+
+        $params = [
+            $categoryId,
+            $name,
+            $slug,
+            $sku,
+            $description !== '' ? $description : null,
+            $idealUse,
+            $imagePath,
+            $isService,
+            $status,
+            $rentalUnit,
+            $rate,
+            $deposit,
+            $quantity,
+            $isActive,
+        ];
+
         try {
             if ($id > 0) {
-                $this->db()->update('UPDATE rental_items SET category_id = ?, name = ?, slug = ?, sku = ?, description = ?, ideal_use = ?, image_path = ?, is_service = ?, availability_status = ?, rental_unit = ?, rental_rate = ?, security_deposit = ?, available_quantity = ?, is_active = ? WHERE id = ?', [...$values, $id]);
+                $this->db()->update(
+                    'UPDATE rental_items SET
+                        category_id = ?,
+                        name = ?,
+                        slug = ?,
+                        sku = ?,
+                        description = ?,
+                        ideal_use = ?,
+                        image_path = ?,
+                        is_service = ?,
+                        availability_status = ?,
+                        rental_unit = ?,
+                        rental_rate = ?,
+                        security_deposit = ?,
+                        available_quantity = ?,
+                        is_active = ?
+                    WHERE id = ?',
+                    [...$params, $id]
+                );
             } else {
-                $this->db()->insert('INSERT INTO rental_items (category_id, name, slug, sku, description, ideal_use, image_path, is_service, availability_status, rental_unit, rental_rate, security_deposit, available_quantity, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', $values);
+                $this->db()->insert(
+                    'INSERT INTO rental_items (
+                        category_id,
+                        name,
+                        slug,
+                        sku,
+                        description,
+                        ideal_use,
+                        image_path,
+                        is_service,
+                        availability_status,
+                        rental_unit,
+                        rental_rate,
+                        security_deposit,
+                        available_quantity,
+                        is_active
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                    $params
+                );
             }
         } catch (Throwable $e) {
             RentalManagedImage::remove($uploaded, 'product');
             throw $e;
         }
-        if ($uploaded !== null) { RentalManagedImage::remove($existing['image_path'] ?? null, 'product'); }
+
+        if ($uploaded !== null && !empty($existing['image_path'])) {
+            RentalManagedImage::remove($existing['image_path'], 'product');
+        }
     }
 
-    private function savePayment(Request $request, int $id): void
+    private function normalizeSlug(string $source): string
     {
-        $name = $this->name($request, 120);
-        $type = strtolower($request->string('type'));
-        $existingType = $id > 0 ? (string) $this->db()->selectValue('SELECT type FROM payment_methods WHERE id = ?', [$id]) : '';
+        if (function_exists('iconv')) {
+            $source = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $source) ?: $source;
+        }
+        $slug = strtolower(trim(preg_replace('/[^a-zA-Z0-9]+/', '-', $source), '-'));
+        return substr($slug !== '' ? $slug : 'product', 0, 190);
+    }
+
+    private function uniqueItemSlug(string $base, int $ignoreId = 0): string
+    {
+        $slug = $base;
+        $suffix = 1;
+        while ($this->db()->selectValue('SELECT id FROM rental_items WHERE slug = ? AND id <> ? LIMIT 1', [$slug, $ignoreId]) !== null) {
+            $suffix++;
+            $suffixStr = '-' . $suffix;
+            $slug = substr($base, 0, 190 - strlen($suffixStr)) . $suffixStr;
+        }
+        return $slug;
+    }
+
+    private function saveProductDraft(Request $request, int $id): void
+    {
+        $fields = [];
+        foreach ([
+            'category_id', 'name', 'slug', 'sku', 'description', 'ideal_use', 'is_service',
+            'availability_status', 'rental_unit', 'rental_rate', 'security_deposit', 'available_quantity', 'is_active',
+        ] as $field) {
+            $fields[$field] = substr($request->string($field), 0, 5000);
+        }
+        $_SESSION['rentals_admin_product_draft'] = ['id' => $id, 'fields' => $fields];
+    }
+
+    private function validateAndSaveCategory(Request $request, int $id): void
+    {
+        $name = trim($request->string('name'));
+        if ($name === '' || mb_strlen($name, 'UTF-8') > 120) {
+            throw new \InvalidArgumentException('Enter a valid name.');
+        }
+
+        $existing = $id > 0 ? $this->db()->selectOne('SELECT id, slug, is_active FROM rental_categories WHERE id = ?', [$id]) : null;
+        if ($id > 0 && $existing === null) {
+            throw new \InvalidArgumentException('That category no longer exists.');
+        }
+
+        $slugInput = strtolower(trim($request->string('slug')));
+        if ($slugInput === '') {
+            $slugInput = $name;
+        }
+        $slug = strtolower(trim(preg_replace('/[^a-zA-Z0-9]+/', '-', $slugInput), '-'));
+        if ($slug === '' || mb_strlen($slug, 'UTF-8') > 150) {
+            throw new \InvalidArgumentException('Use a lowercase slug with letters, numbers and hyphens.');
+        }
+
+        $baseSlug = $slug;
+        $suffix = 1;
+        while ($this->db()->selectValue('SELECT id FROM rental_categories WHERE slug = ? AND id <> ? LIMIT 1', [$slug, $id]) !== null) {
+            $suffix++;
+            $suffixStr = '-' . $suffix;
+            $slug = substr($baseSlug, 0, 150 - strlen($suffixStr)) . $suffixStr;
+        }
+
+        $description = trim($request->string('description'));
+        if (mb_strlen($description, 'UTF-8') > 5000) {
+            $description = mb_substr($description, 0, 5000, 'UTF-8');
+        }
+        $description = $description !== '' ? $description : null;
+
+        $imagePath = trim($request->string('image_path'));
+        if ($imagePath !== '') {
+            $validImage = RentalCatalog::imagePath($imagePath);
+            if ($validImage === null) {
+                throw new \InvalidArgumentException('Choose an existing local image from the available Rentals images.');
+            }
+            $imagePath = $validImage;
+        } else {
+            $imagePath = null;
+        }
+
+        if ($request->has('is_active')) {
+            $activeVal = $request->string('is_active');
+            if (!in_array($activeVal, ['0', '1'], true)) {
+                throw new \InvalidArgumentException('Choose an active status.');
+            }
+            $isActive = (int) $activeVal;
+        } else {
+            $isActive = $id > 0 ? (int) ($existing['is_active'] ?? 1) : 1;
+        }
+
+        if ($id > 0) {
+            $this->db()->update(
+                'UPDATE rental_categories SET name = ?, slug = ?, description = ?, image_path = ?, is_active = ? WHERE id = ?',
+                [$name, $slug, $description, $imagePath, $isActive, $id]
+            );
+        } else {
+            $this->db()->insert(
+                'INSERT INTO rental_categories (name, slug, description, image_path, is_active) VALUES (?, ?, ?, ?, ?)',
+                [$name, $slug, $description, $imagePath, $isActive]
+            );
+        }
+    }
+
+    private function validateAndSavePayment(Request $request, int $id): void
+    {
+        $name = trim($request->string('name'));
+        if ($name === '' || mb_strlen($name, 'UTF-8') > 120) {
+            throw new \InvalidArgumentException('Enter a valid name.');
+        }
+
+        $type = strtolower(trim($request->string('type')));
+        $existing = $id > 0 ? $this->db()->selectOne('SELECT id, type, is_active FROM payment_methods WHERE id = ?', [$id]) : null;
+        if ($id > 0 && $existing === null) {
+            throw new \InvalidArgumentException('That payment method no longer exists.');
+        }
+
+        $existingType = $existing['type'] ?? '';
         if (!in_array($type, ['manual', 'gateway'], true) && $type !== $existingType) {
             throw new \InvalidArgumentException('Choose Manual or Payment Gateway.');
         }
-        $existing = $id > 0 ? $this->db()->selectOne('SELECT qr_image_path FROM payment_methods WHERE id = ?', [$id]) : null;
-        if ($id > 0 && $existing === null) { throw new \InvalidArgumentException('That payment method no longer exists.'); }
-        $duplicate = $this->db()->selectOne('SELECT id FROM payment_methods WHERE LOWER(name) = LOWER(?) AND type = ? AND id <> ? LIMIT 1', [$name, $type, $id]);
-        if ($duplicate !== null) { throw new \InvalidArgumentException('A payment method with this name and type already exists.'); }
-        $values = [$name, $type, substr($request->string('provider'), 0, 120) ?: null,
-            substr($request->string('account_name'), 0, 190) ?: null, substr($request->string('account_number'), 0, 100) ?: null,
-            $this->active($request, 'payment_methods', $id)];
-        if ($type === 'manual' && $values[5] === 1 && ($values[3] === null || $values[4] === null)) {
+
+        $duplicate = $this->db()->selectOne(
+            'SELECT id FROM payment_methods WHERE LOWER(name) = LOWER(?) AND type = ? AND id <> ? LIMIT 1',
+            [$name, $type, $id]
+        );
+        if ($duplicate !== null) {
+            throw new \InvalidArgumentException('A payment method with this name and type already exists.');
+        }
+
+        $provider = trim($request->string('provider'));
+        $provider = $provider !== '' ? substr($provider, 0, 120) : null;
+
+        $accountName = trim($request->string('account_name'));
+        $accountName = $accountName !== '' ? substr($accountName, 0, 190) : null;
+
+        $accountNumber = trim($request->string('account_number'));
+        $accountNumber = $accountNumber !== '' ? substr($accountNumber, 0, 100) : null;
+
+        if ($request->has('is_active')) {
+            $activeVal = $request->string('is_active');
+            if (!in_array($activeVal, ['0', '1'], true)) {
+                throw new \InvalidArgumentException('Choose an active status.');
+            }
+            $isActive = (int) $activeVal;
+        } else {
+            $isActive = $id > 0 ? (int) ($existing['is_active'] ?? 1) : 1;
+        }
+
+        if ($type === 'manual' && $isActive === 1 && ($accountName === null || $accountNumber === null)) {
             throw new \InvalidArgumentException('Active manual methods need an account name and number.');
         }
-        $uploaded = RentalManagedImage::store($request->file('qr_image'), 'qr');
-        $qr = $uploaded ?? ($existing['qr_image_path'] ?? null);
-        try {
-            if ($id > 0) {
-                $this->db()->update('UPDATE payment_methods SET name = ?, type = ?, provider = ?, account_name = ?, account_number = ?, is_active = ?, qr_image_path = ? WHERE id = ?', [...$values, $qr, $id]);
-            } else {
-                $this->db()->insert('INSERT INTO payment_methods (name, type, provider, account_name, account_number, is_active, qr_image_path) VALUES (?, ?, ?, ?, ?, ?, ?)', [...$values, $qr]);
-            }
-        } catch (Throwable $e) {
-            RentalManagedImage::remove($uploaded, 'qr');
-            throw $e;
-        }
-        if ($uploaded !== null) { RentalManagedImage::remove($existing['qr_image_path'] ?? null, 'qr'); }
-    }
 
-    private function productText(Request $request, string $field, string $label, int $max, bool $required = false): string
-    {
-        $value = $request->string($field);
-        if ($required && $value === '') { throw new \InvalidArgumentException($label . ': enter a value.'); }
-        $length = preg_match_all('/./us', $value);
-        if ($length === false || $length > $max) {
-            throw new \InvalidArgumentException($label . ': use valid text with ' . $max . ' characters or fewer.');
-        }
-        return $value;
-    }
-
-    private function money(string $value, string $label, bool $optional = false): string
-    {
-        if ($value === '' && $optional) { return '0.00'; }
-        if (!preg_match('/^(?:[0-9]{1,10}(?:\.[0-9]{1,2})?|\.[0-9]{1,2})$/D', $value)) {
-            throw new \InvalidArgumentException($label . ': enter an amount from 0 to 9999999999.99 with up to two decimal places.');
-        }
-        return $value;
-    }
-
-    private function active(Request $request, string $table, int $id): int
-    {
-        // Keep existing status for older clients that omit this newly exposed field.
-        if (!$request->has('is_active')) {
-            return $id > 0 ? (int) $this->db()->selectValue("SELECT is_active FROM {$table} WHERE id = ?", [$id]) : 1;
-        }
-        $value = $request->string('is_active');
-        if (!in_array($value, ['0', '1'], true)) { throw new \InvalidArgumentException('Choose an active status.'); }
-        return (int) $value;
-    }
-
-    private function requireRecord(string $table, int $id): void
-    {
-        // Table comes only from fixed controller calls, never from request input.
-        if ($id < 1 || $this->db()->selectOne("SELECT id FROM {$table} WHERE id = ?", [$id]) === null) {
-            throw new \InvalidArgumentException('That record no longer exists.');
+        if ($id > 0) {
+            $this->db()->update(
+                'UPDATE payment_methods SET name = ?, type = ?, provider = ?, account_name = ?, account_number = ?, is_active = ? WHERE id = ?',
+                [$name, $type, $provider, $accountName, $accountNumber, $isActive, $id]
+            );
+        } else {
+            $this->db()->insert(
+                'INSERT INTO payment_methods (name, type, provider, account_name, account_number, is_active) VALUES (?, ?, ?, ?, ?, ?)',
+                [$name, $type, $provider, $accountName, $accountNumber, $isActive]
+            );
         }
     }
 }

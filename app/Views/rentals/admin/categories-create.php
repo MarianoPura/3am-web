@@ -1,0 +1,62 @@
+<?php $this->extend('rentals.layouts.admin'); ?>
+<?php $this->start('title') ?>Add Category — Rentals Admin<?php $this->end() ?>
+<?php $this->start('content') ?>
+<section class="rentals-admin-page">
+  <div class="rentals-shell">
+    <div class="rentals-admin-page__heading">
+      <div><p class="rentals-kicker">3AM Rentals / Administration</p><h1>Categories</h1></div>
+    </div>
+    <?php if (is_string($notice ?? null)): ?>
+      <p class="rentals-admin__notice" role="<?= !empty($noticeIsError) ? 'alert' : 'status' ?>"<?= !empty($noticeIsError) ? ' data-admin-save-error' : '' ?>>
+        <?php if (!empty($noticeIsError)): ?><strong>Not saved:</strong> <?php endif ?><?= e($notice) ?>
+      </p>
+    <?php endif ?>
+    <a class="rentals-admin__back-link" href="<?= e_attr(url('rentals/admin/categories')) ?>">← Back to categories</a>
+    <div class="rentals-admin__editor">
+      <div class="rentals-admin__editor-head">
+        <p class="rentals-card__meta">New record</p>
+        <h2>Add category</h2>
+      </div>
+      <form method="post" action="<?= e_attr(url('rentals/admin/categories')) ?>" class="rentals-admin__form">
+        <?= csrf_field() ?>
+        <fieldset>
+          <legend>Basic information</legend>
+          <label>Name
+            <input name="name" maxlength="120" required placeholder="e.g. Cameras & Optics">
+          </label>
+          <label>Slug (optional)
+            <input name="slug" maxlength="150" pattern="[a-z0-9]+(-[a-z0-9]+)*" placeholder="e.g. cameras-optics">
+            <small>Used in category URL. Leave blank to generate automatically from name.</small>
+          </label>
+        </fieldset>
+        <fieldset>
+          <legend>Category details</legend>
+          <label>Description
+            <textarea name="description" rows="3" placeholder="Category summary..."></textarea>
+          </label>
+          <label>Existing local image path (optional)
+            <input name="image_path" list="rental-images" placeholder="e.g. media/rentals/camera.jpg">
+          </label>
+        </fieldset>
+        <fieldset>
+          <legend>Status</legend>
+          <label>Record status
+            <select name="is_active">
+              <option value="1" selected>Active</option>
+              <option value="0">Inactive</option>
+            </select>
+          </label>
+        </fieldset>
+        <button class="rentals-btn rentals-btn--primary" type="submit">Add category</button>
+      </form>
+    </div>
+    <?php if (($images ?? []) !== []): ?>
+      <datalist id="rental-images">
+        <?php foreach ($images as $image): ?>
+          <option value="<?= e_attr($image) ?>"></option>
+        <?php endforeach ?>
+      </datalist>
+    <?php endif ?>
+  </div>
+</section>
+<?php $this->end() ?>
