@@ -63,19 +63,22 @@ $router->get('/rentals/admin/payment-report', [\App\Controllers\Rentals\RentalAd
 $router->get('/rentals/admin/items',           [\App\Controllers\Rentals\RentalAdminController::class, 'items'])->name('rentals.admin.items');
 $router->get('/rentals/admin/items/new',       [\App\Controllers\Rentals\RentalAdminController::class, 'itemsNew'])->name('rentals.admin.items.new');
 $router->get('/rentals/admin/items/{id:int}/edit', [\App\Controllers\Rentals\RentalAdminController::class, 'itemsEdit'])->name('rentals.admin.items.edit');
-$router->post('/rentals/admin/items',          [\App\Controllers\Rentals\RentalAdminController::class, 'saveItems'])->name('rentals.admin.items.save');
+$router->post('/rentals/admin/items',          [\App\Controllers\Rentals\RentalAdminController::class, 'itemsStore'])->name('rentals.admin.items.save');
+$router->post('/rentals/admin/items/{id:int}/edit', [\App\Controllers\Rentals\RentalAdminController::class, 'itemsUpdate'])->name('rentals.admin.items.update');
 $router->post('/rentals/admin/items/toggle',   [\App\Controllers\Rentals\RentalAdminController::class, 'toggleItems'])->name('rentals.admin.items.toggle');
 $router->get('/rentals/admin/categories',          [\App\Controllers\Rentals\RentalAdminController::class, 'categories'])->name('rentals.admin.categories');
 $router->get('/rentals/admin/categories/new',       [\App\Controllers\Rentals\RentalAdminController::class, 'categoriesNew'])->name('rentals.admin.categories.new');
 $router->get('/rentals/admin/categories/{id:int}/edit', [\App\Controllers\Rentals\RentalAdminController::class, 'categoriesEdit'])->name('rentals.admin.categories.edit');
-$router->post('/rentals/admin/categories',         [\App\Controllers\Rentals\RentalAdminController::class, 'saveCategories'])->name('rentals.admin.categories.save');
+$router->post('/rentals/admin/categories',         [\App\Controllers\Rentals\RentalAdminController::class, 'categoriesStore'])->name('rentals.admin.categories.save');
+$router->post('/rentals/admin/categories/{id:int}/edit', [\App\Controllers\Rentals\RentalAdminController::class, 'categoriesUpdate'])->name('rentals.admin.categories.update');
 $router->post('/rentals/admin/categories/toggle',   [\App\Controllers\Rentals\RentalAdminController::class, 'toggleCategories'])->name('rentals.admin.categories.toggle');
 $router->get('/rentals/admin/orders',          [\App\Controllers\Rentals\RentalAdminController::class, 'orders'])->name('rentals.admin.orders');
 $router->get('/rentals/admin/orders/{id:int}', [\App\Controllers\Rentals\RentalAdminController::class, 'ordersView'])->name('rentals.admin.orders.view');
 $router->get('/rentals/admin/payments',          [\App\Controllers\Rentals\RentalAdminController::class, 'payments'])->name('rentals.admin.payments');
 $router->get('/rentals/admin/payments/new',       [\App\Controllers\Rentals\RentalAdminController::class, 'paymentsNew'])->name('rentals.admin.payments.new');
 $router->get('/rentals/admin/payments/{id:int}/edit', [\App\Controllers\Rentals\RentalAdminController::class, 'paymentsEdit'])->name('rentals.admin.payments.edit');
-$router->post('/rentals/admin/payments',         [\App\Controllers\Rentals\RentalAdminController::class, 'savePayments'])->name('rentals.admin.payments.save');
+$router->post('/rentals/admin/payments',         [\App\Controllers\Rentals\RentalAdminController::class, 'paymentsStore'])->name('rentals.admin.payments.save');
+$router->post('/rentals/admin/payments/{id:int}/edit', [\App\Controllers\Rentals\RentalAdminController::class, 'paymentsUpdate'])->name('rentals.admin.payments.update');
 $router->post('/rentals/admin/payments/toggle',   [\App\Controllers\Rentals\RentalAdminController::class, 'togglePayments'])->name('rentals.admin.payments.toggle');
 $router->get('/rentals/admin/customers', [\App\Controllers\Rentals\RentalAdminController::class, 'customers'])->name('rentals.admin.customers');
 // ── Admin utility ─────────────────────────────────────────────
