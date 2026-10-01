@@ -29,14 +29,19 @@ final class RentalStorage
             throw new RuntimeException('Unknown Rentals storage directory.');
         }
         $directory = self::root() . '/' . $relative;
-        if ((!is_dir($directory) && !@mkdir($directory, 0750, true) && !is_dir($directory)) || !is_writable($directory)) {
-            error_log('Rentals storage directory unavailable: ' . $directory);
+        if (!is_dir($directory) && !@mkdir($directory, 0750, true) && !is_dir($directory)) {
+            error_log('Rentals storage mkdir failed: ' . $directory);
+            throw new RuntimeException('Rentals upload storage is not writable. Ask the server administrator to give the PHP worker access to the external micro directory.');
+        }
+        if (!is_writable($directory)) {
+            error_log('Rentals storage directory not writable: ' . $directory);
             throw new RuntimeException('Rentals upload storage is not writable. Ask the server administrator to give the PHP worker access to the external micro directory.');
         }
         // Public images are served through application routes. Keep direct
         // access to storage denied, including when micro is under a web root.
         $guard = $directory . '/.htaccess';
         if (!is_file($guard) && @file_put_contents($guard, "Require all denied\nOptions -Indexes\n", LOCK_EX) === false) {
+            error_log('Rentals storage deny-guard write failed: ' . $guard);
             throw new RuntimeException('Rentals storage protection could not be created. Check external directory permissions.');
         }
         return $directory;

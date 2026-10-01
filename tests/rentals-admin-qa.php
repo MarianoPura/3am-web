@@ -117,6 +117,15 @@ try {
     $assert(str_contains($fallbackPage, 'rentals-equipment-placeholder.svg')
         && str_contains($fallbackPage, '3AM Rentals equipment image coming soon'),
         'Product without an image did not render the Rentals placeholder.');
+    $imageView = new App\Core\View(BASE_PATH . '/app/Views');
+    $missingAssignedImage = $imageView->partial('rentals.partials.image', [
+        'image_path' => 'micro/rentals/products/' . str_repeat('0', 32) . '.jpg',
+        'name' => 'Unavailable QA image',
+    ]);
+    $assert(str_contains($missingAssignedImage, 'alt="Equipment image temporarily unavailable"')
+        && str_contains($missingAssignedImage, 'data-rentals-image-status>Image temporarily unavailable</span>')
+        && !str_contains($missingAssignedImage, 'data-rentals-image-status hidden'),
+        'An assigned but missing image was presented as an unassigned image.');
     $http('/rentals/admin/items', array_replace($autoProduct, ['id' => $autoId, 'name' => 'QA renamed ' . $key]));
     $assert($db->selectValue('SELECT slug FROM rental_items WHERE id = ?', [$autoId]) === 'qa-camera-' . $key, 'Blank slug changed an existing product URL.');
     $http('/rentals/admin/items', array_replace($autoProduct, ['id' => $autoId, 'slug' => 'QA Camera / ' . $key . ' Custom!']));

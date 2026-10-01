@@ -56,11 +56,17 @@ final class RentalPaymentProof
         $relative = 'micro/payment/' . bin2hex(random_bytes(16)) . '.' . $extension;
         $path = $directory . '/' . basename($relative);
         $stream = @fopen($path, 'xb');
-        if ($stream === false) { throw new RuntimeException('Payment proof could not be saved.'); }
+        if ($stream === false) {
+            error_log('Rentals payment proof file create failed in: ' . $directory);
+            throw new RuntimeException('Payment proof could not be saved.');
+        }
         $closed = false;
         try {
             $content = self::MAGIC . $nonce . $tag . $ciphertext;
-            if (fwrite($stream, $content) !== strlen($content)) { throw new RuntimeException('Payment proof could not be saved.'); }
+            if (fwrite($stream, $content) !== strlen($content)) {
+                error_log('Rentals payment proof file write failed in: ' . $directory);
+                throw new RuntimeException('Payment proof could not be saved.');
+            }
             fclose($stream);
             $closed = true;
             @chmod($path, 0600);

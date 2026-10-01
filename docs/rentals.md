@@ -32,10 +32,10 @@ integration is approved. A legacy `test` method is accepted only in local/testin
 Manual checkout requires a JPG, PNG, WebP or PDF proof no larger than 5 MB. The
 server checks MIME and size, ignores the supplied filename, generates a random
 name and stores a relative path such as `micro/payment/<random>.jpg` on the order.
-The physical directory is `BASE_PATH/micro/payment`, corresponding to the
-deployed `/var/www/html/web/micro/payment`. This is inside the document root.
-Apache denies direct access with `.htaccess`; the stored file is also AES-256-GCM
-encrypted so direct access on the local PHP server reveals no readable proof.
+The physical directory is `RentalStorage::root()/payment`: by default,
+`dirname(BASE_PATH)/micro/payment`, outside the checkout. A configured absolute
+`RENTALS_STORAGE_ROOT` overrides that default. Direct access is denied; the
+stored file is also AES-256-GCM encrypted.
 Only the owner and an Admin can use the app's decrypted proof routes. The local
 encryption key is kept in ignored `storage/rentals/payment-key.php`; production
 requires a stable existing `APP_KEY`. Preserve that key across deployments and
@@ -84,6 +84,12 @@ implicitly commit, so do not treat this as an automatic live migration.
 
 New Rentals uploads use the `micro` directory beside the project, outside the
 Git checkout. `RENTALS_STORAGE_ROOT` may specify another absolute directory.
+`php bin/rentals-upload-check.php` is a read-only check of the resolved root,
+both upload directories, PHP temporary directory, and upload limits. Run it
+with the same OS identity and PHP configuration as the live web worker; a root
+shell or different CLI `php.ini` can report writable when PHP-FPM cannot write.
+The command does not create directories or files. Existing upload files must
+be backed up and kept outside any release directory that deployment replaces.
 The PHP worker needs write access to `rentals/products`, `payment`, and
 `payment/qr` beneath that directory. Application-created storage directories
 receive a direct-access deny rule; `resources/rentals-storage/.htaccess` is the

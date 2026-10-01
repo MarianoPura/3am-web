@@ -72,6 +72,7 @@ unset($_SESSION['rentals_notice']);
               'id' => $itemId, 'name' => $name, 'category' => $categoryName,
               'description' => $description, 'ideal' => $ideal,
               'image' => $image !== null ? site_media($image) : '',
+              'hasImageReference' => trim($path) !== '',
               'status' => $sample ? 'Preview only — inventory not confirmed' : ($status !== '' ? $status : 'Ask for availability'),
               'available' => $available, 'rate' => $rate > 0 ? '₱' . number_format($rate, 2) . ($unit !== '' ? ' / ' . $unit : '') : 'Rate on request',
               'deposit' => $deposit > 0 ? '₱' . number_format($deposit, 2) : 'None listed',
@@ -104,7 +105,7 @@ unset($_SESSION['rentals_notice']);
   <button class="rentals-detail__close" type="button" data-rentals-close aria-label="Close equipment details">×</button>
   <div class="rentals-detail__success" data-detail-success hidden><p class="rentals-card__meta">Rental cart</p><h2>Added to cart</h2><p>Your equipment is saved for the selected dates.</p><button class="rentals-btn rentals-btn--primary" type="button" data-detail-continue>Continue browsing</button></div>
   <div class="rentals-detail__grid" data-detail-content>
-    <div class="rentals-detail__visual"><img data-detail-image data-rentals-image data-rentals-fallback="<?= e_attr(site_media('media/rentals-equipment-placeholder.svg')) ?>" alt=""></div>
+    <div class="rentals-detail__visual"><img data-detail-image data-rentals-image data-rentals-fallback="<?= e_attr(site_media('media/rentals-equipment-placeholder.svg')) ?>" alt=""><span class="rentals-image-status" data-rentals-image-status hidden>Image temporarily unavailable</span></div>
     <div class="rentals-detail__body">
       <p class="rentals-card__meta" data-detail-category></p>
       <h2 id="rentals-detail-title" data-detail-name></h2>

@@ -1722,6 +1722,8 @@
 .rentals-module .rentals-detail__visual { position: relative; display: grid; place-items: center; min-height: 0; overflow: hidden; background: var(--c-cloud); }
 .rentals-module .rentals-detail__visual img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
 .rentals-module .rentals-detail__visual img[hidden] { display: none; }
+.rentals-module .rentals-image-status { position: absolute; left: .75rem; right: .75rem; bottom: .75rem; z-index: 1; padding: .45rem .65rem; border-left: 3px solid var(--c-tally); background: var(--c-ink); color: var(--c-white); font: 700 .65rem/1.35 var(--f-mono); letter-spacing: .06em; text-transform: uppercase; }
+.rentals-module .rentals-image-status[hidden] { display: none; }
 .rentals-module .rentals-detail__body { min-height: 0; overflow-y: auto; scrollbar-gutter: stable; padding: 2.7rem 1.5rem 1.5rem; }
 .rentals-module .rentals-detail__body h2 { margin: .6rem 0 1rem; }
 .rentals-module .rentals-detail__body > p { color: var(--rentals-muted); }

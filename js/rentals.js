@@ -267,7 +267,9 @@ const initRentalsCatalogue = () => {
     setText('[data-detail-status]', detail.status);
     const picture = dialog.querySelector('[data-detail-image]');
     picture.src = detail.image || picture.dataset.rentalsFallback;
-    picture.alt = detail.image ? (detail.name || 'Rental equipment') : '3AM Rentals equipment image coming soon';
+    const imageUnavailable = Boolean(detail.hasImageReference && !detail.image);
+    picture.alt = detail.image ? (detail.name || 'Rental equipment') : (imageUnavailable ? 'Equipment image temporarily unavailable' : '3AM Rentals equipment image coming soon');
+    dialog.querySelector('[data-rentals-image-status]').hidden = !imageUnavailable;
     dialog.querySelector('[data-detail-id]').value = detail.id || '';
     addButton.disabled = !detail.canRent;
     addButton.textContent = detail.canRent ? 'Add to Cart' : (detail.isSample ? 'Preview only' : 'Currently unavailable');
@@ -419,9 +421,12 @@ const initRentalHeader = () => {
 
 const initRentalImages = () => {
   document.querySelectorAll('[data-rentals-image]').forEach((image) => image.addEventListener('error', () => {
-    if (image.src !== image.dataset.rentalsFallback) {
-      image.src = image.dataset.rentalsFallback;
-      image.alt = '3AM Rentals equipment image coming soon';
+    const fallbackUrl = new URL(image.dataset.rentalsFallback, document.baseURI).href;
+    if (image.src !== fallbackUrl) {
+      image.src = fallbackUrl;
+      image.alt = 'Equipment image temporarily unavailable';
+      const status = image.parentElement.querySelector('[data-rentals-image-status]');
+      if (status) status.hidden = false;
     }
   }));
 };
