@@ -444,7 +444,7 @@
 
 .analytics__table {
   width: 100%;
-  min-width: 620px;
+  min-width: 1080px;
   border-collapse: collapse;
   font-size: .85rem;
 }
@@ -476,6 +476,12 @@
   font-family: var(--f-mono);
   font-size: .75rem;
   color: var(--fg-muted);
+}
+
+.analytics__empty-cell {
+  color: var(--fg-muted);
+  font-family: var(--f-mono);
+  font-size: .8rem;
 }
 
 /* ── Filters ───────────────────────────────────────────────── */

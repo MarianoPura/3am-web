@@ -95,10 +95,10 @@ $this->start('content');
                 <td class="mono"><?= (int)$ev['id'] ?></td>
                 <td><span class="analytics__badge <?= e(analyticsEvtBadge($ev['event_name'])) ?>"><?= e($ev['event_name']) ?></span></td>
                 <td class="mono"><?= e((string)($ev['event_source'] ?? 'browser')) ?></td>
-                <td class="mono"><?= e(substr((string)($ev['session_id'] ?? '—'), 0, 12)) ?>…</td>
-                <td class="mono"><?= e((string)($ev['ip_address'] ?? '—')) ?></td>
-                <td><?= e((string)($ev['utm_source'] ?? '—')) ?></td>
-                <td><?= e((string)($ev['utm_campaign'] ?? '—')) ?></td>
+                <td class="mono" style="white-space:nowrap"><?= e((string)($ev['session_id'] ?? '—')) ?></td>
+                <td class="mono" style="white-space:nowrap"><?= e((string)($ev['ip_address'] ?? '—')) ?></td>
+                <td style="white-space:nowrap"><?= e((string)($ev['utm_source'] ?? '—')) ?></td>
+                <td style="white-space:nowrap"><?= e((string)($ev['utm_campaign'] ?? '—')) ?></td>
                 <td>
                   <?php
                     $rawData = $ev['event_data'] ?? null;
@@ -109,12 +109,16 @@ $this->start('content');
                             foreach ($decoded as $k => $v) {
                                 $parts[] = '<strong>' . e((string)$k) . '</strong>:' . e((string)$v);
                             }
-                            echo '<span class="mono" style="font-size:.7rem;line-height:1.6">' . implode(' &nbsp; ', $parts) . '</span>';
+                            echo '<span class="mono" style="font-size:.7rem;line-height:1.6;white-space:nowrap">' . implode(' &nbsp;&nbsp; ', $parts) . '</span>';
+                        } else {
+                            echo '<span class="analytics__empty-cell">—</span>';
                         }
+                    } else {
+                        echo '<span class="analytics__empty-cell">—</span>';
                     }
                   ?>
                 </td>
-                <td class="mono" style="white-space:nowrap"><?= e(substr((string)($ev['occurred_at'] ?? ''), 0, 16)) ?></td>
+                <td class="mono" style="white-space:nowrap"><?= e((string)($ev['occurred_at'] ?? '—')) ?></td>
               </tr>
               <?php endforeach ?>
             </tbody>
@@ -122,7 +126,6 @@ $this->start('content');
         </div>
 
         <!-- Pagination -->
-        <?php if ($totalPages > 1): ?>
         <div class="analytics__pagination">
           <span class="analytics__pagination-info"><?= number_format($totalCount) ?> records &middot; page <?= $page ?> of <?= $totalPages ?></span>
           <?php if ($page > 1): ?>
@@ -139,7 +142,6 @@ $this->start('content');
             <a href="<?= e_attr(analyticsPageLink($page + 1, $filterEvent, $filterDate)) ?>">Next ›</a>
           <?php endif ?>
         </div>
-        <?php endif ?>
       <?php endif ?>
     </div>
 

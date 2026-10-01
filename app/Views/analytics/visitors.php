@@ -57,24 +57,24 @@ $this->start('content');
               <?php foreach ($visitors as $v): ?>
               <tr>
                 <td class="mono"><?= (int)$v['id'] ?></td>
-                <td class="mono"><?= e((string)($v['ip_address'] ?? '—')) ?></td>
-                <td><?= e((string)($v['utm_source'] ?? '—')) ?></td>
-                <td><?= e((string)($v['utm_medium'] ?? '—')) ?></td>
-                <td><?= e((string)($v['utm_campaign'] ?? '—')) ?></td>
-                <td class="mono">
+                <td class="mono" style="white-space:nowrap"><?= e((string)($v['ip_address'] ?? '—')) ?></td>
+                <td style="white-space:nowrap"><?= e((string)($v['utm_source'] ?? '—')) ?></td>
+                <td style="white-space:nowrap"><?= e((string)($v['utm_medium'] ?? '—')) ?></td>
+                <td style="white-space:nowrap"><?= e((string)($v['utm_campaign'] ?? '—')) ?></td>
+                <td class="mono" style="white-space:nowrap">
                   <?php $fbp = (string)($v['fbp'] ?? '');
-                  echo $fbp !== '' ? e(substr($fbp, 0, 18)) . '…' : '—' ?>
+                  echo $fbp !== '' ? e($fbp) : '—' ?>
                 </td>
-                <td class="mono">
+                <td class="mono" style="white-space:nowrap">
                   <?php $fbc = (string)($v['fbc'] ?? '');
-                  echo $fbc !== '' ? e(substr($fbc, 0, 18)) . '…' : '—' ?>
+                  echo $fbc !== '' ? e($fbc) : '—' ?>
                 </td>
                 <td>
                   <?php $cnt = (int)($v['event_count'] ?? 0); ?>
                   <span style="display:inline-block;padding:.25rem .5rem;border-top:2px solid var(--c-tally);background:var(--c-cloud);font:800 .8rem/1 var(--f-display);color:var(--c-ink)"><?= $cnt ?></span>
                 </td>
-                <td class="mono" style="white-space:nowrap"><?= e(substr((string)($v['first_seen_at'] ?? ''), 0, 16)) ?></td>
-                <td class="mono" style="white-space:nowrap"><?= e(substr((string)($v['last_seen_at'] ?? ''), 0, 16)) ?></td>
+                <td class="mono" style="white-space:nowrap"><?= e((string)($v['first_seen_at'] ?? '—')) ?></td>
+                <td class="mono" style="white-space:nowrap"><?= e((string)($v['last_seen_at'] ?? '—')) ?></td>
               </tr>
               <?php endforeach ?>
             </tbody>
@@ -82,7 +82,6 @@ $this->start('content');
         </div>
 
         <!-- Pagination -->
-        <?php if ($totalPages > 1): ?>
         <div class="analytics__pagination">
           <span class="analytics__pagination-info"><?= number_format($totalCount) ?> sessions &middot; page <?= $page ?> of <?= $totalPages ?></span>
           <?php if ($page > 1): ?>
@@ -99,7 +98,6 @@ $this->start('content');
             <a href="<?= e_attr(analyticsVisLink($page + 1)) ?>">Next ›</a>
           <?php endif ?>
         </div>
-        <?php endif ?>
       <?php endif ?>
     </div>
 
