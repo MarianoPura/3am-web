@@ -21,7 +21,7 @@ return [
         'title' => 'Start a project',
         'kicker' => 'Project enquiry',
         'lede' => 'Tell us what you need and when. We will come back with questions, an approach and an estimate.',
-        'types' => ['Media / Production', 'Technology / Event Systems', 'Other / General Inquiry'],
+        'types' => ['Media / Production', 'Technology / Event Systems', 'Equipment Rentals', 'Other / General Inquiry'],
     ],
 
     'media' => [

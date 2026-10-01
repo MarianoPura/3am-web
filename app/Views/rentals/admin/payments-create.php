@@ -17,7 +17,7 @@
         <p class="rentals-card__meta">New record</p>
         <h2>Add payment method</h2>
       </div>
-      <form method="post" action="<?= e_attr(url('rentals/admin/payments')) ?>" class="rentals-admin__form">
+      <form method="post" action="<?= e_attr(url('rentals/admin/payments')) ?>" class="rentals-admin__form" enctype="multipart/form-data">
         <?= csrf_field() ?>
         <fieldset>
           <legend>Payment method details</legend>
@@ -45,6 +45,7 @@
             </label>
           </div>
         </fieldset>
+        <?= $this->partial('rentals.partials.admin-payment-image') ?>
         <fieldset>
           <legend>Status</legend>
           <label>Record status

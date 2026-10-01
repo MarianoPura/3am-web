@@ -589,7 +589,12 @@ $featuredServices = array_slice($servicesList, 0, 4);
 
     </div>
 
-    <div class="rentals-use-cases">
+    <div class="rentals-carousel" data-rentals-carousel>
+      <div class="rentals-carousel__heading"><span class="sr-only">Browse use cases</span><div class="rentals-carousel__controls">
+        <button type="button" data-carousel-prev aria-label="Previous use cases">←</button>
+        <button type="button" data-carousel-next aria-label="Next use cases">→</button>
+      </div></div>
+    <div class="rentals-use-cases rentals-carousel__track" data-rentals-scroll tabindex="0" aria-label="Scroll use cases">
 
       <?php foreach ([
           ['Production', 'media.work6'],
@@ -628,6 +633,7 @@ $featuredServices = array_slice($servicesList, 0, 4);
 
       <?php endforeach ?>
 
+    </div>
     </div>
 
   </div>

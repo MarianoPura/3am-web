@@ -14,9 +14,9 @@ foreach ($summary['items'] as $line) { $lineSummaries[(string) $line['line_id']]
 ?>
 <section class="rentals-page-hero"><div class="rentals-shell rentals-page-hero__inner"><div><p class="rentals-kicker">Your selection</p><h1>Rental Cart.</h1></div><p>Review the dates and quantities you selected for each piece of equipment before checkout.</p></div></section>
 <section class="rentals-section rentals-section--tight"><div class="rentals-shell">
-  <?php if (is_string($notice)): ?><p class="rentals-support-panel" role="alert"><?= e($notice) ?></p><?php endif ?>
+  <?php if (is_string($notice) && $items !== []): ?><p class="rentals-support-panel" role="alert"><?= e($notice) ?></p><?php endif ?>
   <?php if ($items === []): ?>
-    <div class="rentals-support-panel rentals-cart-empty"><p class="rentals-card__meta">No items yet</p><h2>Start with the right equipment.</h2><p>Browse the catalogue and open an item to add it to your cart.</p><a class="rentals-btn rentals-btn--primary" href="<?= e_attr(url('rentals/items')) ?>">Explore Equipment</a></div>
+    <div class="rentals-support-panel rentals-cart-empty"><p class="rentals-card__meta">No items yet</p><h2>Start with the right equipment.</h2><?php if (is_string($notice)): ?><p role="status"><?= e($notice) ?></p><?php endif ?><p>Browse the catalogue and open an item to add it to your cart.</p><a class="rentals-btn rentals-btn--primary" href="<?= e_attr(url('rentals/items')) ?>">Explore Equipment</a></div>
   <?php else: ?>
     <div class="rentals-cart-layout">
       <div class="rentals-cart-lines">

@@ -3,13 +3,6 @@ document.querySelectorAll('[data-admin-availability]').forEach((panel) => {
   const form = panel.querySelector('.rentals-admin__blackout-form');
   const start = form.elements.start_date;
   const end = form.elements.end_date;
-  // Enter inside the reservation fields must not trigger the first (Block dates) button.
-  form.querySelector('.rentals-admin__reservation')?.addEventListener('keydown', event => {
-    if (event.key === 'Enter' && event.target.matches('input:not([type="file"])')) {
-      event.preventDefault();
-      form.requestSubmit(form.querySelector('button[value="reserved"]'));
-    }
-  });
   const grid = panel.querySelector('[data-admin-days]');
   const message = panel.querySelector('[data-admin-calendar-message]');
   const previous = panel.querySelector('[data-admin-prev]');

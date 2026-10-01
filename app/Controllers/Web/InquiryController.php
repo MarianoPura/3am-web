@@ -55,7 +55,7 @@ final class InquiryController extends Controller
         unset($_SESSION['_old'], $_SESSION['_errors']);
         $old = array_filter($old, 'is_scalar');
 
-        $presets = ['media' => 'Media / Production', 'technology' => 'Technology / Event Systems', 'other' => 'Other / General Inquiry'];
+        $presets = ['media' => 'Media / Production', 'technology' => 'Technology / Event Systems', 'rentals' => 'Equipment Rentals', 'other' => 'Other / General Inquiry'];
         if ($old === []) { $old['type'] = $presets[$request->string('type')] ?? ''; }
         return $this->render('pages.inquiry', [
             'form'    => $form,

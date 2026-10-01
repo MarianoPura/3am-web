@@ -87,8 +87,10 @@ try {
     $userId = (int) $db->selectValue('SELECT id FROM users WHERE email = ?', [$email]);
     $assert($userId > 0 && (int) $db->selectValue('SELECT COUNT(*) FROM cart_items ci JOIN carts c ON c.id = ci.cart_id WHERE c.user_id = ?', [$userId]) === 2,
         'Two dated items did not migrate into one customer cart.');
-    [$status] = $http('/rentals/admin');
-    $assert($status === 403, 'Customer could access Admin.');
+    [$status, $denied] = $http('/rentals/admin');
+    $assert($status === 403 && str_contains($denied, 'Admin access is restricted.')
+        && str_contains($denied, 'Back to Rentals') && str_contains($denied, 'My Account'),
+        'Customer Admin denial lost its 403 or branded safe navigation.');
     [$status, $checkout] = $http('/rentals/checkout');
     $assert($status === 200 && str_contains($checkout, 'Proof of payment')
         && str_contains($checkout, 'Test Account') && str_contains($checkout, '0000000000'),
