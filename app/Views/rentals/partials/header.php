@@ -35,7 +35,12 @@ if (preg_match('/\p{L}/u', trim((string) ($navCustomer['name'] ?? '')), $firstLe
       </span>
     </a>
 
-    <nav class="rentals-nav" aria-label="Rentals navigation">
+    <button class="rentals-nav-toggle" type="button" data-rentals-nav-toggle
+            aria-controls="rentals-primary-nav" aria-expanded="false" aria-label="Open Rentals menu">
+      <span aria-hidden="true"></span><span aria-hidden="true"></span><span aria-hidden="true"></span>
+    </button>
+
+    <nav class="rentals-nav" id="rentals-primary-nav" aria-label="Rentals navigation">
       <?php foreach ($links as $link):
           $href = $link['path'];
           $active = rtrim($href, '/') === $currentPath;

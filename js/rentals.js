@@ -22,6 +22,12 @@ const initRentalsCatalogue = () => {
       card.hidden = !(matchTerm && matchCategory);
       if (!card.hidden) visible++;
     });
+    document.querySelectorAll('[data-rentals-category-group]').forEach((group) => {
+      group.hidden = !group.querySelector('[data-rentals-item]:not([hidden])');
+    });
+    document.querySelectorAll('[data-rentals-carousel]').forEach((carousel) => {
+      carousel.dispatchEvent(new Event('rentals:refresh'));
+    });
     const status = document.querySelector('[data-rentals-results]');
     if (status) status.textContent = visible ? `${visible} item${visible === 1 ? '' : 's'} found` : 'No matching equipment. Try another search or category.';
   };
@@ -260,9 +266,8 @@ const initRentalsCatalogue = () => {
     setText('[data-detail-deposit]', detail.deposit);
     setText('[data-detail-status]', detail.status);
     const picture = dialog.querySelector('[data-detail-image]');
-    picture.hidden = !detail.image;
-    if (detail.image) { picture.src = detail.image; picture.alt = detail.name || ''; }
-    else { picture.removeAttribute('src'); }
+    picture.src = detail.image || picture.dataset.rentalsFallback;
+    picture.alt = detail.image ? (detail.name || 'Rental equipment') : '3AM Rentals equipment image coming soon';
     dialog.querySelector('[data-detail-id]').value = detail.id || '';
     addButton.disabled = !detail.canRent;
     addButton.textContent = detail.canRent ? 'Add to Cart' : (detail.isSample ? 'Preview only' : 'Currently unavailable');
@@ -364,6 +369,29 @@ const initRentalCheckout = () => {
 };
 
 const initRentalHeader = () => {
+  const navToggle = document.querySelector('[data-rentals-nav-toggle]');
+  const nav = document.querySelector('#rentals-primary-nav');
+  const closeNav = (restoreFocus = false) => {
+    if (!navToggle || !nav) return;
+    nav.classList.remove('is-open');
+    navToggle.setAttribute('aria-expanded', 'false');
+    navToggle.setAttribute('aria-label', 'Open Rentals menu');
+    if (restoreFocus) navToggle.focus();
+  };
+  if (navToggle && nav) {
+    navToggle.addEventListener('click', () => {
+      const open = nav.classList.toggle('is-open');
+      navToggle.setAttribute('aria-expanded', String(open));
+      navToggle.setAttribute('aria-label', open ? 'Close Rentals menu' : 'Open Rentals menu');
+    });
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Escape' && nav.classList.contains('is-open')) { event.preventDefault(); closeNav(true); }
+    });
+    document.addEventListener('click', event => {
+      if (!nav.contains(event.target) && !navToggle.contains(event.target)) closeNav();
+    });
+    window.addEventListener('resize', () => { if (innerWidth > 780) closeNav(); });
+  }
   const menu = document.querySelector('[data-account-menu]');
   if (!menu) return;
   const trigger = menu.querySelector('summary');
@@ -389,7 +417,43 @@ const initRentalHeader = () => {
   updateHeight();
 };
 
-const initRentals = () => { initRentalHeader(); initRentalsCatalogue(); initRentalCart(); initRentalCheckout(); };
+const initRentalImages = () => {
+  document.querySelectorAll('[data-rentals-image]').forEach((image) => image.addEventListener('error', () => {
+    if (image.src !== image.dataset.rentalsFallback) {
+      image.src = image.dataset.rentalsFallback;
+      image.alt = '3AM Rentals equipment image coming soon';
+    }
+  }));
+};
+
+const initRentalCarousels = () => {
+  document.querySelectorAll('[data-rentals-carousel]').forEach(carousel => {
+    const viewport = carousel.querySelector('[data-rentals-scroll]');
+    const previous = carousel.querySelector('[data-carousel-prev]');
+    const next = carousel.querySelector('[data-carousel-next]');
+    if (!viewport || !previous || !next) return;
+    const refresh = () => {
+      previous.disabled = viewport.scrollLeft <= 2;
+      next.disabled = viewport.scrollLeft + viewport.clientWidth >= viewport.scrollWidth - 2;
+    };
+    const advance = direction => viewport.scrollBy({ left: direction * viewport.clientWidth * .8, behavior: 'smooth' });
+    previous.addEventListener('click', () => advance(-1));
+    next.addEventListener('click', () => advance(1));
+    viewport.addEventListener('scroll', refresh, { passive: true });
+    viewport.addEventListener('keydown', event => {
+      if (event.target !== viewport) return;
+      if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
+        event.preventDefault(); advance(event.key === 'ArrowRight' ? 1 : -1);
+      }
+    });
+    carousel.addEventListener('rentals:refresh', () => { viewport.scrollLeft = 0; requestAnimationFrame(refresh); });
+    if ('ResizeObserver' in window) new ResizeObserver(refresh).observe(viewport);
+    else window.addEventListener('resize', refresh);
+    refresh();
+  });
+};
+
+const initRentals = () => { initRentalImages(); initRentalHeader(); initRentalCarousels(); initRentalsCatalogue(); initRentalCart(); initRentalCheckout(); };
 
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', initRentals, { once: true });

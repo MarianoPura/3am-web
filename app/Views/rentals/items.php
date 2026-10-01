@@ -6,6 +6,19 @@
 <?php
 $itemsList = is_array($items ?? null) ? $items : [];
 $categoriesList = is_array($categories ?? null) ? $categories : [];
+$groups = [];
+foreach ($categoriesList as $categoryRecord) {
+    $categoryId = (string) ($categoryRecord['id'] ?? '');
+    if ($categoryId === '') { continue; }
+    $groupItems = array_values(array_filter($itemsList, static fn (array $item): bool => (string) ($item['category'] ?? '') === $categoryId));
+    if ($groupItems !== []) {
+        $groups[] = ['name' => (string) $categoryRecord['name'], 'items' => $groupItems];
+    }
+}
+$groupedIds = [];
+foreach ($groups as $group) { foreach ($group['items'] as $item) { $groupedIds[(string) ($item['id'] ?? '')] = true; } }
+$uncategorized = array_values(array_filter($itemsList, static fn (array $item): bool => !isset($groupedIds[(string) ($item['id'] ?? '')])));
+if ($uncategorized !== []) { $groups[] = ['name' => 'Equipment', 'items' => $uncategorized]; }
 $notice = $_SESSION['rentals_notice'] ?? null;
 unset($_SESSION['rentals_notice']);
 ?>
@@ -31,8 +44,14 @@ unset($_SESSION['rentals_notice']);
     </div>
     <?php if ($itemsList !== []): ?>
       <p class="rentals-results" data-rentals-results role="status" aria-live="polite"></p>
-      <div class="rentals-catalog-grid">
-        <?php foreach ($itemsList as $item): ?>
+      <?php foreach ($groups as $group): ?>
+      <section class="rentals-category-group rentals-carousel" data-rentals-category-group data-rentals-carousel aria-label="<?= e_attr($group['name']) ?> equipment">
+        <div class="rentals-carousel__heading"><h2><?= e($group['name']) ?></h2><div class="rentals-carousel__controls">
+          <button type="button" data-carousel-prev aria-label="Previous <?= e_attr($group['name']) ?> equipment">←</button>
+          <button type="button" data-carousel-next aria-label="Next <?= e_attr($group['name']) ?> equipment">→</button>
+        </div></div>
+        <div class="rentals-catalog-grid rentals-carousel__track" data-rentals-scroll tabindex="0" aria-label="Scroll <?= e_attr($group['name']) ?> equipment">
+        <?php foreach ($group['items'] as $item): ?>
           <?php
           $itemId = (string) ($item['id'] ?? '');
           $name = (string) ($item['name'] ?? 'Rental item');
@@ -48,7 +67,7 @@ unset($_SESSION['rentals_notice']);
           $rate = (float) ($item['rental_rate'] ?? 0);
           $unit = trim((string) ($item['rental_unit'] ?? ''));
           $deposit = (float) ($item['security_deposit'] ?? 0);
-          $canRent = !$sample && $available > 0 && !in_array(strtolower($status), ['unavailable', 'out_of_stock', 'inactive', 'reserved'], true);
+          $canRent = !$sample && $available > 0 && strtolower($status) === 'available';
           $detail = [
               'id' => $itemId, 'name' => $name, 'category' => $categoryName,
               'description' => $description, 'ideal' => $ideal,
@@ -73,7 +92,9 @@ unset($_SESSION['rentals_notice']);
             </div>
           </article>
         <?php endforeach ?>
-      </div>
+        </div>
+      </section>
+      <?php endforeach ?>
     <?php else: ?>
       <div class="rentals-support-panel"><p class="rentals-card__meta">Rental inventory</p><h3>Equipment information is being updated.</h3><p>Contact the 3AM team for current availability.</p><a class="rentals-btn rentals-btn--dark" href="<?= e_attr(url('rentals/support')) ?>">Contact Rental Support</a></div>
     <?php endif ?>
@@ -83,7 +104,7 @@ unset($_SESSION['rentals_notice']);
   <button class="rentals-detail__close" type="button" data-rentals-close aria-label="Close equipment details">×</button>
   <div class="rentals-detail__success" data-detail-success hidden><p class="rentals-card__meta">Rental cart</p><h2>Added to cart</h2><p>Your equipment is saved for the selected dates.</p><button class="rentals-btn rentals-btn--primary" type="button" data-detail-continue>Continue browsing</button></div>
   <div class="rentals-detail__grid" data-detail-content>
-    <div class="rentals-detail__visual"><img data-detail-image alt="" hidden></div>
+    <div class="rentals-detail__visual"><img data-detail-image data-rentals-image data-rentals-fallback="<?= e_attr(site_media('media/rentals-equipment-placeholder.svg')) ?>" alt=""></div>
     <div class="rentals-detail__body">
       <p class="rentals-card__meta" data-detail-category></p>
       <h2 id="rentals-detail-title" data-detail-name></h2>

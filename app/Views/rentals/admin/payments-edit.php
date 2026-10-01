@@ -21,7 +21,7 @@ $paymentId = (int) ($payment['id'] ?? 0);
         <p class="rentals-card__meta">Existing record</p>
         <h2>Edit <?= e((string) ($payment['name'] ?? 'Payment Method')) ?></h2>
       </div>
-      <form method="post" action="<?= e_attr(url('rentals/admin/payments/' . $paymentId . '/edit')) ?>" class="rentals-admin__form">
+      <form method="post" action="<?= e_attr(url('rentals/admin/payments/' . $paymentId . '/edit')) ?>" class="rentals-admin__form" enctype="multipart/form-data">
         <?= csrf_field() ?>
         <input type="hidden" name="id" value="<?= e_attr((string) $paymentId) ?>">
         <fieldset>
@@ -50,6 +50,7 @@ $paymentId = (int) ($payment['id'] ?? 0);
             </label>
           </div>
         </fieldset>
+        <?= $this->partial('rentals.partials.admin-payment-image', ['payment' => $payment]) ?>
         <fieldset>
           <legend>Status</legend>
           <label>Record status

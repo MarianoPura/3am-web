@@ -599,6 +599,10 @@ final class RentalAdminController extends Controller
         if ($denial = $this->deny()) { return $denial; }
         $itemId = (int) $id;
         $return = url('rentals/admin/items/' . $itemId . '/edit#equipment-availability');
+        if (!in_array($request->string('availability_action'), ['', 'blocked', 'available'], true)) {
+            $_SESSION['rentals_admin_notice'] = 'Choose Block dates or Make available. Customer reservations are managed through orders.';
+            return $this->redirect($return);
+        }
         $start  = $request->string('start_date');
         $end    = $request->string('end_date');
         $first  = \DateTimeImmutable::createFromFormat('!Y-m-d', $start);
@@ -705,7 +709,7 @@ final class RentalAdminController extends Controller
         $user = (new RentalAccount($this->db(), new RentalCart()))->current();
         if ($user === null) { return $this->redirect(url('rentals/account')); }
         if (!in_array(strtolower((string) ($user['role'] ?? '')), ['admin', 'superadmin'], true)) {
-            return Response::forbidden('Rentals admin access is restricted.');
+            return $this->render('rentals.forbidden', [], 403)->noCache();
         }
         $this->adminUser = $user;
         return null;
@@ -958,6 +962,13 @@ final class RentalAdminController extends Controller
         if ($name === '' || mb_strlen($name, 'UTF-8') > 120) {
             throw new \InvalidArgumentException('Enter a valid name.');
         }
+        $duplicateName = $this->db()->selectValue(
+            'SELECT id FROM rental_categories WHERE LOWER(TRIM(name)) = LOWER(?) AND id <> ? LIMIT 1',
+            [$name, $id]
+        );
+        if ($duplicateName !== null) {
+            throw new \InvalidArgumentException('A category with this name already exists.');
+        }
 
         $existing = $id > 0 ? $this->db()->selectOne('SELECT id, slug, is_active FROM rental_categories WHERE id = ?', [$id]) : null;
         if ($id > 0 && $existing === null) {
@@ -1070,16 +1081,24 @@ final class RentalAdminController extends Controller
             throw new \InvalidArgumentException('Active manual methods need an account name and number.');
         }
 
-        if ($id > 0) {
-            $this->db()->update(
-                'UPDATE payment_methods SET name = ?, type = ?, provider = ?, account_name = ?, account_number = ?, is_active = ? WHERE id = ?',
-                [$name, $type, $provider, $accountName, $accountNumber, $isActive, $id]
-            );
-        } else {
-            $this->db()->insert(
-                'INSERT INTO payment_methods (name, type, provider, account_name, account_number, is_active) VALUES (?, ?, ?, ?, ?, ?)',
-                [$name, $type, $provider, $accountName, $accountNumber, $isActive]
-            );
+        $oldImage = $id > 0 ? $this->db()->selectValue('SELECT qr_image_path FROM payment_methods WHERE id = ?', [$id]) : null;
+        $newImage = RentalManagedImage::store($request->file('qr_image'), 'qr');
+        try {
+            if ($id > 0) {
+                $this->db()->update(
+                    'UPDATE payment_methods SET name = ?, type = ?, provider = ?, account_name = ?, account_number = ?, is_active = ?, qr_image_path = ? WHERE id = ?',
+                    [$name, $type, $provider, $accountName, $accountNumber, $isActive, $newImage ?? $oldImage, $id]
+                );
+            } else {
+                $this->db()->insert(
+                    'INSERT INTO payment_methods (name, type, provider, account_name, account_number, is_active, qr_image_path) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                    [$name, $type, $provider, $accountName, $accountNumber, $isActive, $newImage]
+                );
+            }
+        } catch (Throwable $e) {
+            if ($newImage !== null) { RentalManagedImage::remove($newImage, 'qr'); }
+            throw $e;
         }
+        if ($newImage !== null && $oldImage !== null) { RentalManagedImage::remove($oldImage, 'qr'); }
     }
 }
