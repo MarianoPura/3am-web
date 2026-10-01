@@ -68,8 +68,8 @@ AddDefaultCharset UTF-8
     # 3. Front controller
     # Anything that is not a real file or directory goes to index.php.
     # ─────────────────────────────────────────────────────────
-    # Managed product images must use the controller even when a legacy copy
-    # exists inside the checkout; its directory deliberately denies direct access.
+    # Old /micro product URLs must never serve a legacy copy directly. The
+    # public image route is /rentals/product-image/<filename> instead.
     RewriteRule ^micro/rentals/products/[a-f0-9]{32}\.(jpg|png|webp)$ index.php [L]
 
     RewriteCond %{REQUEST_FILENAME} !-f

@@ -98,3 +98,12 @@ document.querySelectorAll('[data-product-image-limit]').forEach(input => {
   input.addEventListener('change', validate);
   validate();
 });
+document.querySelectorAll('[data-admin-proof-image]').forEach(image => {
+  const showError = () => {
+    image.hidden = true;
+    const message = image.closest('.rentals-admin__proof-detail')?.querySelector('[data-admin-proof-error]');
+    if (message) message.hidden = false;
+  };
+  image.addEventListener('error', showError);
+  if (image.complete && image.naturalWidth === 0) showError();
+});

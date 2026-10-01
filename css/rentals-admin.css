@@ -228,7 +228,8 @@
   .rentals-admin-module .rentals-admin-calendar__days small { font-size: .45rem; }
 }
 .rentals-admin-module .rentals-admin__proof-detail summary { width: fit-content; padding: .8rem 1rem; border: 1px solid var(--c-blue-line); background: var(--c-white); color: var(--c-ink); cursor: pointer; font-weight: 700; }
-.rentals-admin-module .rentals-admin__proof-detail img { max-width: 100%; max-height: 65vh; margin-top: 1rem; object-fit: contain; }
+.rentals-admin-module .rentals-admin__proof-detail img { display: block; max-width: 100%; max-height: 65vh; margin-top: 1rem; object-fit: contain; }
+.rentals-admin-module .rentals-admin__proof-detail [hidden] { display: none; }
 .rentals-admin-module .rentals-admin__proof-detail a { display: inline-block; margin: 1rem 0; }
 .rentals-admin-module .rentals-admin__order-line { display: grid; gap: .3rem; padding: .9rem 0; border-top: 1px solid var(--c-blue-line); }
 .rentals-admin-module .rentals-admin__order-line small { color: var(--fg-muted); }

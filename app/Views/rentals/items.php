@@ -71,7 +71,7 @@ unset($_SESSION['rentals_notice']);
           $detail = [
               'id' => $itemId, 'name' => $name, 'category' => $categoryName,
               'description' => $description, 'ideal' => $ideal,
-              'image' => $image !== null ? site_media($image) : '',
+              'image' => $image !== null ? \App\Models\RentalCatalog::imageUrl($image) : '',
               'hasImageReference' => trim($path) !== '',
               'status' => $sample ? 'Preview only — inventory not confirmed' : ($status !== '' ? $status : 'Ask for availability'),
               'available' => $available, 'rate' => $rate > 0 ? '₱' . number_format($rate, 2) . ($unit !== '' ? ' / ' . $unit : '') : 'Rate on request',

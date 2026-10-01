@@ -341,6 +341,16 @@ const initRentalCheckout = () => {
   if (!form) return;
   const qrDialog = document.querySelector('[data-payment-qr-dialog]');
   let qrOpener = null;
+  form.querySelectorAll('[data-payment-qr-inline]').forEach((image) => image.addEventListener('error', () => {
+    image.hidden = true;
+    const figure = image.closest('[data-payment-qr-for]');
+    const caption = figure?.querySelector('figcaption');
+    if (caption) caption.hidden = true;
+    const error = figure?.querySelector('[data-payment-qr-error]');
+    if (error) error.hidden = false;
+    const button = figure?.closest('[data-payment-instructions]')?.querySelector('[data-payment-qr-open]');
+    if (button) button.hidden = true;
+  }));
   document.querySelectorAll('[data-payment-qr-open]').forEach((button) => button.addEventListener('click', () => {
     if (!qrDialog || typeof qrDialog.showModal !== 'function') return;
     qrOpener = button;
@@ -357,7 +367,7 @@ const initRentalCheckout = () => {
   qrDialog?.addEventListener('close', () => qrOpener?.focus());
   const select = form.elements.payment_method_id;
   const panels = form.querySelectorAll('[data-payment-instructions]');
-  const update = () => panels.forEach((panel) => { panel.hidden = panel.dataset.paymentInstructions !== select.value; });
+  const update = () => panels.forEach((panel) => { panel.hidden = panel.dataset.paymentInstructions !== (select?.value ?? ''); });
   select?.addEventListener('change', update);
   update();
   form.addEventListener('submit', (event) => {

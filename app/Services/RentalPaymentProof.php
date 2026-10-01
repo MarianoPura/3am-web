@@ -97,17 +97,24 @@ final class RentalPaymentProof
     public static function response(?string $reference): Response
     {
         $path = self::path($reference);
-        if ($path === null) { return Response::notFound(); }
+        if ($path === null) { return Response::notFound()->noCache(); }
         $bytes = @file_get_contents($path);
-        if ($bytes === false) { return Response::notFound(); }
+        if ($bytes === false) { return Response::notFound()->noCache(); }
         if (str_starts_with($bytes, self::LEGACY_GUARD)) {
             $plain = substr($bytes, strlen(self::LEGACY_GUARD));
         } elseif (str_starts_with($bytes, self::MAGIC)) {
             $offset = strlen(self::MAGIC);
+            if (strlen($bytes) < $offset + 28) {
+                error_log('Rentals payment proof could not be decrypted: encrypted file is incomplete.');
+                return Response::text('Payment proof could not be opened.', 422)->noCache();
+            }
             $plain = openssl_decrypt(substr($bytes, $offset + 28), 'aes-256-gcm', self::key(), OPENSSL_RAW_DATA,
                 substr($bytes, $offset, 12), substr($bytes, $offset + 12, 16));
-            if ($plain === false) { return Response::notFound(); }
-        } else { return Response::notFound(); }
+            if ($plain === false) {
+                error_log('Rentals payment proof could not be decrypted: authentication failed.');
+                return Response::text('Payment proof could not be opened.', 422)->noCache();
+            }
+        } else { return Response::notFound()->noCache(); }
         $extension = preg_match('/\.(jpg|png|webp|pdf)(?:\.php)?$/', (string) $reference, $match) ? $match[1] : '';
         $mime = array_search($extension, self::TYPES, true);
         return Response::make($plain)
