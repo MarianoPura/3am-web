@@ -93,13 +93,17 @@ try {
         'Customer Admin denial lost its 403 or branded safe navigation.');
     [$status, $checkout] = $http('/rentals/checkout');
     $assert($status === 200 && str_contains($checkout, 'Proof of payment')
-        && str_contains($checkout, 'Test Account') && str_contains($checkout, '0000000000'),
-        'Checkout did not show configured manual-payment instructions and request proof.');
+        && str_contains($checkout, 'Test Account') && str_contains($checkout, '0000000000')
+        && !str_contains($checkout, 'Payment proof could not be saved right now.'),
+        'Checkout showed missing payment instructions or a false storage error.');
     $baseCheckout = ['_token' => $token($checkout), 'customer_name' => $name, 'customer_email' => $email,
         'customer_phone' => '', 'payment_method_id' => (string) $methodId];
     [$status] = $http('/rentals/checkout', $baseCheckout);
     $assert($status === 422 && (int) $db->selectValue('SELECT COUNT(*) FROM order_header WHERE user_id = ?', [$userId]) === 0,
         'Checkout accepted a missing payment proof.');
+    [$status, $freshCheckout] = $http('/rentals/checkout');
+    $assert($status === 200 && !str_contains($freshCheckout, 'Payment proof could not be saved right now.'),
+        'A previous Checkout error remained visible on a fresh request.');
     foreach ([$invalidProof => 'invalid', $largeProof => 'oversized'] as $file => $reason) {
         [$status, $errorBody] = $http('/rentals/checkout', $baseCheckout + ['proof' => new CURLFile($file, 'image/png', 'proof.png')]);
         $assert(($status === 422 || ($reason === 'oversized' && $status === 413 && str_contains($errorBody, 'upload limit')))
