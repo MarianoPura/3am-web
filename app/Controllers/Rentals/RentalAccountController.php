@@ -54,15 +54,19 @@ final class RentalAccountController extends Controller
         }
 
         if ($user !== null) {
+            $returnTo = $_SESSION['rentals_after_auth'] ?? null;
+            unset($_SESSION['rentals_after_auth']);
+            // Only server-issued Rentals token routes may override the usual destination.
+            if (is_string($returnTo)
+                && preg_match('/^(?:order-status|confirmation)\/[a-f0-9]{64}$/D', $returnTo) === 1) {
+                return $this->redirect(url('rentals/' . $returnTo))->noCache();
+            }
             if (in_array(strtolower((string) ($user['role'] ?? '')), ['admin', 'superadmin'], true)) {
-                unset($_SESSION['rentals_after_auth']);
                 return $this->redirect(url('rentals/admin'));
             }
-            $returnTo = $_SESSION['rentals_after_auth'] ?? null;
             $destination = in_array($returnTo, ['checkout', 'orders', 'cart', 'account'], true)
                 ? 'rentals/' . $returnTo
                 : ((new RentalCart())->empty() ? 'rentals/account' : 'rentals/cart');
-            unset($_SESSION['rentals_after_auth']);
             return $this->redirect(url($destination));
         }
 

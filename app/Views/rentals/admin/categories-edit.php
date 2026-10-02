@@ -21,7 +21,7 @@ $categoryId = (int) ($category['id'] ?? 0);
         <p class="rentals-card__meta">Existing record</p>
         <h2>Edit <?= e((string) ($category['name'] ?? 'Category')) ?></h2>
       </div>
-      <form method="post" action="<?= e_attr(url('rentals/admin/categories/' . $categoryId . '/edit')) ?>" class="rentals-admin__form">
+      <form method="post" enctype="multipart/form-data" action="<?= e_attr(url('rentals/admin/categories/' . $categoryId . '/edit')) ?>" class="rentals-admin__form">
         <?= csrf_field() ?>
         <input type="hidden" name="id" value="<?= e_attr((string) $categoryId) ?>">
         <fieldset>
@@ -39,9 +39,13 @@ $categoryId = (int) ($category['id'] ?? 0);
           <label>Description
             <textarea name="description" rows="3"><?= e((string) ($category['description'] ?? '')) ?></textarea>
           </label>
-          <label>Existing local image path
-            <input name="image_path" list="rental-images" value="<?= e_attr((string) ($category['image_path'] ?? '')) ?>">
+          <label>Upload category image
+            <input type="file" name="category_image" accept="image/jpeg,image/png,image/webp">
+            <small>JPG, PNG or WebP. Maximum <?= e(number_format(\App\Services\RentalManagedImage::maxUploadBytes() / 1048576, 1)) ?> MB. Leave empty to keep the current image.</small>
           </label>
+          <?php $categoryImage = \App\Models\RentalCatalog::imagePath($category['image_path'] ?? null); if ($categoryImage !== null): ?>
+            <img class="rentals-admin__image-preview" src="<?= e_attr(\App\Models\RentalCatalog::imageUrl($categoryImage)) ?>" alt="Current category image">
+          <?php endif ?>
         </fieldset>
         <fieldset>
           <legend>Status</legend>
@@ -55,13 +59,6 @@ $categoryId = (int) ($category['id'] ?? 0);
         <button class="rentals-btn rentals-btn--primary" type="submit">Save changes</button>
       </form>
     </div>
-    <?php if (($images ?? []) !== []): ?>
-      <datalist id="rental-images">
-        <?php foreach ($images as $image): ?>
-          <option value="<?= e_attr($image) ?>"></option>
-        <?php endforeach ?>
-      </datalist>
-    <?php endif ?>
   </div>
 </section>
 <?php $this->end() ?>

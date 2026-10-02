@@ -17,7 +17,7 @@
         <p class="rentals-card__meta">New record</p>
         <h2>Add category</h2>
       </div>
-      <form method="post" action="<?= e_attr(url('rentals/admin/categories')) ?>" class="rentals-admin__form">
+      <form method="post" enctype="multipart/form-data" action="<?= e_attr(url('rentals/admin/categories')) ?>" class="rentals-admin__form">
         <?= csrf_field() ?>
         <fieldset>
           <legend>Basic information</legend>
@@ -34,8 +34,9 @@
           <label>Description
             <textarea name="description" rows="3" placeholder="Category summary..."></textarea>
           </label>
-          <label>Existing local image path (optional)
-            <input name="image_path" list="rental-images" placeholder="e.g. media/rentals/camera.jpg">
+          <label>Upload category image (optional)
+            <input type="file" name="category_image" accept="image/jpeg,image/png,image/webp">
+            <small>JPG, PNG or WebP. Maximum <?= e(number_format(\App\Services\RentalManagedImage::maxUploadBytes() / 1048576, 1)) ?> MB.</small>
           </label>
         </fieldset>
         <fieldset>
@@ -50,13 +51,6 @@
         <button class="rentals-btn rentals-btn--primary" type="submit">Add category</button>
       </form>
     </div>
-    <?php if (($images ?? []) !== []): ?>
-      <datalist id="rental-images">
-        <?php foreach ($images as $image): ?>
-          <option value="<?= e_attr($image) ?>"></option>
-        <?php endforeach ?>
-      </datalist>
-    <?php endif ?>
   </div>
 </section>
 <?php $this->end() ?>

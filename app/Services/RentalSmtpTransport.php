@@ -9,10 +9,10 @@ final class RentalSmtpTransport implements RentalMailTransport
     {
         return $this->mailer->isConfigured() && filter_var((string) config('mail.from.address', ''), FILTER_VALIDATE_EMAIL) !== false;
     }
-    public function send(string $destination, string $subject, string $text, string $html): void
+    public function send(string $destination, string $subject, string $text, string $html, array $cc = []): void
     {
         $support = (string) config('app.contact_email', '');
-        $this->mailer->send([$destination], $subject, $text, [],
+        $this->mailer->send([$destination], $subject, $text, $cc,
             filter_var($support, FILTER_VALIDATE_EMAIL) ? $support : null, $html);
     }
 }

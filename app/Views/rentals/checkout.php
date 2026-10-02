@@ -91,7 +91,7 @@ $customer = is_array($customer ?? null) ? $customer : [];
             <p role="status" style="margin-top:1rem;">No payment method is currently available. Please <a href="<?= e_attr(url('rentals/support')) ?>">contact Rental Support</a>; requests cannot be submitted yet.</p>
           <?php endif ?>
           <label class="rentals-date-field" style="margin-top:1rem;">Notes<textarea name="notes" rows="4"><?= e($customer['notes'] ?? '') ?></textarea></label>
-          <button type="submit" class="rentals-btn rentals-btn--primary" style="margin-top:1rem;"<?= $paymentMethods === [] || $summary['preview'] ? ' disabled' : '' ?>>Submit rental request</button>
+          <button type="submit" class="rentals-btn rentals-btn--primary" style="margin-top:1rem;"<?= $paymentMethods === [] || $summary['preview'] ? ' disabled' : '' ?>><span class="rentals-submit-spinner" data-rental-submit-spinner aria-hidden="true" hidden></span><span data-rental-submit-label>Submit rental request</span></button>
         </form>
         <dialog class="rentals-payment-qr-dialog" data-payment-qr-dialog aria-labelledby="rentals-payment-qr-title"><button type="button" data-payment-qr-close aria-label="Close QR code">×</button><h2 id="rentals-payment-qr-title" data-payment-qr-title></h2><img data-payment-qr-image alt="Payment QR code"><a data-payment-qr-link target="_blank" rel="noopener">Open QR image</a></dialog>
       </div>

@@ -92,7 +92,8 @@ final class RentalCheckoutController extends Controller
                 $result = $checkout->createOrder($userId, $customer, $request->file('proof'));
                 $this->container->get(RentalNotification::class)->rentalSubmitted($result['order_id']);
 
-                return $this->render('rentals.confirmation', $result)->noCache();
+                // A GET receipt can be refreshed after review without reposting checkout.
+                return $this->redirect(url('rentals/confirmation/' . $result['status_token']))->noCache();
             } catch (RuntimeException $exception) {
                 $error = $exception->getMessage();
             }
@@ -108,12 +109,38 @@ final class RentalCheckoutController extends Controller
 
     public function status(Request $request, string $token): Response
     {
-        if (preg_match('/^[a-f0-9]{64}$/', $token) !== 1) { return Response::notFound(); }
-        $order = $this->db()->selectOne('SELECT h.order_number, h.customer_name, h.payment_status,
-            h.payment_proof_path, p.name AS payment_method FROM order_header h
-            LEFT JOIN payment_methods p ON p.id = h.payment_method_id WHERE h.status_token = ?', [$token]);
-        return $order === null ? Response::notFound()
+        $order = $this->statusOrder($token, 'order-status');
+        return $order instanceof Response ? $order
             : $this->render('rentals.status', ['order' => $order, 'statusToken' => $token])->noCache();
+    }
+
+    public function confirmation(Request $request, string $token): Response
+    {
+        $order = $this->statusOrder($token, 'confirmation');
+        return $order instanceof Response ? $order
+            : $this->render('rentals.confirmation', ['order' => $order, 'status_token' => $token])->noCache();
+    }
+
+    private function statusOrder(string $token, string $page): array|Response
+    {
+        if (preg_match('/^[a-f0-9]{64}$/D', $token) !== 1) { return Response::notFound()->noCache(); }
+        $user = (new RentalAccount($this->db(), new RentalCart()))->current();
+        if ($user === null) {
+            $_SESSION['rentals_after_auth'] = $page . '/' . $token;
+            return $this->redirect(url('rentals/account'))->noCache();
+        }
+        // A token locates the order; it never grants access by itself.
+        // Return only status data, not customer details or stored proof paths.
+        $order = $this->db()->selectOne('SELECT order_number, user_id, payment_status,
+            CASE WHEN NULLIF(TRIM(payment_proof_path), \'\') IS NULL THEN 0 ELSE 1 END AS has_proof
+            FROM order_header WHERE status_token = ?', [$token]);
+        if ($order === null) { return Response::notFound()->noCache(); }
+        if ((int) $order['user_id'] !== (int) $user['id']
+            && !in_array(strtolower((string) $user['role']), ['admin', 'superadmin'], true)) {
+            return Response::forbidden('This rental order is not available to your account.')->noCache();
+        }
+        unset($order['user_id']);
+        return $order;
     }
 
     public function paymentQr(Request $request, string $id): Response

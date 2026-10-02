@@ -6,5 +6,5 @@ namespace App\Services;
 interface RentalMailTransport
 {
     public function isConfigured(): bool;
-    public function send(string $destination, string $subject, string $text, string $html): void;
+    public function send(string $destination, string $subject, string $text, string $html, array $cc = []): void;
 }

@@ -30,7 +30,7 @@ if ($relative === '/_qa-session-error') {
     $_ENV['APP_ENV'] = 'production';
     $_ENV['APP_DEBUG'] = 'true';
     $_ENV['DB_DATABASE'] = 'rentals_qa_nonexistent_database';
-    $_SERVER['REQUEST_URI'] = $mount . '/rentals/order-status/' . str_repeat('a', 64);
+    $_SERVER['REQUEST_URI'] = $mount . '/rentals/payment-qr/1';
 } elseif (preg_match('#(^|/)\.|^/(?:app|config|routes|storage|bin|docs|vendor|node_modules|tests|database|resources)(?:/|$)|^/micro/payment(?:/|$)#', $relative)
     || str_contains($relative, '..') || preg_match('#^/(?:bootstrap\.php|composer\.)#', $relative)) {
     http_response_code(403); exit;

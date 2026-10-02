@@ -24,6 +24,11 @@ final class RentalCatalog
                     image_path
                 FROM rental_categories
                 WHERE is_active = 1
+                    AND EXISTS (
+                        SELECT 1 FROM rental_items equipment
+                        WHERE equipment.category_id = rental_categories.id
+                            AND equipment.is_active = 1 AND equipment.is_service = 0
+                    )
                 ORDER BY name ASC, id ASC
                 "
             );

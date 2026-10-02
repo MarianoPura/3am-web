@@ -186,7 +186,6 @@ final class RentalAdminController extends Controller
         return $this->render('rentals.admin.categories', [
             'section'       => 'categories',
             'rows'          => $rows,
-            'images'        => $this->localImages(),
             'notice'        => $this->popNotice(),
             'noticeIsError' => $this->popNoticeError(),
             'adminUser'     => $this->adminUser,
@@ -199,7 +198,6 @@ final class RentalAdminController extends Controller
 
         return $this->render('rentals.admin.categories-create', [
             'section'       => 'categories',
-            'images'        => $this->localImages(),
             'notice'        => $this->popNotice(),
             'noticeIsError' => $this->popNoticeError(),
             'adminUser'     => $this->adminUser,
@@ -220,7 +218,6 @@ final class RentalAdminController extends Controller
             'section'       => 'categories',
             'category'      => $category,
             'record'        => $category,
-            'images'        => $this->localImages(),
             'notice'        => $this->popNotice(),
             'noticeIsError' => $this->popNoticeError(),
             'adminUser'     => $this->adminUser,
@@ -970,7 +967,7 @@ final class RentalAdminController extends Controller
             throw new \InvalidArgumentException('A category with this name already exists.');
         }
 
-        $existing = $id > 0 ? $this->db()->selectOne('SELECT id, slug, is_active FROM rental_categories WHERE id = ?', [$id]) : null;
+        $existing = $id > 0 ? $this->db()->selectOne('SELECT id, slug, image_path, is_active FROM rental_categories WHERE id = ?', [$id]) : null;
         if ($id > 0 && $existing === null) {
             throw new \InvalidArgumentException('That category no longer exists.');
         }
@@ -998,17 +995,6 @@ final class RentalAdminController extends Controller
         }
         $description = $description !== '' ? $description : null;
 
-        $imagePath = trim($request->string('image_path'));
-        if ($imagePath !== '') {
-            $validImage = RentalCatalog::imagePath($imagePath);
-            if ($validImage === null) {
-                throw new \InvalidArgumentException('Choose an existing local image from the available Rentals images.');
-            }
-            $imagePath = $validImage;
-        } else {
-            $imagePath = null;
-        }
-
         if ($request->has('is_active')) {
             $activeVal = $request->string('is_active');
             if (!in_array($activeVal, ['0', '1'], true)) {
@@ -1019,16 +1005,30 @@ final class RentalAdminController extends Controller
             $isActive = $id > 0 ? (int) ($existing['is_active'] ?? 1) : 1;
         }
 
-        if ($id > 0) {
-            $this->db()->update(
-                'UPDATE rental_categories SET name = ?, slug = ?, description = ?, image_path = ?, is_active = ? WHERE id = ?',
-                [$name, $slug, $description, $imagePath, $isActive, $id]
-            );
-        } else {
-            $this->db()->insert(
-                'INSERT INTO rental_categories (name, slug, description, image_path, is_active) VALUES (?, ?, ?, ?, ?)',
-                [$name, $slug, $description, $imagePath, $isActive]
-            );
+        $uploaded = RentalManagedImage::store($request->file('category_image'), 'product');
+        $oldImage = $existing['image_path'] ?? null;
+        $imagePath = $uploaded ?? $oldImage;
+        try {
+            if ($id > 0) {
+                $this->db()->update(
+                    'UPDATE rental_categories SET name = ?, slug = ?, description = ?, image_path = ?, is_active = ? WHERE id = ?',
+                    [$name, $slug, $description, $imagePath, $isActive, $id]
+                );
+            } else {
+                $this->db()->insert(
+                    'INSERT INTO rental_categories (name, slug, description, image_path, is_active) VALUES (?, ?, ?, ?, ?)',
+                    [$name, $slug, $description, $imagePath, $isActive]
+                );
+            }
+        } catch (Throwable $e) {
+            if ($uploaded !== null) { RentalManagedImage::remove($uploaded, 'product'); }
+            throw $e;
+        }
+        // Retain existing repository assets and any image shared with another record.
+        if ($uploaded !== null && $oldImage !== null
+            && $this->db()->selectValue('SELECT id FROM rental_categories WHERE image_path = ? LIMIT 1', [$oldImage]) === null
+            && $this->db()->selectValue('SELECT id FROM rental_items WHERE image_path = ? LIMIT 1', [$oldImage]) === null) {
+            RentalManagedImage::remove($oldImage, 'product');
         }
     }
 

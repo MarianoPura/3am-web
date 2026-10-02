@@ -77,9 +77,33 @@ try {
     [$code, $dashboard, $final] = $http('/rentals/account', ['_token' => $token($login), 'action' => 'login', 'email' => $email, 'password' => $password]);
     $assert($code === 200 && $final === $base . '/rentals/admin', 'Admin direct-login URL failed.');
     [, $editor] = $http('/rentals/admin/categories/new');
-    [$code, $categoryList] = $http('/rentals/admin/categories', ['_token' => $token($editor), 'name' => $name, 'slug' => 'qa-' . $key, 'is_active' => '1']);
+    $assert(str_contains($editor, 'enctype="multipart/form-data"') && str_contains($editor, 'name="category_image"')
+        && !str_contains($editor, 'Existing local image path') && !str_contains($editor, 'name="image_path"'), 'Category creation still requests a local image path.');
+    [$code, $categoryList] = $http('/rentals/admin/categories', ['_token' => $token($editor), 'name' => $name, 'slug' => 'qa-' . $key, 'is_active' => '1',
+        'category_image' => new CURLFile($picture, 'image/png', 'category.png')]);
     $categoryId = (int) $db->selectValue('SELECT id FROM rental_categories WHERE slug = ?', ['qa-' . $key]);
     $assert($code === 200 && $categoryId > 0 && str_contains($categoryList, $name), 'Category creation failed.');
+    $categoryImage = $db->selectValue('SELECT image_path FROM rental_categories WHERE id=?', [$categoryId]);
+    $assert(App\Services\RentalManagedImage::publicPath($categoryImage, 'product') !== null, 'Category upload was not stored securely.');
+    [, $categoryEditor] = $http('/rentals/admin/categories/' . $categoryId . '/edit');
+    $assert(str_contains($categoryEditor, 'Current category image') && str_contains($categoryEditor, '/rentals/product-image/')
+        && !str_contains($categoryEditor, 'name="image_path"'), 'Category editor did not use upload/managed preview.');
+    $categoryFields = ['_token' => $token($categoryEditor), 'name' => $name, 'slug' => 'qa-' . $key, 'is_active' => '1'];
+    $http('/rentals/admin/categories/' . $categoryId . '/edit', $categoryFields + ['image_path' => 'untrusted/path.jpg']);
+    $assert($db->selectValue('SELECT image_path FROM rental_categories WHERE id=?', [$categoryId]) === $categoryImage,
+        'Editing without an upload cleared the image or accepted a forged path.');
+    [, $invalidCategory] = $http('/rentals/admin/categories/' . $categoryId . '/edit', $categoryFields + [
+        'category_image' => new CURLFile($malicious, 'image/png', 'category.png')]);
+    $assert(str_contains($invalidCategory, 'Not saved:')
+        && $db->selectValue('SELECT image_path FROM rental_categories WHERE id=?', [$categoryId]) === $categoryImage,
+        'Invalid category upload was accepted or changed the existing image.');
+    $oldCategoryFile = App\Services\RentalStorage::path($categoryImage);
+    $http('/rentals/admin/categories/' . $categoryId . '/edit', $categoryFields + [
+        'category_image' => new CURLFile($picture, 'image/png', 'replacement.png')]);
+    $replacementCategoryImage = $db->selectValue('SELECT image_path FROM rental_categories WHERE id=?', [$categoryId]);
+    [$code, $categoryBytes] = $http('/rentals/product-image/' . basename($replacementCategoryImage));
+    $assert($replacementCategoryImage !== $categoryImage && !is_file($oldCategoryFile) && $code === 200 && $categoryBytes === $png,
+        'Category replacement cleanup or managed image serving failed.');
     [, $duplicateForm] = $http('/rentals/admin/categories/new');
     [$code, $duplicatePage] = $http('/rentals/admin/categories', [
         '_token' => $token($duplicateForm), 'name' => strtoupper($name),
@@ -401,7 +425,10 @@ try {
         App\Services\RentalManagedImage::remove($path, 'product');
         $db->delete('DELETE FROM rental_items WHERE id = ?', [$itemId]);
     }
-    if ($categoryId) { $db->delete('DELETE FROM rental_categories WHERE id = ?', [$categoryId]); }
+    if ($categoryId) {
+        App\Services\RentalManagedImage::remove($db->selectValue('SELECT image_path FROM rental_categories WHERE id=?', [$categoryId]), 'product');
+        $db->delete('DELETE FROM rental_categories WHERE id = ?', [$categoryId]);
+    }
     if ($methodId) {
         $path = $db->selectValue('SELECT qr_image_path FROM payment_methods WHERE id = ?', [$methodId]);
         App\Services\RentalManagedImage::remove($path, 'qr');
