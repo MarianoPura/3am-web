@@ -46,11 +46,8 @@ final class RentalManagedImage
             return null;
         }
         if (!isset(self::DIRECTORIES[$kind])) { throw new RuntimeException('Unknown image storage type.'); }
-        $flow = $kind === 'product' ? 'product-upload' : 'qr-upload';
         $error = (int) ($upload['error'] ?? UPLOAD_ERR_NO_FILE);
-        RentalDiagnostic::trace($flow, 'received', ['upload_error' => $error]);
         if ($error !== UPLOAD_ERR_OK) {
-            RentalDiagnostic::failure($flow, 'php-upload', ['upload_error' => $error]);
             throw new \InvalidArgumentException(match ($error) {
                 UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE => 'Image: the file exceeds this server\'s upload limit. Choose a smaller JPG, PNG or WebP.',
                 UPLOAD_ERR_PARTIAL => 'Image: the upload was interrupted. Reselect the image and try again.',
@@ -59,35 +56,29 @@ final class RentalManagedImage
         }
         $source = $upload['tmp_name'] ?? null;
         $size = (int) ($upload['size'] ?? 0);
-        RentalDiagnostic::trace($flow, 'upload-validation', ['upload_bytes' => $size, 'size_valid' => $size >= 1 && $size <= self::maxUploadBytes(),
-            'temp_uploaded' => is_string($source) && is_uploaded_file($source), 'temp_readable' => is_string($source) && is_readable($source)]);
         if (!is_string($source) || !is_uploaded_file($source) || $size < 1 || $size > self::maxUploadBytes()) {
-            RentalDiagnostic::failure($flow, 'upload-validation', ['validation' => 'failed']);
             throw new \InvalidArgumentException('Image: choose a valid image within the upload limit shown on the form.');
         }
         if (!class_exists(\finfo::class)) {
-            RentalDiagnostic::failure($flow, 'fileinfo-extension', ['error' => 'configuration']);
+            error_log('Rentals image upload unavailable: PHP Fileinfo extension is missing.');
             throw new \InvalidArgumentException('Image uploads are unavailable right now. You can save without an image and add it later.');
         }
         $mime = (new \finfo(FILEINFO_MIME_TYPE))->file($source);
         $extension = self::TYPES[$mime] ?? null;
-        RentalDiagnostic::trace($flow, 'mime', ['mime' => $extension === null ? 'unknown' : $mime]);
         if ($extension === null || @getimagesize($source) === false) {
-            RentalDiagnostic::failure($flow, 'image-content', ['validation' => 'failed']);
             throw new \InvalidArgumentException('Choose a JPG, PNG or WebP image.');
         }
-        try { $directory = RentalStorage::directory(substr(self::DIRECTORIES[$kind], strlen('micro/')), $flow); }
+        try { $directory = RentalStorage::directory(substr(self::DIRECTORIES[$kind], strlen('micro/'))); }
         catch (RuntimeException $e) {
-            RentalDiagnostic::exception($flow, 'storage', $e);
+            error_log('Rentals operation could not be completed.');
             throw new \InvalidArgumentException('The image could not be saved right now. You can save without an image and add it later.', 0, $e);
         }
         $relative = self::DIRECTORIES[$kind] . '/' . bin2hex(random_bytes(16)) . '.' . $extension;
         if (!@move_uploaded_file($source, $directory . '/' . basename($relative))) {
-            RentalDiagnostic::failure($flow, 'move', ['move_uploaded_file' => 'failed']);
+            error_log('Rentals image upload failed: move_uploaded_file could not write to ' . $directory);
             throw new \InvalidArgumentException('The image could not be saved right now. You can save without an image and add it later.');
         }
         @chmod($directory . '/' . basename($relative), 0640);
-        RentalDiagnostic::trace($flow, 'file-saved', ['move_uploaded_file' => 'success', 'file_exists' => is_file($directory . '/' . basename($relative))]);
         return $relative;
     }
 
@@ -96,19 +87,11 @@ final class RentalManagedImage
         if (self::publicPath($path, $kind) !== null) { @unlink((string) RentalStorage::path($path)); }
     }
 
-    public static function publicPath(?string $path, string $kind, string $flow = 'image-reference'): ?string
+    public static function publicPath(?string $path, string $kind): ?string
     {
-        if (!isset(self::DIRECTORIES[$kind]) || $path === null) { return null; }
-        $valid = preg_match('#^' . preg_quote(self::DIRECTORIES[$kind], '#') . '/[a-f0-9]{32}\.(?:jpg|png|webp)$#', $path) === 1;
-        RentalDiagnostic::trace($flow, 'image-reference', ['reference_valid' => $valid]);
-        if (!$valid) {
-            RentalDiagnostic::failure($flow, 'image-reference', ['reference_valid' => false]);
-            return null;
-        }
-        if (RentalStorage::path($path, $flow) === null) {
-            RentalDiagnostic::failure($flow, 'image-missing', ['file_exists' => false]);
-            return null;
-        }
+        if (!isset(self::DIRECTORIES[$kind]) || $path === null ||
+            preg_match('#^' . preg_quote(self::DIRECTORIES[$kind], '#') . '/[a-f0-9]{32}\.(?:jpg|png|webp)$#', $path) !== 1
+            || RentalStorage::path($path) === null) { return null; }
         return $path;
     }
 }

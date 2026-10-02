@@ -391,7 +391,10 @@ try {
     echo "PASS: Admin auth/mounted redirects/logout, category/product CRUD/uploads, malicious files, QR replacement/route, blackouts, searches/status filters, CSRF, reports and production errors.\n";
 } finally {
     if (!$methodId) { $methodId = (int) $db->selectValue('SELECT id FROM payment_methods WHERE name = ?', [$name]); }
-    foreach ($orderIds as $id) { $db->delete('DELETE FROM order_header WHERE id = ?', [$id]); }
+    foreach ($orderIds as $id) {
+        $db->delete('DELETE FROM rental_notification_deliveries WHERE order_id = ?', [$id]);
+        $db->delete('DELETE FROM order_header WHERE id = ?', [$id]);
+    }
     foreach ($extraItemIds as $id) { $db->delete('DELETE FROM rental_items WHERE id = ?', [$id]); }
     if ($itemId) {
         $path = $db->selectValue('SELECT image_path FROM rental_items WHERE id = ?', [$itemId]);

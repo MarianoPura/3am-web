@@ -1,0 +1,11 @@
+<?php $this->extend('rentals.layouts.admin'); $this->start('title'); ?>Email Delivery History — Rentals Admin<?php $this->end(); $this->start('content'); ?>
+<section class="rentals-admin-page rentals-email"><div class="rentals-shell">
+<?= $this->partial('rentals.partials.email-heading',['tab'=>'history','mailerStatus'=>$mailerStatus,'notice'=>$notice]) ?>
+<p class="rentals-email-help">Retry applies only to failed, current events with an enabled template and active recipient. Sent emails cannot be retried. Pending or uncertain deliveries need provider confirmation before any resend.</p>
+<div class="rentals-email-history" role="region" aria-label="Email deliveries" tabindex="0"><table><thead><tr><th>Event / order</th><th>Recipient</th><th>Delivery</th><th>Attempts</th><th>Last attempt</th><th>Action</th></tr></thead><tbody>
+<?php foreach (array_slice($deliveries,0,50) as $row): ?><tr><td><?= e($events[$row['event_key']]??'Test email') ?><br><?php if ($row['order_id']): ?><a href="<?= e_attr(url('rentals/admin/orders/'.$row['order_id'])) ?>"><?= e($row['order_number']??'Order') ?></a><?php endif ?></td>
+<td><?= e($row['recipient_email']) ?><br><small><?= e($row['audience']) ?></small></td><td><strong><?= e(ucfirst($row['status'])) ?></strong><br><small><?= e($row['failure_category']??'') ?></small></td><td><?= (int)$row['attempts'] ?></td><td><?= e($row['sent_at']??$row['attempted_at']??'Not attempted') ?></td><td>
+<?php if ($row['status']==='failed' && $row['order_id'] && $row['event_key']!=='test'): ?><form method="post" action="<?= e_attr(url('rentals/admin/email/deliveries/'.$row['id'].'/retry')) ?>"><?= csrf_field() ?><button class="rentals-btn rentals-btn--outline">Retry email</button></form><?php else: ?>—<?php endif ?></td></tr><?php endforeach ?>
+<?php if (!$deliveries): ?><tr><td colspan="6">No delivery attempts yet.</td></tr><?php endif ?></tbody></table></div>
+<nav class="rentals-email-actions" aria-label="Delivery history pages"><?php if ($page>1): ?><a href="<?= e_attr(url('rentals/admin/email/history?page='.($page-1))) ?>">← Previous</a><?php endif ?><span>Page <?= (int)$page ?></span><?php if (count($deliveries)>50): ?><a href="<?= e_attr(url('rentals/admin/email/history?page='.($page+1))) ?>">Next →</a><?php endif ?></nav>
+</div></section><?php $this->end(); ?>

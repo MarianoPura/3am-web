@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Controllers\Rentals;
 
-use App\Services\RentalDiagnostic;
-
 use App\Controllers\Controller;
 use App\Core\Request;
 use App\Core\Response;
@@ -17,7 +15,6 @@ final class RentalCartController extends Controller
 {
     public function availability(Request $request): Response
     {
-        RentalDiagnostic::trace('availability', 'request', ['requested_quantity' => $request->int('quantity', 1)]);
         $month = $request->string('month');
         $first = \DateTimeImmutable::createFromFormat('!Y-m-d', $month . '-01');
         $item = (new RentalCatalog($this->db()))->find($request->string('id'));
@@ -28,8 +25,6 @@ final class RentalCartController extends Controller
             || $first > $today->modify('+12 months')->modify('first day of this month')
             || $item === null || ($item['is_sample'] ?? false) || (int) ($item['is_service'] ?? 0) === 1
             || $quantity < 1 || $quantity > 999) {
-            RentalDiagnostic::failure('availability', 'request-validation', ['item_id' => (int) ($item['db_id'] ?? 0), 'date_range_valid' => $first !== false && $first->format('Y-m') === $month
-                && $first >= $today->modify('first day of this month') && $first <= $today->modify('+12 months')->modify('first day of this month'), 'response_status' => 422]);
             return Response::json(['ok' => false, 'message' => 'Availability could not be loaded for that item or month.'], 422)->noCache();
         }
         $last = $first->modify('last day of this month');
@@ -78,8 +73,6 @@ final class RentalCartController extends Controller
 
     public function add(Request $request): Response
     {
-        RentalDiagnostic::trace('cart-add', 'start', ['requested_quantity' => $request->int('quantity', 1),
-            'date_range_valid' => $this->validDateRange($request->string('rental_start_date'), $request->string('rental_end_date'))]);
         $itemId = $request->string('id', '');
         if ($itemId === '') {
             return $this->addFailure($request, 'Choose an equipment item.');
@@ -88,7 +81,6 @@ final class RentalCartController extends Controller
         $catalog = new RentalCatalog($this->db());
         $item = $catalog->find($itemId);
 
-        RentalDiagnostic::trace('cart-add', 'item-lookup', ['item_id' => (int) ($item['db_id'] ?? 0), 'item_found' => $item !== null]);
         if ($item === null) {
             return $this->addFailure($request, 'This item is currently unavailable.');
         }
@@ -108,13 +100,11 @@ final class RentalCartController extends Controller
         $cart = new RentalCart();
         if (!$this->canAddToCart($item, $cart, $quantity, $start, $end)) {
             $lowest = $this->minimumRemainingWithCart($item, $cart, $start, $end);
-            RentalDiagnostic::trace('cart-add', 'availability', ['availability_check' => 'failed', 'available_quantity' => $lowest]);
             $message = $lowest > 0
                 ? 'Only ' . $lowest . ' unit' . ($lowest === 1 ? ' is' : 's are') . ' available for the selected dates.'
                 : 'This equipment is unavailable for the selected dates.';
             return $this->addFailure($request, $message);
         }
-        RentalDiagnostic::trace('cart-add', 'cart-write', ['availability_check' => 'success', 'db_operation' => 'pending']);
         $cart->add((string) $item['id'], $quantity, $start, $end);
         if ($request->isAjax()) {
             return Response::json(['ok' => true, 'count' => $cart->count(), 'message' => 'Available for these dates. Added to Cart.'])->noCache();
@@ -124,7 +114,6 @@ final class RentalCartController extends Controller
 
     private function addFailure(Request $request, string $message): Response
     {
-        RentalDiagnostic::failure('cart-add', 'rejected', ['validation' => 'failed', 'response_status' => $request->isAjax() ? 422 : 302]);
         if ($request->isAjax()) {
             return Response::json(['ok' => false, 'message' => $message], 422)->noCache();
         }
@@ -134,8 +123,6 @@ final class RentalCartController extends Controller
 
     public function update(Request $request): Response
     {
-        RentalDiagnostic::trace('cart-update', 'start', ['requested_quantity' => $request->int('quantity', 1),
-            'date_range_valid' => $this->validDateRange($request->string('rental_start_date'), $request->string('rental_end_date'))]);
         $lineId = $request->string('line', '');
         $itemId = $request->string('id', '');
         $quantity = max(1, $request->int('quantity', 1));
@@ -143,7 +130,6 @@ final class RentalCartController extends Controller
         $end = $request->string('rental_end_date');
 
         if ($lineId === '' || $itemId === '') {
-            RentalDiagnostic::failure('cart-update', 'line-missing', ['validation' => 'failed', 'response_status' => 302]);
             return $this->redirect(url('rentals/cart'));
         }
 
@@ -151,12 +137,10 @@ final class RentalCartController extends Controller
         $cart = new RentalCart();
         if ($item === null || !$this->validDateRange($start, $end)
             || !$this->canAddToCart($item, $cart, $quantity, $start, $end, $lineId)) {
-            RentalDiagnostic::failure('cart-update', 'availability', ['item_id' => (int) ($item['db_id'] ?? 0), 'availability_check' => 'failed', 'response_status' => 302]);
             $_SESSION['rentals_notice'] = 'Choose valid dates and an available quantity before updating your cart.';
             return $this->redirect(url('rentals/cart'));
         }
 
-        RentalDiagnostic::trace('cart-update', 'cart-write', ['availability_check' => 'success', 'db_operation' => 'pending']);
         $cart->update(
             $lineId,
             $quantity,
@@ -218,7 +202,6 @@ final class RentalCartController extends Controller
             }
         }
         unset($units);
-        RentalDiagnostic::trace('cart', 'available-quantity', ['item_id' => (int) ($item['db_id'] ?? 0), 'available_quantity' => min($remaining)]);
         return min($remaining);
     }
 

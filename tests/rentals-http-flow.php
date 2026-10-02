@@ -250,6 +250,7 @@ try {
 } finally {
     if ($userId > 0) {
         foreach ($db->select('SELECT id, payment_proof_path FROM order_header WHERE user_id = ?', [$userId]) as $row) {
+            $db->delete('DELETE FROM rental_notification_deliveries WHERE order_id = ?', [(int) $row['id']]);
             App\Services\RentalPaymentProof::remove($row['payment_proof_path']);
             $db->delete('DELETE FROM order_details WHERE order_header_id = ?', [(int) $row['id']]);
             $db->delete('DELETE FROM order_header WHERE id = ?', [(int) $row['id']]);

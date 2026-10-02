@@ -31,7 +31,6 @@ echo "Proof reference: present\n";
 if (preg_match('#^micro/payment/[a-f0-9]{32}\.(?:jpg|png|webp|pdf)$#D', $reference) === 1) {
     try { $external = \App\Services\RentalStorage::root() . '/' . substr($reference, strlen('micro/')); }
     catch (RuntimeException $e) { echo "Storage root: invalid\n"; exit(0); }
-    echo 'Storage root fingerprint: ' . \App\Services\RentalDiagnostic::fingerprint(\App\Services\RentalStorage::root()) . "\n";
     $legacy = BASE_PATH . '/' . $reference;
     echo 'External file: ' . (is_file($external) ? 'present' : 'missing') . "\n";
     echo 'Legacy project file: ' . (is_file($legacy) ? 'present' : 'missing') . "\n";

@@ -187,7 +187,7 @@ try {
     $existing = array_map(static fn ($row) => (string) reset($row), $db->select('SHOW TABLES'));
     $source = preg_replace('/^--.*$/m', '', file_get_contents(BASE_PATH . '/database/rentals.sql'));
     preg_match_all('/CREATE TABLE IF NOT EXISTS `([a-z_]+)` \((.*?)\) ENGINE=InnoDB[^;]*;/s', $source, $tables, PREG_SET_ORDER);
-    if (count($tables) !== 9) { throw new RuntimeException('Invalid schema source.'); }
+    if (count($tables) !== 13) { throw new RuntimeException('Invalid schema source.'); }
     if ($command === '--migrate' && in_array('payment_methods', $existing, true)) {
         $paymentColumns = array_column($db->select('SHOW COLUMNS FROM `payment_methods`'), null, 'Field');
         if (!isset($paymentColumns['qr_image_path'])) {

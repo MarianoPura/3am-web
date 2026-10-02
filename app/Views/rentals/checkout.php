@@ -67,11 +67,7 @@ $customer = is_array($customer ?? null) ? $customer : [];
               <div class="rentals-payment-instructions" data-payment-instructions="<?= (int) $method['id'] ?>" hidden>
                 <p class="rentals-card__meta">How to pay · <?= e((string) $method['name']) ?></p>
                 <?php if ($method['type'] === 'manual'): ?>
-                  <?php
-                  \App\Services\RentalDiagnostic::trace('payment-qr', 'checkout-data', ['record_id' => (int) $method['id'], 'qr_path' => empty($method['qr_image_path']) ? 'missing' : 'present']);
-                  $qrPath = \App\Services\RentalManagedImage::publicPath($method['qr_image_path'] ?? null, 'qr', 'payment-qr');
-                  \App\Services\RentalDiagnostic::trace('payment-qr', 'checkout-url', ['route_generated' => $qrPath !== null]);
-                  if ($qrPath !== null): ?>
+                  <?php $qrPath = \App\Services\RentalManagedImage::publicPath($method['qr_image_path'] ?? null, 'qr'); if ($qrPath !== null): ?>
                     <figure class="rentals-payment-instructions__qr" data-payment-qr-for="<?= (int) $method['id'] ?>">
                       <img src="<?= e_attr(url('rentals/payment-qr/' . (int) $method['id'])) ?>" alt="<?= e_attr((string) $method['name']) ?> payment QR code" width="240" height="240" loading="lazy" decoding="async" data-payment-qr-inline>
                       <figcaption>Scan to pay with <?= e((string) $method['name']) ?></figcaption>

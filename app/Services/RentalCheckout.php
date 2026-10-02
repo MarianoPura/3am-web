@@ -99,7 +99,7 @@ final class RentalCheckout
      * Browser totals are deliberately ignored.
      *
      * @param array{name: string, email: string, phone: string, payment_method_id: int|null, notes: string} $customer
-     * @return array{order_number: string, status_token: string, customer_email: string}
+     * @return array{order_id: int, order_number: string, status_token: string, customer_email: string}
      */
     public function createOrder(int $userId, array $customer, ?array $proofUpload = null): array
     {
@@ -149,12 +149,10 @@ final class RentalCheckout
 
         $orderNumber = 'RNT-' . strtoupper(bin2hex(random_bytes(5)));
         $statusToken = bin2hex(random_bytes(32));
-        RentalDiagnostic::trace('checkout', 'proof-upload');
         $proofPath = RentalPaymentProof::store($proofUpload);
-        RentalDiagnostic::trace('checkout', 'order-transaction', ['db_operation' => 'pending']);
 
         try {
-            $this->db->transaction(function (Database $db) use ($customer, $paymentId, $summary, $userId, $orderNumber, $statusToken, $proofPath): void {
+            $orderId = $this->db->transaction(function (Database $db) use ($customer, $paymentId, $summary, $userId, $orderNumber, $statusToken, $proofPath): int {
             // Serialize requests for the same equipment before checking availability and rates.
             $cartRow = $db->selectOne('SELECT id FROM carts WHERE user_id = ? FOR UPDATE', [$userId]);
             if ($cartRow === null) {
@@ -241,14 +239,13 @@ final class RentalCheckout
                 );
             }
             $this->cart->clear();
+            return $orderId;
             });
         } catch (\Throwable $e) {
-            RentalDiagnostic::exception('checkout', 'order-transaction', $e, ['db_path_saved' => false, 'order_saved' => false]);
             RentalPaymentProof::remove($proofPath);
             throw $e;
         }
 
-        RentalDiagnostic::trace('checkout', 'order-saved', ['db_path_saved' => true, 'order_saved' => true]);
-        return ['order_number' => $orderNumber, 'status_token' => $statusToken, 'customer_email' => $customer['email']];
+        return ['order_id' => $orderId, 'order_number' => $orderNumber, 'status_token' => $statusToken, 'customer_email' => $customer['email']];
     }
 }

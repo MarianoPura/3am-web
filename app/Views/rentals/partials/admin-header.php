@@ -10,6 +10,7 @@ $links = [
     ['key' => 'payment-report', 'label' => 'Payment Report', 'href' => url('rentals/admin/payment-report')],
     ['key' => 'payments', 'label' => 'Payment Methods', 'href' => url('rentals/admin/payments')],
     ['key' => 'customers', 'label' => 'Customers', 'href' => url('rentals/admin/customers')],
+    ['key' => 'email', 'label' => 'Email Notifications', 'href' => url('rentals/admin/email')],
 ];
 ?>
 <header class="rentals-admin-header">
