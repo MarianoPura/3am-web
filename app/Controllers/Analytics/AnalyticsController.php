@@ -177,7 +177,7 @@ final class AnalyticsController extends Controller
              FROM tracking_events te
              JOIN landing_page_visits lpv ON lpv.id = te.visit_id
              ORDER BY te.occurred_at DESC
-             LIMIT 20'
+             LIMIT 10'
         );
 
         return $this->render('analytics.dashboard', [
@@ -210,7 +210,7 @@ final class AnalyticsController extends Controller
         $filterEvent = $request->string('event');
         $filterDate  = $request->string('date');
         $page        = max(1, $request->int('page') ?: 1);
-        $perPage     = 50;
+        $perPage     = 10;
         $offset      = ($page - 1) * $perPage;
 
         $conditions = [];
@@ -280,7 +280,7 @@ final class AnalyticsController extends Controller
         $user = $this->currentUser();
 
         $page    = max(1, $request->int('page') ?: 1);
-        $perPage = 50;
+        $perPage = 10;
         $offset  = ($page - 1) * $perPage;
 
         $totalCount = (int) $db->selectValue('SELECT COUNT(*) FROM landing_page_visits');
