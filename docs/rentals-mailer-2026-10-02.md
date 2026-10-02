@@ -15,17 +15,11 @@ Status: **locally verified / live delivery confirmation pending**.
 
 ## Fixed Recipients
 
-Owner: joedeldacudao27@gmail.com
-
-CC:
-
-- lilbeemail88@gmail.com
-- leueilshem@gmail.com
-- iannopura0206@gmail.com
+The fixed Owner and three CC recipients are defined only in `config/rentals-mail.php`. This central list was updated on 2026-10-02 to the user-provided recipients; controllers, tests and documentation do not duplicate the addresses.
 
 Company messages use one actual SMTP To recipient and the fixed Cc list. Distinct CC addresses are present in both SMTP envelope and Cc header. No recipient CRUD or subscriptions remain.
 
-These are the exact example CC addresses requested, **not verified company mailboxes**. Before claiming production company delivery works, replace the examples centrally with real authorized addresses through reviewed config deployment. SMTP rejection of an example recipient causes a safe company-message failure; the customer message and saved order/status remain independent.
+SMTP rejection of a recipient causes a safe company-message failure; the customer message and saved order/status remain independent. Live SMTP delivery is not exercised by local tests.
 
 ## Customer Recipient
 

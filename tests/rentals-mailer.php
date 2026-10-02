@@ -57,8 +57,12 @@ try {
             [$id, $item, 'Camera <script>unsafe</script>', 2, '2026-11-10', '2026-11-12', 300]);
         return $id;
     };
-    $assert(config('rentals-mail.owner') === 'lilbeemail88@gmail.com', 'Fixed owner differs from requirement.');
-    $assert(config('rentals-mail.cc') === ['rentals@example.com', 'accounting@example.com', 'operations@example.com'], 'Fixed CC differs.');
+    $owner = config('rentals-mail.owner');
+    $cc = config('rentals-mail.cc');
+    $assert(is_string($owner) && filter_var($owner, FILTER_VALIDATE_EMAIL) !== false, 'Fixed owner must be a valid email.');
+    $assert(is_array($cc) && count($cc) === 3 && count(array_unique($cc)) === 3
+        && !in_array($owner, $cc, true), 'Fixed CC must contain three distinct recipients excluding Owner.');
+    foreach ($cc as $address) { $assert(filter_var($address, FILTER_VALIDATE_EMAIL) !== false, 'Fixed CC must use valid emails.'); }
     $first = $newOrder();
     // Guards must stop mail before the transaction commits.
     $db->beginTransaction();
