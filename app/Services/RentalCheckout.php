@@ -149,7 +149,9 @@ final class RentalCheckout
 
         $orderNumber = 'RNT-' . strtoupper(bin2hex(random_bytes(5)));
         $statusToken = bin2hex(random_bytes(32));
+        RentalDiagnostic::trace('checkout', 'proof-upload');
         $proofPath = RentalPaymentProof::store($proofUpload);
+        RentalDiagnostic::trace('checkout', 'order-transaction', ['db_operation' => 'pending']);
 
         try {
             $this->db->transaction(function (Database $db) use ($customer, $paymentId, $summary, $userId, $orderNumber, $statusToken, $proofPath): void {
@@ -241,10 +243,12 @@ final class RentalCheckout
             $this->cart->clear();
             });
         } catch (\Throwable $e) {
+            RentalDiagnostic::exception('checkout', 'order-transaction', $e, ['db_path_saved' => false, 'order_saved' => false]);
             RentalPaymentProof::remove($proofPath);
             throw $e;
         }
 
+        RentalDiagnostic::trace('checkout', 'order-saved', ['db_path_saved' => true, 'order_saved' => true]);
         return ['order_number' => $orderNumber, 'status_token' => $statusToken, 'customer_email' => $customer['email']];
     }
 }

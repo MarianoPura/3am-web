@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Controllers\Rentals;
 
+use App\Services\RentalDiagnostic;
+
 use App\Controllers\Controller;
 use App\Core\Request;
 use App\Core\Response;
@@ -50,6 +52,7 @@ final class RentalAccountController extends Controller
                 );
             }
         } catch (RuntimeException $exception) {
+            RentalDiagnostic::exception('auth', 'sign-in', $exception, ['auth' => 'failed', 'role' => 'guest', 'response_status' => 422]);
             $error = $exception->getMessage();
         }
 
@@ -174,7 +177,7 @@ final class RentalAccountController extends Controller
         } catch (RuntimeException $e) {
             $_SESSION['rentals_notice'] = $e->getMessage();
         } catch (\Throwable $e) {
-            error_log('Rentals proof upload failed: ' . $e->getMessage());
+            RentalDiagnostic::exception('proof-upload', 'resubmit', $e, ['response_status' => 302]);
             $_SESSION['rentals_notice'] = 'Payment proof could not be saved.';
         }
         return $this->redirect(url('rentals/orders'));

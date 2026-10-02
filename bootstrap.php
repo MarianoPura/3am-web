@@ -101,7 +101,9 @@ $isDebug = in_array(env('APP_ENV', 'production'), ['local', 'testing', 'developm
 
 error_reporting(E_ALL);
 ini_set('display_errors', $isDebug ? '1' : '0');
-ini_set('log_errors', '1');
+ini_set('log_errors', \App\Services\RentalDiagnostic::readOnly() ? '0' : '1');
+\App\Services\RentalDiagnostic::context((string) ($_SERVER['REQUEST_METHOD'] ?? 'CLI'), (string) ($_SERVER['REQUEST_URI'] ?? '/other'));
+if (\App\Services\RentalDiagnostic::active()) { ini_set('log_errors', '0'); }
 ini_set('error_log', BASE_PATH . '/storage/logs/php-error.log');
 
 date_default_timezone_set((string) env('APP_TIMEZONE', 'Asia/Manila'));
@@ -134,7 +136,11 @@ set_error_handler(static function (
         throw new ErrorException($message, 0, $severity, $file, $line);
     }
 
-    error_log(sprintf('[%s] PHP %d: %s in %s:%d', date('c'), $severity, $message, $file, $line));
+    if (\App\Services\RentalDiagnostic::active()) {
+        \App\Services\RentalDiagnostic::failure('php', 'warning', ['error' => 'warning', 'severity' => $severity, 'source' => \App\Services\RentalDiagnostic::source($file), 'line' => $line]);
+    } elseif (!\App\Services\RentalDiagnostic::readOnly()) {
+        error_log(sprintf('[%s] PHP %d: %s in %s:%d', date('c'), $severity, $message, $file, $line));
+    }
 
     return true;
 });
@@ -152,13 +158,17 @@ register_shutdown_function(static function () use ($isDebug): void {
         return;
     }
 
-    error_log(sprintf(
-        '[%s] FATAL: %s in %s:%d',
-        date('c'),
-        $error['message'],
-        $error['file'],
-        $error['line']
-    ));
+    if (\App\Services\RentalDiagnostic::active()) {
+        \App\Services\RentalDiagnostic::failure('php', 'fatal', ['error' => 'fatal', 'severity' => $error['type'], 'source' => \App\Services\RentalDiagnostic::source($error['file']), 'line' => $error['line'], 'response_status' => 500]);
+    } elseif (!\App\Services\RentalDiagnostic::readOnly()) {
+        error_log(sprintf(
+            '[%s] FATAL: %s in %s:%d',
+            date('c'),
+            $error['message'],
+            $error['file'],
+            $error['line']
+        ));
+    }
 
     if (!headers_sent()) {
         http_response_code(500);

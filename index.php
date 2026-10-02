@@ -22,6 +22,7 @@ declare(strict_types=1);
  * re-running after any server change.
  */
 
+use App\Services\RentalDiagnostic;
 use App\Core\Container;
 use App\Core\Csrf;
 use App\Core\Request;
@@ -70,6 +71,7 @@ $startSession = static function (): void {
 // Request
 // ─────────────────────────────────────────────────────────────
 $request = Request::capture((string) config('app.base_path'));
+RentalDiagnostic::context($request->method(), $request->path());
 
 // ─────────────────────────────────────────────────────────────
 // Middleware pipeline
@@ -127,6 +129,9 @@ $dispatch = static function (Request $request) use ($router, $container): Respon
         return render_error($container, 404);
     }
 
+    [$class, $method] = $match['handler'];
+    RentalDiagnostic::context($request->method(), $request->path(), $class, $method);
+
     // PHP discards both POST fields and the CSRF token when an upload exceeds
     // post_max_size. Reject oversized Rentals uploads without dispatching a write.
     $rentalsUpload = in_array($request->path(), ['/rentals/admin/items', '/rentals/admin/payments', '/rentals/checkout'], true)
@@ -135,12 +140,14 @@ $dispatch = static function (Request $request) use ($router, $container): Respon
     if ($request->isPost() && $rentalsUpload) {
         $postLimit = \App\Services\RentalManagedImage::maxRequestBytes();
         if ($postLimit > 0 && $request->contentLength() > $postLimit) {
+            RentalDiagnostic::failure('request', 'upload-limit', ['size_valid' => false, 'response_status' => 413]);
             return render_error($container, 413, 'The form exceeds this server\'s upload limit. Go back, choose a smaller file, and submit again.');
         }
     }
 
     // Verify CSRF for state-changing requests, once, here.
     if ($request->isMutating() && !$container->get(Csrf::class)->verify($request)) {
+        if (RentalDiagnostic::active()) { RentalDiagnostic::failure('request', 'csrf', ['csrf' => 'failed', 'response_status' => 419]); }
         if ($request->isAjax()) {
             return Response::json([
                 'ok'      => false,
@@ -151,7 +158,7 @@ $dispatch = static function (Request $request) use ($router, $container): Respon
         return render_error($container, 419, 'Your session expired. Please go back and try again.');
     }
 
-    [$class, $method] = $match['handler'];
+    if (RentalDiagnostic::active()) { RentalDiagnostic::trace('request', 'dispatch', ['csrf' => $request->isMutating() ? 'ok' : 'skipped']); }
 
     return (new $class($container))->{$method}($request, ...array_values($match['params']));
 };
@@ -179,17 +186,25 @@ function render_error(Container $container, int $status, string $message = ''): 
 
 try {
     $startSession();
-    $handler($request)->send();
+    $response = $handler($request);
+    if (RentalDiagnostic::active() && $response->status() >= 400) {
+        RentalDiagnostic::failure('request', 'response', ['response_status' => $response->status()]);
+    }
+    $response->send();
 } catch (Throwable $e) {
-    error_log(sprintf(
-        '[%s] %s in %s:%d%s%s',
-        date('c'),
-        $e->getMessage(),
-        $e->getFile(),
-        $e->getLine(),
-        PHP_EOL,
-        $e->getTraceAsString()
-    ));
+    if (RentalDiagnostic::active()) {
+        RentalDiagnostic::exception('request', 'uncaught', $e, ['response_status' => 500]);
+    } else {
+        error_log(sprintf(
+            '[%s] %s in %s:%d%s%s',
+            date('c'),
+            $e->getMessage(),
+            $e->getFile(),
+            $e->getLine(),
+            PHP_EOL,
+            $e->getTraceAsString()
+        ));
+    }
 
     if (config('app.debug')) {
         // Debug output is escaped. An exception message can contain user input,
