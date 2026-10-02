@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Controllers\Rentals;
 
+use App\Services\RentalDiagnostic;
+
 use App\Controllers\Controller;
 use App\Core\Request;
 use App\Core\Response;
@@ -68,7 +70,7 @@ final class RentalAdminController extends Controller
             $report = (new RentalAdminInsights($this->db()))->paymentReport($request);
         } catch (Throwable $e) {
             $cause = $e->getPrevious() ?? $e;
-            error_log('Rentals Payment Report failed: ' . $cause->getMessage());
+            RentalDiagnostic::exception('reports', 'query', $cause);
             throw $e;
         }
         return $this->render('rentals.admin.payment-report', [
@@ -364,12 +366,13 @@ final class RentalAdminController extends Controller
             unset($_SESSION['rentals_admin_product_draft']);
             return $this->redirect(url('rentals/admin/items'));
         } catch (\InvalidArgumentException $e) {
+            RentalDiagnostic::exception('product-crud', 'validation', $e, ['validation' => 'failed', 'response_status' => 302]);
             $this->saveProductDraft($request, 0);
             $_SESSION['rentals_admin_notice'] = $e->getMessage();
             $_SESSION['rentals_admin_notice_error'] = true;
             return $this->redirect(url('rentals/admin/items/new'));
         } catch (Throwable $e) {
-            error_log('Failed to save rental item: ' . $e->getMessage());
+            RentalDiagnostic::exception('product-crud', 'save', $e, ['response_status' => 302]);
             $this->saveProductDraft($request, 0);
             $_SESSION['rentals_admin_notice'] = 'The product could not be saved right now. Your entries have been kept.';
             $_SESSION['rentals_admin_notice_error'] = true;
@@ -390,12 +393,13 @@ final class RentalAdminController extends Controller
             unset($_SESSION['rentals_admin_product_draft']);
             return $this->redirect(url('rentals/admin/items/' . $itemId . '/edit'));
         } catch (\InvalidArgumentException $e) {
+            RentalDiagnostic::exception('product-crud', 'validation', $e, ['validation' => 'failed', 'response_status' => 302]);
             $this->saveProductDraft($request, $itemId);
             $_SESSION['rentals_admin_notice'] = $e->getMessage();
             $_SESSION['rentals_admin_notice_error'] = true;
             return $this->redirect(url('rentals/admin/items/' . $itemId . '/edit'));
         } catch (Throwable $e) {
-            error_log('Failed to update rental item ' . $itemId . ': ' . $e->getMessage());
+            RentalDiagnostic::exception('product-crud', 'save', $e, ['response_status' => 302]);
             $this->saveProductDraft($request, $itemId);
             $_SESSION['rentals_admin_notice'] = 'The product could not be saved right now. Your entries have been kept.';
             $_SESSION['rentals_admin_notice_error'] = true;
@@ -423,11 +427,12 @@ final class RentalAdminController extends Controller
             $_SESSION['rentals_admin_notice'] = 'Changes saved.';
             return $this->redirect(url('rentals/admin/categories'));
         } catch (\InvalidArgumentException $e) {
+            RentalDiagnostic::exception('category-crud', 'validation', $e, ['validation' => 'failed', 'response_status' => 302]);
             $_SESSION['rentals_admin_notice'] = $e->getMessage();
             $_SESSION['rentals_admin_notice_error'] = true;
             return $this->redirect(url('rentals/admin/categories/new'));
         } catch (Throwable $e) {
-            error_log('Failed to save rental category: ' . $e->getMessage());
+            RentalDiagnostic::exception('category-crud', 'save', $e, ['response_status' => 302]);
             $_SESSION['rentals_admin_notice'] = 'Could not save. Check required fields and unique slug.';
             $_SESSION['rentals_admin_notice_error'] = true;
             return $this->redirect(url('rentals/admin/categories/new'));
@@ -446,11 +451,12 @@ final class RentalAdminController extends Controller
             $_SESSION['rentals_admin_notice'] = 'Changes saved.';
             return $this->redirect(url('rentals/admin/categories/' . $categoryId . '/edit'));
         } catch (\InvalidArgumentException $e) {
+            RentalDiagnostic::exception('category-crud', 'validation', $e, ['validation' => 'failed', 'response_status' => 302]);
             $_SESSION['rentals_admin_notice'] = $e->getMessage();
             $_SESSION['rentals_admin_notice_error'] = true;
             return $this->redirect(url('rentals/admin/categories/' . $categoryId . '/edit'));
         } catch (Throwable $e) {
-            error_log('Failed to update rental category ' . $categoryId . ': ' . $e->getMessage());
+            RentalDiagnostic::exception('category-crud', 'save', $e, ['response_status' => 302]);
             $_SESSION['rentals_admin_notice'] = 'Could not save. Check required fields and unique slug.';
             $_SESSION['rentals_admin_notice_error'] = true;
             return $this->redirect(url('rentals/admin/categories/' . $categoryId . '/edit'));
@@ -477,11 +483,12 @@ final class RentalAdminController extends Controller
             $_SESSION['rentals_admin_notice'] = 'Changes saved.';
             return $this->redirect(url('rentals/admin/payments'));
         } catch (\InvalidArgumentException $e) {
+            RentalDiagnostic::exception('payment-crud', 'validation', $e, ['validation' => 'failed', 'response_status' => 302]);
             $_SESSION['rentals_admin_notice'] = $e->getMessage();
             $_SESSION['rentals_admin_notice_error'] = true;
             return $this->redirect(url('rentals/admin/payments/new'));
         } catch (Throwable $e) {
-            error_log('Failed to save payment method: ' . $e->getMessage());
+            RentalDiagnostic::exception('payment-crud', 'save', $e, ['response_status' => 302]);
             $_SESSION['rentals_admin_notice'] = 'Could not save. Check required fields and unique name.';
             $_SESSION['rentals_admin_notice_error'] = true;
             return $this->redirect(url('rentals/admin/payments/new'));
@@ -500,11 +507,12 @@ final class RentalAdminController extends Controller
             $_SESSION['rentals_admin_notice'] = 'Changes saved.';
             return $this->redirect(url('rentals/admin/payments/' . $paymentId . '/edit'));
         } catch (\InvalidArgumentException $e) {
+            RentalDiagnostic::exception('payment-crud', 'validation', $e, ['validation' => 'failed', 'response_status' => 302]);
             $_SESSION['rentals_admin_notice'] = $e->getMessage();
             $_SESSION['rentals_admin_notice_error'] = true;
             return $this->redirect(url('rentals/admin/payments/' . $paymentId . '/edit'));
         } catch (Throwable $e) {
-            error_log('Failed to update payment method ' . $paymentId . ': ' . $e->getMessage());
+            RentalDiagnostic::exception('payment-crud', 'save', $e, ['response_status' => 302]);
             $_SESSION['rentals_admin_notice'] = 'Could not save. Check required fields and unique name.';
             $_SESSION['rentals_admin_notice_error'] = true;
             return $this->redirect(url('rentals/admin/payments/' . $paymentId . '/edit'));
@@ -572,14 +580,16 @@ final class RentalAdminController extends Controller
 
     public function availability(Request $request, string $id): Response
     {
+        RentalDiagnostic::trace('admin-availability', 'start', ['item_id' => (int) $id]);
         if ($denial = $this->deny()) { return $denial; }
         $item = $this->db()->selectOne('SELECT * FROM rental_items WHERE id = ? AND is_service = 0', [(int) $id]);
-        if ($item === null) { return Response::notFound(); }
+        if ($item === null) { RentalDiagnostic::failure('admin-availability', 'item-missing', ['response_status' => 404]); return Response::notFound(); }
         $month   = $request->string('month');
         $first   = \DateTimeImmutable::createFromFormat('!Y-m-d', $month . '-01');
         $current = new \DateTimeImmutable('first day of this month');
         if (!$first || $first->format('Y-m') !== $month || $first < $current->modify('-12 months')
             || $first > $current->modify('+12 months')) {
+            RentalDiagnostic::failure('admin-availability', 'dates', ['date_range_valid' => false, 'response_status' => 422]);
             return Response::json(['ok' => false, 'message' => 'Choose a month within the availability calendar.'], 422)->noCache();
         }
         $item['db_id'] = (int) $item['id'];
@@ -596,10 +606,12 @@ final class RentalAdminController extends Controller
 
     public function saveBlackout(Request $request, string $id): Response
     {
+        RentalDiagnostic::trace('admin-availability', 'block-write', ['item_id' => (int) $id]);
         if ($denial = $this->deny()) { return $denial; }
         $itemId = (int) $id;
         $return = url('rentals/admin/items/' . $itemId . '/edit#equipment-availability');
         if (!in_array($request->string('availability_action'), ['', 'blocked', 'available'], true)) {
+            RentalDiagnostic::failure('admin-availability', 'action', ['validation' => 'failed', 'response_status' => 302]);
             $_SESSION['rentals_admin_notice'] = 'Choose Block dates or Make available. Customer reservations are managed through orders.';
             return $this->redirect($return);
         }
@@ -610,10 +622,13 @@ final class RentalAdminController extends Controller
         if ($itemId < 1 || !$first || !$last || $first->format('Y-m-d') !== $start
             || $last->format('Y-m-d') !== $end || $first > $last
             || $this->db()->selectOne('SELECT id FROM rental_items WHERE id = ? AND is_service = 0', [$itemId]) === null) {
+            RentalDiagnostic::failure('admin-availability', 'dates', ['date_range_valid' => false, 'response_status' => 302]);
             $_SESSION['rentals_admin_notice'] = 'Choose a valid equipment item and date range.';
             return $this->redirect($return);
         }
+        RentalDiagnostic::trace('admin-availability', 'validated', ['date_range_valid' => true, 'start_date' => $start, 'end_date' => $end, 'reservation_conflict' => 'skipped']);
         if ($request->string('availability_action') === 'available') {
+            RentalDiagnostic::trace('admin-availability', 'block-remove', ['block_operation' => 'pending']);
             $this->db()->transaction(function ($db) use ($itemId, $start, $end, $first, $last): void {
                 $db->selectOne('SELECT id FROM rental_items WHERE id = ? FOR UPDATE', [$itemId]);
                 $blocks = $db->select('SELECT * FROM rental_item_blackouts WHERE rental_item_id = ? AND is_active = 1 AND start_date <= ? AND end_date >= ? FOR UPDATE', [$itemId, $end, $start]);
@@ -626,17 +641,21 @@ final class RentalAdminController extends Controller
                     }
                 }
             });
+            RentalDiagnostic::trace('admin-availability', 'block-remove', ['block_operation' => 'success']);
             $_SESSION['rentals_admin_notice'] = 'Manual blocks removed for the selected dates. Customer reservations and equipment stock status still apply.';
             return $this->redirect($return);
         }
+        RentalDiagnostic::trace('admin-availability', 'block-insert', ['block_operation' => 'pending']);
         $this->db()->insert('INSERT INTO rental_item_blackouts (rental_item_id, start_date, end_date, note) VALUES (?, ?, ?, ?)',
             [$itemId, $start, $end, substr($request->string('note'), 0, 255) ?: null]);
+        RentalDiagnostic::trace('admin-availability', 'block-insert', ['block_operation' => 'success']);
         $_SESSION['rentals_admin_notice'] = 'Dates blocked. Existing reservations remain unchanged.';
         return $this->redirect($return);
     }
 
     public function toggleBlackout(Request $request, string $id, string $blackoutId): Response
     {
+        RentalDiagnostic::trace('admin-availability', 'block-toggle', ['item_id' => (int) $id]);
         if ($denial = $this->deny()) { return $denial; }
         $itemId = (int) $id;
         $this->db()->update('UPDATE rental_item_blackouts SET is_active = IF(is_active = 1, 0, 1) WHERE id = ? AND rental_item_id = ?',
@@ -649,9 +668,13 @@ final class RentalAdminController extends Controller
 
     public function viewProof(Request $request, string $id): Response
     {
-        if ($this->deny() !== null) { return Response::forbidden()->noCache(); }
+        RentalDiagnostic::trace('admin-proof', 'start', ['order_id' => (int) $id]);
+        if ($this->deny() !== null) { RentalDiagnostic::failure('admin-proof', 'authorization', ['auth' => 'denied', 'response_status' => 403]); return Response::forbidden()->noCache(); }
+        RentalDiagnostic::trace('admin-proof', 'order-lookup', ['db_operation' => 'pending']);
         $order = $this->db()->selectOne('SELECT payment_proof_path FROM order_header WHERE id = ?', [(int) $id]);
-        return $order === null ? Response::notFound()->noCache() : RentalPaymentProof::response($order['payment_proof_path']);
+        RentalDiagnostic::trace('admin-proof', 'order-lookup', ['db_operation' => 'success', 'db_path' => empty($order['payment_proof_path']) ? 'missing' : 'present']);
+        if ($order === null) { RentalDiagnostic::failure('admin-proof', 'order-missing', ['response_status' => 404]); }
+        return $order === null ? Response::notFound()->noCache() : RentalPaymentProof::response($order['payment_proof_path'], 'admin-proof');
     }
 
     public function reviewProof(Request $request, string $id): Response
@@ -687,7 +710,7 @@ final class RentalAdminController extends Controller
         } catch (\InvalidArgumentException $e) {
             $_SESSION['rentals_admin_notice'] = $e->getMessage();
         } catch (Throwable $e) {
-            error_log('Rentals proof review failed: ' . $e->getMessage());
+            RentalDiagnostic::exception('admin-write', 'save', $e, ['response_status' => 302]);
             $_SESSION['rentals_admin_notice'] = 'Payment proof review could not be saved.';
         }
         return $this->redirect(url('rentals/admin/orders/' . $orderId));
@@ -707,8 +730,12 @@ final class RentalAdminController extends Controller
     private function deny(): ?Response
     {
         $user = (new RentalAccount($this->db(), new RentalCart()))->current();
-        if ($user === null) { return $this->redirect(url('rentals/account')); }
+        $role = strtolower((string) ($user['role'] ?? 'guest'));
+        $role = in_array($role, ['guest', 'customer', 'admin', 'superadmin'], true) ? $role : 'customer';
+        RentalDiagnostic::trace('auth', 'authorization', ['role' => $role, 'auth' => $user === null ? 'denied' : 'ok']);
+        if ($user === null) { RentalDiagnostic::failure('auth', 'authorization', ['role' => 'guest', 'auth' => 'denied', 'response_status' => 302]); return $this->redirect(url('rentals/account')); }
         if (!in_array(strtolower((string) ($user['role'] ?? '')), ['admin', 'superadmin'], true)) {
+            RentalDiagnostic::failure('auth', 'authorization', ['role' => $role, 'auth' => 'denied', 'response_status' => 403]);
             return $this->render('rentals.forbidden', [], 403)->noCache();
         }
         $this->adminUser = $user;
@@ -742,30 +769,37 @@ final class RentalAdminController extends Controller
 
     private function validateAndSaveItem(Request $request, int $id): void
     {
+        RentalDiagnostic::trace('product-crud', 'start', ['record_id' => $id]);
         $categoryValue = $request->string('category_id');
         if (!preg_match('/^[1-9][0-9]{0,17}$/D', $categoryValue)) {
+            RentalDiagnostic::trace('product-crud', 'validate-category', ['validation' => 'failed']);
             throw new \InvalidArgumentException('Category: choose an existing category from the list.');
         }
         $categoryId = (int) $categoryValue;
         if ($this->db()->selectOne('SELECT id FROM rental_categories WHERE id = ?', [$categoryId]) === null) {
+            RentalDiagnostic::trace('product-crud', 'validate-category', ['validation' => 'failed']);
             throw new \InvalidArgumentException('Choose an existing category.');
         }
 
         $name = trim($request->string('name'));
         if ($name === '') {
+            RentalDiagnostic::trace('product-crud', 'validate-name', ['validation' => 'failed']);
             throw new \InvalidArgumentException('Name: enter a value.');
         }
         if (mb_strlen($name, 'UTF-8') > 190) {
+            RentalDiagnostic::trace('product-crud', 'validate-name', ['validation' => 'failed']);
             throw new \InvalidArgumentException('Name: use valid text with 190 characters or fewer.');
         }
 
         $existing = $id > 0 ? $this->db()->selectOne('SELECT id, slug, image_path, is_active FROM rental_items WHERE id = ?', [$id]) : null;
         if ($id > 0 && $existing === null) {
+            RentalDiagnostic::trace('product-crud', 'validate-fields', ['validation' => 'failed']);
             throw new \InvalidArgumentException('That product no longer exists.');
         }
 
         $slugInput = trim($request->string('slug'));
         if (mb_strlen($slugInput, 'UTF-8') > 190) {
+            RentalDiagnostic::trace('product-crud', 'validate-slug', ['validation' => 'failed']);
             throw new \InvalidArgumentException('Slug: use valid text with 190 characters or fewer.');
         }
 
@@ -780,10 +814,12 @@ final class RentalAdminController extends Controller
         $skuInput = trim($request->string('sku'));
         if ($skuInput !== '') {
             if (mb_strlen($skuInput, 'UTF-8') > 80) {
+                RentalDiagnostic::trace('product-crud', 'validate-sku', ['validation' => 'failed']);
                 throw new \InvalidArgumentException('SKU: use valid text with 80 characters or fewer.');
             }
             $duplicateSku = $this->db()->selectValue('SELECT id FROM rental_items WHERE sku = ? AND id <> ? LIMIT 1', [$skuInput, $id]);
             if ($duplicateSku !== null) {
+                RentalDiagnostic::trace('product-crud', 'validate-sku', ['validation' => 'failed']);
                 throw new \InvalidArgumentException('That SKU is already used by another product. Enter a different SKU or leave it blank.');
             }
             $sku = $skuInput;
@@ -793,34 +829,40 @@ final class RentalAdminController extends Controller
 
         $description = $request->string('description');
         if (mb_strlen($description, 'UTF-8') > 5000) {
+            RentalDiagnostic::trace('product-crud', 'validate-fields', ['validation' => 'failed']);
             throw new \InvalidArgumentException('Description: use valid text with 5000 characters or fewer.');
         }
 
         $idealUse = $request->string('ideal_use');
         if (mb_strlen($idealUse, 'UTF-8') > 500) {
+            RentalDiagnostic::trace('product-crud', 'validate-fields', ['validation' => 'failed']);
             throw new \InvalidArgumentException('Ideal use: use valid text with 500 characters or fewer.');
         }
         $idealUse = $idealUse !== '' ? $idealUse : null;
 
         $type = $request->string('is_service');
         if (!in_array($type, ['0', '1'], true)) {
+            RentalDiagnostic::trace('product-crud', 'validate-type', ['validation' => 'failed']);
             throw new \InvalidArgumentException('Type: choose Equipment or Service.');
         }
         $isService = (int) $type;
 
         $status = $request->string('availability_status');
         if (!in_array($status, self::AVAILABILITY, true)) {
+            RentalDiagnostic::trace('product-crud', 'validate-status', ['validation' => 'failed']);
             throw new \InvalidArgumentException('Choose a valid availability status.');
         }
 
         $rentalUnit = $request->string('rental_unit');
         if (mb_strlen($rentalUnit, 'UTF-8') > 30) {
+            RentalDiagnostic::trace('product-crud', 'validate-unit', ['validation' => 'failed']);
             throw new \InvalidArgumentException('Rental unit: use valid text with 30 characters or fewer.');
         }
         $rentalUnit = $rentalUnit !== '' ? $rentalUnit : null;
 
         $rateInput = $request->string('rental_rate');
         if (!preg_match('/^(?:[0-9]{1,10}(?:\.[0-9]{1,2})?|\.[0-9]{1,2})$/D', $rateInput)) {
+            RentalDiagnostic::trace('product-crud', 'validate-rate', ['validation' => 'failed']);
             throw new \InvalidArgumentException('Rate: enter an amount from 0 to 9999999999.99 with up to two decimal places.');
         }
         $rate = $rateInput;
@@ -830,6 +872,7 @@ final class RentalAdminController extends Controller
             $deposit = '0.00';
         } else {
             if (!preg_match('/^(?:[0-9]{1,10}(?:\.[0-9]{1,2})?|\.[0-9]{1,2})$/D', $depositInput)) {
+                RentalDiagnostic::trace('product-crud', 'validate-deposit', ['validation' => 'failed']);
                 throw new \InvalidArgumentException('Security deposit: enter an amount from 0 to 9999999999.99 with up to two decimal places.');
             }
             $deposit = $depositInput;
@@ -837,6 +880,7 @@ final class RentalAdminController extends Controller
 
         $quantityInput = $request->string('available_quantity');
         if (!preg_match('/^[0-9]{1,6}$/D', $quantityInput)) {
+            RentalDiagnostic::trace('product-crud', 'validate-quantity', ['validation' => 'failed']);
             throw new \InvalidArgumentException('Available quantity: enter a whole number from 0 to 999999.');
         }
         $quantity = (int) $quantityInput;
@@ -844,6 +888,7 @@ final class RentalAdminController extends Controller
         if ($request->has('is_active')) {
             $activeInput = $request->string('is_active');
             if (!in_array($activeInput, ['0', '1'], true)) {
+                RentalDiagnostic::trace('product-crud', 'validate-status', ['validation' => 'failed']);
                 throw new \InvalidArgumentException('Choose an active status.');
             }
             $isActive = (int) $activeInput;
@@ -873,6 +918,7 @@ final class RentalAdminController extends Controller
 
         try {
             if ($id > 0) {
+                RentalDiagnostic::trace('product-crud', 'db-update', ['db_operation' => 'pending']);
                 $this->db()->update(
                     'UPDATE rental_items SET
                         category_id = ?,
@@ -893,6 +939,7 @@ final class RentalAdminController extends Controller
                     [...$params, $id]
                 );
             } else {
+                RentalDiagnostic::trace('product-crud', 'db-insert', ['db_operation' => 'pending']);
                 $this->db()->insert(
                     'INSERT INTO rental_items (
                         category_id,
@@ -914,10 +961,12 @@ final class RentalAdminController extends Controller
                 );
             }
         } catch (Throwable $e) {
+            RentalDiagnostic::exception('product-crud', 'db-save', $e, ['db_operation' => 'failed', 'db_path_saved' => false]);
             RentalManagedImage::remove($uploaded, 'product');
             throw $e;
         }
 
+        RentalDiagnostic::trace('product-upload', 'db-saved', ['db_path_saved' => $uploaded !== null, 'db_operation' => 'success']);
         if ($uploaded !== null && !empty($existing['image_path'])) {
             RentalManagedImage::remove($existing['image_path'], 'product');
         }
@@ -958,20 +1007,25 @@ final class RentalAdminController extends Controller
 
     private function validateAndSaveCategory(Request $request, int $id): void
     {
+        RentalDiagnostic::trace('category-crud', 'start', ['record_id' => $id]);
         $name = trim($request->string('name'));
         if ($name === '' || mb_strlen($name, 'UTF-8') > 120) {
+            RentalDiagnostic::trace('category-crud', 'validate-name', ['validation' => 'failed']);
             throw new \InvalidArgumentException('Enter a valid name.');
         }
         $duplicateName = $this->db()->selectValue(
             'SELECT id FROM rental_categories WHERE LOWER(TRIM(name)) = LOWER(?) AND id <> ? LIMIT 1',
             [$name, $id]
         );
+        RentalDiagnostic::trace('category-crud', 'duplicate-name', ['duplicate_name' => $duplicateName !== null]);
         if ($duplicateName !== null) {
+            RentalDiagnostic::trace('category-crud', 'validate-category', ['validation' => 'failed']);
             throw new \InvalidArgumentException('A category with this name already exists.');
         }
 
         $existing = $id > 0 ? $this->db()->selectOne('SELECT id, slug, is_active FROM rental_categories WHERE id = ?', [$id]) : null;
         if ($id > 0 && $existing === null) {
+            RentalDiagnostic::trace('category-crud', 'validate-category', ['validation' => 'failed']);
             throw new \InvalidArgumentException('That category no longer exists.');
         }
 
@@ -981,6 +1035,7 @@ final class RentalAdminController extends Controller
         }
         $slug = strtolower(trim(preg_replace('/[^a-zA-Z0-9]+/', '-', $slugInput), '-'));
         if ($slug === '' || mb_strlen($slug, 'UTF-8') > 150) {
+            RentalDiagnostic::trace('category-crud', 'validate-slug', ['validation' => 'failed']);
             throw new \InvalidArgumentException('Use a lowercase slug with letters, numbers and hyphens.');
         }
 
@@ -1002,6 +1057,7 @@ final class RentalAdminController extends Controller
         if ($imagePath !== '') {
             $validImage = RentalCatalog::imagePath($imagePath);
             if ($validImage === null) {
+                RentalDiagnostic::trace('category-crud', 'validate-image', ['validation' => 'failed']);
                 throw new \InvalidArgumentException('Choose an existing local image from the available Rentals images.');
             }
             $imagePath = $validImage;
@@ -1012,6 +1068,7 @@ final class RentalAdminController extends Controller
         if ($request->has('is_active')) {
             $activeVal = $request->string('is_active');
             if (!in_array($activeVal, ['0', '1'], true)) {
+                RentalDiagnostic::trace('category-crud', 'validate-status', ['validation' => 'failed']);
                 throw new \InvalidArgumentException('Choose an active status.');
             }
             $isActive = (int) $activeVal;
@@ -1020,11 +1077,13 @@ final class RentalAdminController extends Controller
         }
 
         if ($id > 0) {
+            RentalDiagnostic::trace('category-crud', 'db-update', ['db_operation' => 'pending']);
             $this->db()->update(
                 'UPDATE rental_categories SET name = ?, slug = ?, description = ?, image_path = ?, is_active = ? WHERE id = ?',
                 [$name, $slug, $description, $imagePath, $isActive, $id]
             );
         } else {
+            RentalDiagnostic::trace('category-crud', 'db-insert', ['db_operation' => 'pending']);
             $this->db()->insert(
                 'INSERT INTO rental_categories (name, slug, description, image_path, is_active) VALUES (?, ?, ?, ?, ?)',
                 [$name, $slug, $description, $imagePath, $isActive]
@@ -1034,19 +1093,23 @@ final class RentalAdminController extends Controller
 
     private function validateAndSavePayment(Request $request, int $id): void
     {
+        RentalDiagnostic::trace('payment-crud', 'start', ['record_id' => $id]);
         $name = trim($request->string('name'));
         if ($name === '' || mb_strlen($name, 'UTF-8') > 120) {
+            RentalDiagnostic::trace('payment-crud', 'validate-name', ['validation' => 'failed']);
             throw new \InvalidArgumentException('Enter a valid name.');
         }
 
         $type = strtolower(trim($request->string('type')));
         $existing = $id > 0 ? $this->db()->selectOne('SELECT id, type, is_active FROM payment_methods WHERE id = ?', [$id]) : null;
         if ($id > 0 && $existing === null) {
+            RentalDiagnostic::trace('payment-crud', 'validate-fields', ['validation' => 'failed']);
             throw new \InvalidArgumentException('That payment method no longer exists.');
         }
 
         $existingType = $existing['type'] ?? '';
         if (!in_array($type, ['manual', 'gateway'], true) && $type !== $existingType) {
+            RentalDiagnostic::trace('payment-crud', 'validate-fields', ['validation' => 'failed']);
             throw new \InvalidArgumentException('Choose Manual or Payment Gateway.');
         }
 
@@ -1054,7 +1117,9 @@ final class RentalAdminController extends Controller
             'SELECT id FROM payment_methods WHERE LOWER(name) = LOWER(?) AND type = ? AND id <> ? LIMIT 1',
             [$name, $type, $id]
         );
+        RentalDiagnostic::trace('payment-crud', 'duplicate-name', ['duplicate_name' => $duplicate !== null]);
         if ($duplicate !== null) {
+            RentalDiagnostic::trace('payment-crud', 'validate-type', ['validation' => 'failed']);
             throw new \InvalidArgumentException('A payment method with this name and type already exists.');
         }
 
@@ -1070,6 +1135,7 @@ final class RentalAdminController extends Controller
         if ($request->has('is_active')) {
             $activeVal = $request->string('is_active');
             if (!in_array($activeVal, ['0', '1'], true)) {
+                RentalDiagnostic::trace('payment-crud', 'validate-status', ['validation' => 'failed']);
                 throw new \InvalidArgumentException('Choose an active status.');
             }
             $isActive = (int) $activeVal;
@@ -1078,27 +1144,34 @@ final class RentalAdminController extends Controller
         }
 
         if ($type === 'manual' && $isActive === 1 && ($accountName === null || $accountNumber === null)) {
+            RentalDiagnostic::trace('payment-crud', 'validate-name', ['validation' => 'failed']);
             throw new \InvalidArgumentException('Active manual methods need an account name and number.');
         }
 
+        RentalDiagnostic::trace('payment-crud', 'qr-column', ['qr_column' => 'pending']);
         $oldImage = $id > 0 ? $this->db()->selectValue('SELECT qr_image_path FROM payment_methods WHERE id = ?', [$id]) : null;
+        RentalDiagnostic::trace('payment-crud', 'qr-column', ['qr_column' => $id > 0 ? 'yes' : 'pending']);
         $newImage = RentalManagedImage::store($request->file('qr_image'), 'qr');
         try {
             if ($id > 0) {
+                RentalDiagnostic::trace('payment-crud', 'db-update', ['db_operation' => 'pending']);
                 $this->db()->update(
                     'UPDATE payment_methods SET name = ?, type = ?, provider = ?, account_name = ?, account_number = ?, is_active = ?, qr_image_path = ? WHERE id = ?',
                     [$name, $type, $provider, $accountName, $accountNumber, $isActive, $newImage ?? $oldImage, $id]
                 );
             } else {
+                RentalDiagnostic::trace('payment-crud', 'db-insert', ['db_operation' => 'pending']);
                 $this->db()->insert(
                     'INSERT INTO payment_methods (name, type, provider, account_name, account_number, is_active, qr_image_path) VALUES (?, ?, ?, ?, ?, ?, ?)',
                     [$name, $type, $provider, $accountName, $accountNumber, $isActive, $newImage]
                 );
             }
         } catch (Throwable $e) {
+            RentalDiagnostic::exception('payment-crud', 'db-save', $e, ['db_operation' => 'failed', 'db_path_saved' => false]);
             if ($newImage !== null) { RentalManagedImage::remove($newImage, 'qr'); }
             throw $e;
         }
+        RentalDiagnostic::trace('qr-upload', 'db-saved', ['db_path_saved' => $newImage !== null, 'db_operation' => 'success']);
         if ($newImage !== null && $oldImage !== null) { RentalManagedImage::remove($oldImage, 'qr'); }
     }
 }

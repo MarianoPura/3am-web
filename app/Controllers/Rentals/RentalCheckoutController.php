@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Controllers\Rentals;
 
+use App\Services\RentalDiagnostic;
+
 use App\Controllers\Controller;
 use App\Core\Request;
 use App\Core\Response;
@@ -62,6 +64,7 @@ final class RentalCheckoutController extends Controller
 
     public function submit(Request $request): Response
     {
+        RentalDiagnostic::trace('checkout', 'start');
         $checkout = new RentalCheckout($this->db(), new RentalCart());
         $summary = $checkout->summary();
         if ((int) ($_SESSION['user_id'] ?? 0) < 1) {
@@ -94,6 +97,7 @@ final class RentalCheckoutController extends Controller
 
                 return $this->render('rentals.confirmation', $result)->noCache();
             } catch (RuntimeException $exception) {
+                RentalDiagnostic::exception('checkout', 'submit', $exception, ['response_status' => 422]);
                 $error = $exception->getMessage();
             }
         }
@@ -118,16 +122,18 @@ final class RentalCheckoutController extends Controller
 
     public function paymentQr(Request $request, string $id): Response
     {
+        RentalDiagnostic::trace('payment-qr', 'start', ['record_id' => (int) $id, 'route_generated' => true]);
         $method = $this->db()->selectOne('SELECT type, is_active, qr_image_path FROM payment_methods WHERE id = ?', [(int) $id]);
         if ($method === null) { return Response::notFound(); }
         if ($method['type'] !== 'manual' || (int) $method['is_active'] !== 1) {
             $user = (new RentalAccount($this->db(), new RentalCart()))->current();
             if (!in_array(strtolower((string) ($user['role'] ?? '')), ['admin', 'superadmin'], true)) { return Response::notFound(); }
         }
-        $path = RentalManagedImage::publicPath($method['qr_image_path'], 'qr');
-        if ($path === null) { return Response::notFound(); }
-        $bytes = @file_get_contents((string) \App\Services\RentalStorage::path($path));
-        if ($bytes === false) { return Response::notFound(); }
+        RentalDiagnostic::trace('payment-qr', 'reference', ['qr_path' => empty($method['qr_image_path']) ? 'missing' : 'present']);
+        $path = RentalManagedImage::publicPath($method['qr_image_path'], 'qr', 'payment-qr');
+        if ($path === null) { RentalDiagnostic::failure('payment-qr', 'file-missing', ['response_status' => 404]); return Response::notFound(); }
+        $bytes = @file_get_contents((string) \App\Services\RentalStorage::path($path, 'payment-qr'));
+        if ($bytes === false) { RentalDiagnostic::failure('payment-qr', 'file-read', ['file_readable' => false, 'response_status' => 404]); return Response::notFound(); }
         $mime = match (pathinfo($path, PATHINFO_EXTENSION)) {
             'jpg' => 'image/jpeg', 'png' => 'image/png', 'webp' => 'image/webp', default => 'application/octet-stream',
         };

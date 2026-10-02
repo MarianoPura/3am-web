@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Services\RentalDiagnostic;
+
 use App\Core\Database;
 use App\Services\RentalPaymentStatus;
 
@@ -112,7 +114,7 @@ final class RentalCatalog
                 'catalogPreview' => $preview,
             ];
         } catch (\Throwable $e) {
-            error_log('Rental catalogue unavailable; check database setup.');
+            RentalDiagnostic::exception('catalogue', 'load', $e);
 
             // Never present demo stock as real inventory when a live DB fails.
             $samples = config('rentals.preview_samples', false)
@@ -217,20 +219,29 @@ final class RentalCatalog
     /** Stock and its causes, without customer identities, for both calendars. */
     public function availabilityByDate(array $item, string $startDate, string $endDate): array
     {
+        RentalDiagnostic::trace('availability', 'start', ['item_id' => (int) ($item['db_id'] ?? 0)]);
         $start = \DateTimeImmutable::createFromFormat('!Y-m-d', $startDate);
         $end = \DateTimeImmutable::createFromFormat('!Y-m-d', $endDate);
         if ($start === false || $end === false || $start > $end
             || $start->format('Y-m-d') !== $startDate || $end->format('Y-m-d') !== $endDate) {
+            RentalDiagnostic::failure('availability', 'dates', ['date_range_valid' => false]);
             return [];
         }
+        RentalDiagnostic::trace('availability', 'reservation-query', ['date_range_valid' => true, 'start_date' => $startDate, 'end_date' => $endDate, 'reservation_query' => 'pending']);
         $events = [];
-        $rows = $this->db->select(
-            'SELECT d.quantity, d.rental_start_date, d.rental_end_date FROM order_details d
-             JOIN order_header h ON h.id = d.order_header_id
-             WHERE d.rental_item_id = ? AND h.payment_status IN (?, ?)
-               AND d.rental_start_date <= ? AND d.rental_end_date >= ?',
-            [(int) ($item['db_id'] ?? 0), RentalPaymentStatus::PENDING, RentalPaymentStatus::APPROVED, $endDate, $startDate]
-        );
+        try {
+            $rows = $this->db->select(
+                'SELECT d.quantity, d.rental_start_date, d.rental_end_date FROM order_details d
+                 JOIN order_header h ON h.id = d.order_header_id
+                 WHERE d.rental_item_id = ? AND h.payment_status IN (?, ?)
+                   AND d.rental_start_date <= ? AND d.rental_end_date >= ?',
+                [(int) ($item['db_id'] ?? 0), RentalPaymentStatus::PENDING, RentalPaymentStatus::APPROVED, $endDate, $startDate]
+            );
+        } catch (\Throwable $exception) {
+            RentalDiagnostic::exception('availability', 'reservation-query', $exception, ['reservation_query' => 'failed']);
+            throw $exception;
+        }
+        RentalDiagnostic::trace('availability', 'reservation-query', ['reservation_query' => 'success', 'result_count' => count($rows)]);
         foreach ($rows as $row) {
             $first = max($startDate, (string) $row['rental_start_date']);
             $last = min($endDate, (string) $row['rental_end_date']);
@@ -238,11 +249,18 @@ final class RentalCatalog
             $events[$first] = ($events[$first] ?? 0) + (int) $row['quantity'];
             $events[$after] = ($events[$after] ?? 0) - (int) $row['quantity'];
         }
-        $blackouts = $this->db->select(
-            'SELECT start_date, end_date FROM rental_item_blackouts
-             WHERE rental_item_id = ? AND is_active = 1 AND start_date <= ? AND end_date >= ?',
-            [(int) ($item['db_id'] ?? 0), $endDate, $startDate]
-        );
+        RentalDiagnostic::trace('availability', 'blackout-query', ['blackout_query' => 'pending']);
+        try {
+            $blackouts = $this->db->select(
+                'SELECT start_date, end_date FROM rental_item_blackouts
+                 WHERE rental_item_id = ? AND is_active = 1 AND start_date <= ? AND end_date >= ?',
+                [(int) ($item['db_id'] ?? 0), $endDate, $startDate]
+            );
+        } catch (\Throwable $exception) {
+            RentalDiagnostic::exception('availability', 'blackout-query', $exception, ['blackout_query' => 'failed']);
+            throw $exception;
+        }
+        RentalDiagnostic::trace('availability', 'blackout-query', ['blackout_query' => 'success', 'result_count' => count($blackouts)]);
         $result = [];
         $reserved = 0;
         $available = (int) ($item['available_quantity'] ?? 0);
@@ -259,6 +277,7 @@ final class RentalCatalog
             $result[$date] = ['remaining' => $blocked ? 0 : max(0, $available - $reserved),
                 'reserved' => $reserved, 'admin_blocked' => $blocked];
         }
+        RentalDiagnostic::trace('availability', 'calculated', ['result_days' => count($result)]);
         return $result;
     }
 

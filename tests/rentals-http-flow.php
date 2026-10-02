@@ -143,6 +143,8 @@ try {
     $assert($status !== 200 || !str_starts_with($raw, $png), 'Direct URL exposed the plaintext proof.');
     [$status, $privateProof] = $http('/rentals/orders/' . (int) $order['id'] . '/proof');
     $assert($status === 200 && $privateProof === $png, 'Authorized proof route failed to decrypt the proof.');
+    [$status] = $http('/rentals/admin/proof/' . (int) $order['id']);
+    $assert($status === 403, 'Customer was allowed to view an Admin proof.');
     [$status, $statusPage] = $http('/rentals/order-status/' . $order['status_token']);
     $assert($status === 200 && str_contains($statusPage, 'Pending') && str_contains($statusPage, 'data-rentals-qr'), 'Token status page failed.');
     [$status] = $http('/rentals/order-status/' . str_repeat('a', 64));
@@ -152,6 +154,8 @@ try {
     $assert($record !== null && !$catalog->isAvailable($record, 1, $date, $date), 'Pending order did not reserve stock.');
     [$status, $signedIn] = $http('/rentals/account');
     $http('/rentals/logout', ['_token' => $token($signedIn)]);
+    [$status] = $http('/rentals/admin/proof/' . (int) $order['id']);
+    $assert($status === 403, 'Guest Admin proof request did not return 403.');
     $adminId = $db->insert('INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)',
         [$name . ' Admin', $adminEmail, password_hash($adminPassword, PASSWORD_DEFAULT), 'admin']);
     [$status, $login] = $http('/rentals/account');
@@ -169,6 +173,15 @@ try {
     }
     [$status, $orderView] = $http('/rentals/admin/orders/' . (int) $order['id']);
     $assert($status === 200 && str_contains($orderView, 'Payment proof review'), 'Admin review page failed.');
+    [$status, $adminProof] = $http('/rentals/admin/proof/' . (int) $order['id']);
+    $assert($status === 200 && $adminProof === $png, 'Routed Admin proof did not decrypt using the real Admin session.');
+    $proofFile = App\Services\RentalPaymentProof::path($order['payment_proof_path']);
+    $savedCipher = file_get_contents($proofFile);
+    try {
+        file_put_contents($proofFile, '3AMPROOF1' . str_repeat('x', 40));
+        [$status, $badProof] = $http('/rentals/admin/proof/' . (int) $order['id']);
+        $assert($status === 422 && !str_contains($badProof, $png), 'Routed damaged proof did not return safe 422.');
+    } finally { file_put_contents($proofFile, $savedCipher); }
     [$status] = $http('/rentals/admin/orders/' . (int) $order['id'] . '/review',
         ['_token' => $token($orderView), 'decision' => 'approved']);
     $reviewed = $db->selectOne('SELECT payment_status, payment_reviewed_at, payment_reviewed_by, paid_at FROM order_header WHERE id = ?', [(int) $order['id']]);
@@ -206,6 +219,8 @@ try {
     [$status, , $finalUrl] = $http('/rentals/account', ['_token' => $token($login),
         'action' => 'login', 'email' => $adminEmail, 'password' => $adminPassword]);
     $assert($status === 200 && str_ends_with($finalUrl, '/rentals/admin'), 'Superadmin direct login failed.');
+    [$status, $superadminProof] = $http('/rentals/admin/proof/' . (int) $secondOrder['id']);
+    $assert($status === 200 && $superadminProof === $png, 'Routed Superadmin proof failed.');
     [$status, $orderView] = $http('/rentals/admin/orders/' . (int) $secondOrder['id']);
     [$status] = $http('/rentals/admin/orders/' . (int) $secondOrder['id'] . '/review',
         ['_token' => $token($orderView), 'decision' => 'rejected']);

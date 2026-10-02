@@ -328,7 +328,11 @@ final class Database
         } catch (PDOException $e) {
             // Keep database internals in logs even when a form catches a
             // RuntimeException and displays its message to the customer.
-            error_log(sprintf('Database query failed: %s — SQL: %s', $e->getMessage(), $sql));
+            if (\App\Services\RentalDiagnostic::active()) {
+                \App\Services\RentalDiagnostic::exception('database', 'query', $e, ['db_operation' => 'failed']);
+            } elseif (!\App\Services\RentalDiagnostic::readOnly()) {
+                error_log(sprintf('Database query failed: %s — SQL: %s', $e->getMessage(), $sql));
+            }
             throw new RuntimeException(
                 'A database request could not be completed. Please try again later.',
                 0,

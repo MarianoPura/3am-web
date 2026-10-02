@@ -10,7 +10,7 @@ final class RentalNotification
     public static function send(string $email, string $orderNumber, string $token, int $status): void
     {
         if (filter_var($email, FILTER_VALIDATE_EMAIL) === false || preg_match('/^[a-f0-9]{64}$/', $token) !== 1) {
-            error_log('Rentals email skipped: invalid destination or status token.');
+            RentalDiagnostic::failure('notification', 'validation', ['validation' => 'failed']);
             return;
         }
         $statusLabel = RentalPaymentStatus::label($status);
@@ -23,16 +23,16 @@ final class RentalNotification
         $body = "3AM Rentals\n\nOrder: {$orderNumber}\nPayment status: {$statusLabel}\n{$message}\n\nView status: {$link}\n";
         $sender = (string) config('app.contact_email');
         if (filter_var($sender, FILTER_VALIDATE_EMAIL) === false) {
-            error_log('Rentals email skipped: sender is not configured.');
+            RentalDiagnostic::failure('notification', 'configuration', ['error' => 'configuration']);
             return;
         }
         $headers = 'From: 3AM Rentals <' . str_replace(["\r", "\n"], '', $sender) . ">\r\nContent-Type: text/plain; charset=UTF-8";
         try {
             if (!@mail($email, '3AM Rentals — ' . $statusLabel . ' · ' . $orderNumber, $body, $headers)) {
-                error_log('Rentals email delivery failed for order ' . $orderNumber . '.');
+                RentalDiagnostic::failure('notification', 'delivery', ['error' => 'unexpected']);
             }
         } catch (\Throwable $e) {
-            error_log('Rentals email delivery failed for order ' . $orderNumber . ': ' . $e->getMessage());
+            RentalDiagnostic::exception('notification', 'delivery', $e);
         }
     }
 }
