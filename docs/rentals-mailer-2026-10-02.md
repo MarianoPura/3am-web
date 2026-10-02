@@ -15,11 +15,11 @@ Status: **locally verified / live delivery confirmation pending**.
 
 ## Fixed Recipients
 
-Owner: lilbeemail88@gmail.com.
+Owner: joedeldacudao27@gmail.com
 
 CC:
 
-- joedeldacudao27@gmail.com
+- lilbeemail88@gmail.com
 - leueilshem@gmail.com
 - iannopura0206@gmail.com
 
