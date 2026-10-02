@@ -370,13 +370,33 @@ const initRentalCheckout = () => {
   const update = () => panels.forEach((panel) => { panel.hidden = panel.dataset.paymentInstructions !== (select?.value ?? ''); });
   select?.addEventListener('change', update);
   update();
+  const submit = form.querySelector('[type="submit"]');
+  const submitLabel = submit?.querySelector('[data-rental-submit-label]');
+  const spinner = submit?.querySelector('[data-rental-submit-spinner]');
+  if (!submit || !submitLabel || !spinner) return;
+  const originalLabel = submitLabel.textContent;
+  const initiallyDisabled = submit.disabled;
+  const restoreSubmit = () => {
+    delete submit.dataset.submitting;
+    submit.disabled = initiallyDisabled;
+    submitLabel.textContent = originalLabel;
+    spinner.hidden = true;
+    form.removeAttribute('aria-busy');
+    submit.removeAttribute('aria-busy');
+  };
+  // Native POST failures render a fresh form with the original label and error.
+  // Also recover the button when the browser restores this page from history.
+  window.addEventListener('pageshow', (event) => { if (event.persisted) restoreSubmit(); });
   form.addEventListener('submit', (event) => {
-    if (!form.checkValidity()) return;
-    const submit = form.querySelector('[type="submit"]');
     if (submit.dataset.submitting === 'true') { event.preventDefault(); return; }
+    if (event.defaultPrevented || initiallyDisabled || !form.checkValidity()) return;
     submit.dataset.submitting = 'true';
-    submit.textContent = 'Submitting…';
-    // Keep the button enabled so its value and the native form submission remain intact.
+    submit.disabled = true;
+    spinner.hidden = false;
+    submitLabel.textContent = 'SUBMITTING...';
+    form.setAttribute('aria-busy', 'true');
+    submit.setAttribute('aria-busy', 'true');
+    // The button has no submitted name/value. Keep the existing native POST flow.
   });
 };
 

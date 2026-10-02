@@ -10,7 +10,7 @@ if ($command === '--migrate' && !in_array(config('app.env'), ['local','testing']
 try {
     $db = $container->get(App\Core\Database::class);
     preg_match_all('/CREATE TABLE IF NOT EXISTS `([a-z_]+)` \((.*?)\) ENGINE=InnoDB[^;]*;/s',$sql,$definitions,PREG_SET_ORDER);
-    if (count($definitions)!==4) { throw new RuntimeException('Invalid additive schema.'); }
+    if (count($definitions)!==1) { throw new RuntimeException('Invalid additive schema.'); }
     $existing = array_map(static fn($r)=>(string)reset($r),$db->select('SHOW TABLES'));
     $missing=[]; $issues=[];
     foreach ($definitions as $definition) {
@@ -41,5 +41,5 @@ try {
         else { echo 'Missing: '.$definition[1]."\n"; }
     }
     if ($missing && $command==='--check') { exit(1); }
-    echo "Mailer tables, unique delivery/template keys and relationships checked. Existing business records preserved.\n";
+    echo "Mailer delivery ledger, unique delivery key and order relationship checked. Existing business records preserved.\n";
 } catch (Throwable $e) { fwrite(STDERR,"Mailer schema check failed. Verify database configuration and permissions privately.\n"); exit(1); }

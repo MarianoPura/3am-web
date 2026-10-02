@@ -4,158 +4,127 @@ namespace App\Services;
 
 use App\Core\Database;
 use App\Core\View;
-use App\Models\RentalMailSettings;
 
-/** Post-commit notifications. Delivery errors never propagate into business actions. */
+/** Fixed post-commit notifications. SMTP failure never changes business state. */
 final class RentalNotification
 {
-    private readonly RentalMailSettings $settings;
-    public function __construct(private readonly Database $db, private readonly RentalMailTransport $transport, private readonly View $view)
-    {
-        $this->settings = new RentalMailSettings($db);
-    }
+    public function __construct(
+        private readonly Database $db,
+        private readonly RentalMailTransport $transport,
+        private readonly View $view
+    ) {}
+
     public function rentalSubmitted(int $id): void
     {
         $this->notify(RentalMailEvents::RENTAL_SUBMITTED, $id);
-        // Initial proof and request are one customer confirmation. Internal
-        // proof-only subscribers still receive the event without duplicate mail.
-        $this->notify(RentalMailEvents::PAYMENT_PROOF_RECEIVED, $id, false, RentalMailEvents::RENTAL_SUBMITTED, hash('sha256', 'initial'));
     }
-    public function rentalApproved(int $id): void { $this->notify(RentalMailEvents::RENTAL_APPROVED, $id); }
-    public function rentalRejected(int $id): void { $this->notify(RentalMailEvents::RENTAL_REJECTED, $id); }
-    public function paymentProofReceived(int $id): void { $this->notify(RentalMailEvents::PAYMENT_PROOF_RECEIVED, $id); }
-    public function paymentApproved(int $id): void { $this->notify(RentalMailEvents::PAYMENT_APPROVED, $id); }
-    public function paymentRejected(int $id): void { $this->notify(RentalMailEvents::PAYMENT_REJECTED, $id); }
 
-    /** Current review changes rental/payment together: one combined customer email. */
+    // Replacement proof remains a separate actual upload event, not another
+    // rental/payment approval workflow.
+    public function paymentProofReceived(int $id): void
+    {
+        $this->notify(RentalMailEvents::PAYMENT_PROOF_RECEIVED, $id);
+    }
+
     public function reviewed(int $id, int $status): void
     {
         if ($status === RentalPaymentStatus::APPROVED) {
-            $this->notify(RentalMailEvents::PAYMENT_APPROVED, $id);
-            $this->notify(RentalMailEvents::RENTAL_APPROVED, $id, false);
+            $this->notify(RentalMailEvents::RENTAL_APPROVED, $id);
         } elseif ($status === RentalPaymentStatus::REJECTED) {
-            $this->notify(RentalMailEvents::PAYMENT_REJECTED, $id);
-            $this->notify(RentalMailEvents::RENTAL_REJECTED, $id, false);
+            $this->notify(RentalMailEvents::RENTAL_REJECTED, $id);
         }
     }
-    public function configurationStatus(): array
-    {
-        return ['smtp' => $this->transport->isConfigured(), 'sender' => filter_var((string) config('mail.from.address', ''), FILTER_VALIDATE_EMAIL) !== false];
-    }
-    public function notify(string $event, int $orderId, bool $customer = true, ?string $groupOverride = null, ?string $versionOverride = null): void
+
+    private function notify(string $event, int $orderId): void
     {
         try {
             if ($this->db->inTransaction()) { throw new \LogicException('Mail must run after commit.'); }
             $snapshot = $this->snapshot($event, $orderId);
             if (!$snapshot) { return; }
-            $destinations = [];
-            if ($customer) { $destinations[] = ['audience' => 'customer', 'email' => $snapshot['values']['customer_email'], 'id' => null]; }
-            foreach ($this->settings->subscribed($event) as $r) { $destinations[] = ['audience' => 'admin', 'email' => $r['email'], 'id' => $r['id']]; }
+            $destinations = [
+                ['audience' => 'customer', 'email' => $snapshot['values']['customer_email'], 'cc' => []],
+                ['audience' => 'admin', 'email' => (string) config('rentals-mail.owner', ''),
+                    'cc' => (array) config('rentals-mail.cc', [])],
+            ];
+            // Preserve existing delivery groups across deployment so a recorded
+            // combined payment/rental review cannot be sent a second time.
+            $group = match ($event) {
+                RentalMailEvents::RENTAL_APPROVED => 'review_approved',
+                RentalMailEvents::RENTAL_REJECTED => 'review_rejected',
+                default => $event,
+            };
             foreach ($destinations as $destination) {
-                $template = $this->settings->template($event, $destination['audience']);
-                if (!(int) $template['is_active']) { continue; }
-                $group = match ($event) {
-                    RentalMailEvents::RENTAL_APPROVED, RentalMailEvents::PAYMENT_APPROVED => 'review_approved',
-                    RentalMailEvents::RENTAL_REJECTED, RentalMailEvents::PAYMENT_REJECTED => 'review_rejected',
-                    default => $event,
-                };
-                $key = hash('sha256', $orderId . '|' . ($groupOverride ?? $group) . '|' . ($versionOverride ?? $snapshot['version']) . '|' . $destination['audience'] . '|' . strtolower($destination['email']));
-                // A unique event/destination key registers delivery atomically. Failed
-                // deliveries require explicit Admin retry; refresh never resends them.
-                $this->db->statement('INSERT INTO rental_notification_deliveries (dedup_key,event_key,event_version,order_id,audience,recipient_id,recipient_email,status)
-                    VALUES (?,?,?,?,?,?,?,\'pending\') ON DUPLICATE KEY UPDATE id=id',
-                    [$key, $event, $snapshot['version'], $orderId, $destination['audience'], $destination['id'], $destination['email']]);
-                $delivery = $this->db->selectOne('SELECT * FROM rental_notification_deliveries WHERE dedup_key=?', [$key]);
-                if ($delivery && $this->claim((int) $delivery['id'], 'pending')) { $this->deliver($delivery, $template, $snapshot['values']); }
+                try {
+                    $key = hash('sha256', $orderId . '|' . $group . '|' . $snapshot['version'] . '|'
+                        . $destination['audience'] . '|' . strtolower($destination['email']));
+                    $this->db->statement('INSERT INTO rental_notification_deliveries
+                        (dedup_key,event_key,event_version,order_id,audience,recipient_email,status)
+                        VALUES (?,?,?,?,?,?,\'pending\') ON DUPLICATE KEY UPDATE id=id',
+                        [$key, $event, $snapshot['version'], $orderId, $destination['audience'], $destination['email']]);
+                    $delivery = $this->db->selectOne('SELECT * FROM rental_notification_deliveries WHERE dedup_key=?', [$key]);
+                    if ($delivery && $this->claim((int) $delivery['id'])) {
+                        $this->deliver($delivery, $destination['cc'], $snapshot['values']);
+                    }
+                } catch (\Throwable $e) {
+                    $this->log($event, $orderId, $destination['audience'], 'notification_unavailable');
+                }
             }
         } catch (\Throwable $e) {
             $this->log($event, $orderId, 'system', 'notification_unavailable');
-            error_log('Rentals email failure type=' . get_class($e) . ' source=' . basename($e->getFile()) . ':' . $e->getLine());
         }
     }
-    public function retry(int $id): void
+
+    private function claim(int $id): bool
     {
-        if ($this->db->inTransaction()) { throw new \LogicException('Mail must run after commit.'); }
-        $d = $this->db->selectOne('SELECT * FROM rental_notification_deliveries WHERE id=?', [$id]);
-        if (!$d || $d['status'] !== 'failed') { throw new \InvalidArgumentException('Only failed emails can be retried. Sent or uncertain deliveries cannot be resent.'); }
-        if ($d['event_key'] === 'test') { throw new \InvalidArgumentException('Use Send test email to test again.'); }
-        $snapshot = $this->snapshot($d['event_key'], (int) $d['order_id']);
-        if (!$snapshot || !hash_equals($d['event_version'], $snapshot['version'])) { throw new \InvalidArgumentException('This event is no longer current. Retry was not sent.'); }
-        $template = $this->settings->template($d['event_key'], $d['audience']);
-        if (!(int) $template['is_active']) { throw new \InvalidArgumentException('This template is disabled.'); }
-        if ($d['audience'] === 'admin') {
-            $active = $this->settings->subscribed($d['event_key']);
-            if (!array_filter($active, static fn ($r) => (int) $r['id'] === (int) $d['recipient_id'] && strtolower($r['email']) === strtolower($d['recipient_email']))) {
-                throw new \InvalidArgumentException('The recipient is no longer active or subscribed at that address.');
-            }
-        } elseif (strtolower($d['recipient_email']) !== strtolower($snapshot['values']['customer_email'])) {
-            throw new \InvalidArgumentException('The saved customer destination does not match the order.');
-        }
-        if (!$this->claim($id, 'failed')) { throw new \InvalidArgumentException('This email is already being processed.'); }
-        $this->deliver($d, $template, $snapshot['values']);
+        return $this->db->update('UPDATE rental_notification_deliveries SET attempts=attempts+1,
+            attempted_at=CURRENT_TIMESTAMP,failure_category=NULL
+            WHERE id=? AND status=\'pending\' AND attempts=0', [$id]) === 1;
     }
-    private function claim(int $id, string $status): bool
+
+    private function deliver(array $delivery, array $cc, array $values): void
     {
-        return $this->db->update('UPDATE rental_notification_deliveries SET status=\'pending\',attempts=attempts+1,
-            attempted_at=CURRENT_TIMESTAMP,failure_category=NULL WHERE id=? AND status=?' . ($status === 'pending' ? ' AND attempts=0' : ''), [$id, $status]) === 1;
-    }
-    private function deliver(array $d, array $template, array $values): void
-    {
-        $category = 'smtp_failure';
+        $category = 'invalid_destination';
         try {
-            if (!filter_var($d['recipient_email'], FILTER_VALIDATE_EMAIL)) { $category = 'invalid_destination'; throw new \RuntimeException(); }
-            if (!$this->transport->isConfigured()) { $category = 'smtp_not_configured'; throw new \RuntimeException(); }
+            foreach ([$delivery['recipient_email'], ...$cc] as $address) {
+                if (!is_string($address) || !filter_var($address, FILTER_VALIDATE_EMAIL)) { throw new \RuntimeException(); }
+            }
+            $category = 'smtp_not_configured';
+            if (!$this->transport->isConfigured()) { throw new \RuntimeException(); }
             $category = 'template_rendering_failed';
-            $message = $this->preview($template, $values);
-            if ($d['event_key'] === 'test') { $message['subject'] = '[TEST] ' . $message['subject']; }
+            $template = RentalMailEvents::defaults($delivery['event_key'], $delivery['audience']);
+            $allowed = RentalMailEvents::placeholders($delivery['audience']);
+            $replace = static fn (string $text): string => preg_replace_callback('/\{\{\s*([a-z_]+)\s*\}\}/',
+                static fn ($m) => in_array($m[1], $allowed, true) ? (string) ($values[$m[1]] ?? '') : '', $text) ?? '';
+            $subject = trim(str_replace(["\r", "\n", "\0"], ' ', $replace($template['subject'])));
+            $message = $replace($template['body']);
+            $audience = $delivery['audience'];
+            $cta = $audience === 'admin' ? $values['admin_order_url'] : $values['order_status_url'];
+            $html = $this->view->partial('rentals.emails.notification', compact('subject', 'message', 'values', 'cta', 'audience'));
             $category = 'smtp_failure';
-            $this->transport->send($d['recipient_email'], $message['subject'], $message['text'], $message['html']);
-        } catch (SmtpDeliveryUncertain $e) { $this->recordFailure($d, 'uncertain', 'smtp_acceptance_uncertain'); return; }
-        catch (\Throwable $e) { $this->recordFailure($d, 'failed', $category); return; }
-        // If acceptance succeeded but recording failed, leave pending: never
-        // automatically retry ambiguous delivery and risk duplicate mail.
-        try { $this->db->update('UPDATE rental_notification_deliveries SET status=\'sent\',sent_at=CURRENT_TIMESTAMP,failure_category=NULL WHERE id=?', [$d['id']]); }
-        catch (\Throwable $e) { $this->log($d['event_key'], (int) $d['order_id'], $d['audience'], 'delivery_record_uncertain'); }
+            $this->transport->send($delivery['recipient_email'], $subject, $message, $html, $cc);
+        } catch (SmtpDeliveryUncertain $e) {
+            $this->recordFailure($delivery, 'uncertain', 'smtp_acceptance_uncertain'); return;
+        } catch (\Throwable $e) {
+            $this->recordFailure($delivery, 'failed', $category); return;
+        }
+        // Acceptance is final even if recording it fails. Never blindly resend.
+        try {
+            $this->db->update('UPDATE rental_notification_deliveries SET status=\'sent\',
+                sent_at=CURRENT_TIMESTAMP,failure_category=NULL WHERE id=?', [$delivery['id']]);
+        } catch (\Throwable $e) {
+            $this->log($delivery['event_key'], (int) $delivery['order_id'], $delivery['audience'], 'delivery_record_uncertain');
+        }
     }
-    private function recordFailure(array $d, string $status, string $category): void
+
+    private function recordFailure(array $delivery, string $status, string $category): void
     {
-        try { $this->db->update('UPDATE rental_notification_deliveries SET status=?,failure_category=? WHERE id=?', [$status, $category, $d['id']]); }
-        catch (\Throwable $e) { /* The business transaction has already committed. */ }
-        $this->log($d['event_key'], (int) $d['order_id'], $d['audience'], $category);
+        try {
+            $this->db->update('UPDATE rental_notification_deliveries SET status=?,failure_category=? WHERE id=?',
+                [$status, $category, $delivery['id']]);
+        } catch (\Throwable $e) { /* The business transaction has already committed. */ }
+        $this->log($delivery['event_key'], (int) $delivery['order_id'], $delivery['audience'], $category);
     }
-    public function sendTest(array $template, string $email): void
-    {
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 190) { throw new \InvalidArgumentException('Enter a valid test email address.'); }
-        RentalMailSettings::validateTemplate($template);
-        $id = $this->db->insert('INSERT INTO rental_notification_deliveries (dedup_key,event_key,audience,recipient_email,status,attempts,attempted_at)
-            VALUES (?,\'test\',?,?,\'pending\',1,CURRENT_TIMESTAMP)', [bin2hex(random_bytes(32)), $template['audience'], $email]);
-        $this->deliver(['id'=>$id,'event_key'=>'test','order_id'=>0,'audience'=>$template['audience'],'recipient_email'=>$email], $template, $this->sample($template['event_key']));
-        if ($this->db->selectValue('SELECT status FROM rental_notification_deliveries WHERE id=?', [$id]) !== 'sent') { throw new \InvalidArgumentException('Test email was not confirmed sent. See Delivery history and check server SMTP configuration.'); }
-    }
-    public function preview(array $template, ?array $values = null): array
-    {
-        RentalMailSettings::validateTemplate($template);
-        $values ??= $this->sample($template['event_key']);
-        $allowed = RentalMailEvents::placeholders($template['audience']);
-        $replace = static fn (string $text): string => preg_replace_callback('/\{\{\s*([a-z_]+)\s*\}\}/',
-            static fn ($m) => in_array($m[1], $allowed, true) ? (string) ($values[$m[1]] ?? '') : '', $text) ?? '';
-        $subject = trim(str_replace(["\r", "\n", "\0"], ' ', $replace($template['subject'])));
-        $text = $replace($template['body']);
-        $cta = $template['audience'] === 'admin' ? $values['admin_order_url'] : $values['order_status_url'];
-        $data = ['subject'=>$subject,'message'=>$text,'values'=>$values,'cta'=>$cta,'audience'=>$template['audience']];
-        return ['subject'=>$subject,'text'=>$text,'html'=>$this->view->partial('rentals.emails.notification',$data),
-            'fragment'=>$this->view->partial('rentals.emails.content',$data)];
-    }
-    public function sample(string $event): array
-    {
-        $status = RentalPaymentStatus::label(RentalMailEvents::status($event));
-        return ['customer_name'=>'Juan Dela Cruz','customer_email'=>'customer@example.test','customer_phone'=>'Sample phone',
-            'order_number'=>'RENT-000123','order_status'=>$status,'payment_status'=>$status,'rental_start_date'=>'2026-11-10','rental_end_date'=>'2026-11-12',
-            'subtotal'=>'₱10,000.00','security_deposit'=>'₱2,500.00','total_amount'=>'₱12,500.00','payment_method'=>'Sample bank transfer',
-            'company_name'=>(string)config('app.name'),'support_email'=>(string)config('app.contact_email'),
-            'order_items'=>'Sample camera × 1 · 2026-11-10 to 2026-11-12 · ₱10,000.00','rejection_reason'=>'','proof_submitted'=>'Yes',
-            'admin_order_url'=>absolute_url('rentals/admin/orders'),'order_status_url'=>absolute_url('rentals/orders')];
-    }
+
     private function snapshot(string $event, int $id): ?array
     {
         $expected = RentalMailEvents::status($event);
@@ -176,7 +145,9 @@ final class RentalNotification
             'payment_method'=>$h['payment_method']?:'Not specified','company_name'=>(string)config('app.name'),'support_email'=>(string)config('app.contact_email'),
             'order_items'=>implode("\n",$items),
             // No dedicated customer-visible reason exists. Never expose internal order notes.
-            'rejection_reason'=>'','proof_submitted'=>$h['payment_proof_path']?'Yes':'No','admin_order_url'=>absolute_url('rentals/admin/orders/'.$id),
+            'rejection_reason'=>'','proof_submitted'=>$h['payment_proof_path']?'Yes':'No',
+            'proof_receipt_text'=>$h['payment_proof_path']?'Your payment proof was received.':'No payment proof is currently attached.',
+            'admin_order_url'=>absolute_url('rentals/admin/orders/'.$id),
             'order_status_url'=>preg_match('/^[a-f0-9]{64}$/D',(string)$h['status_token'])?absolute_url('rentals/order-status/'.$h['status_token']):absolute_url('rentals/orders')];
         return ['values'=>$v,'version'=>hash('sha256',$event===RentalMailEvents::RENTAL_SUBMITTED?'initial':(string)$h['payment_proof_path'])];
     }

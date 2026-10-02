@@ -109,6 +109,11 @@ try {
         $assert(($status === 422 || ($reason === 'oversized' && $status === 413 && str_contains($errorBody, 'upload limit')))
             && (int) $db->selectValue('SELECT COUNT(*) FROM order_header WHERE user_id = ?', [$userId]) === 0,
             'Checkout accepted an ' . $reason . ' payment proof.');
+        if ($status === 422) {
+            $assert(str_contains($errorBody, 'data-rental-submit-label>Submit rental request</span>')
+                && str_contains($errorBody, 'data-rental-submit-spinner aria-hidden="true" hidden')
+                && !str_contains($errorBody, 'aria-busy="true"'), 'Rejected submission did not restore idle button/error UI.');
+        }
         $assert((int) $db->selectValue('SELECT COUNT(*) FROM cart_items ci JOIN carts c ON c.id = ci.cart_id WHERE c.user_id = ?', [$userId]) === 2,
             'Rejected payment proof cleared the customer cart.');
     }
@@ -117,22 +122,36 @@ try {
     $assert($status === 422 && (int) $db->selectValue('SELECT COUNT(*) FROM order_header WHERE user_id = ?', [$userId]) === 0,
         'Checkout accepted an inactive payment method.');
     $db->update('UPDATE payment_methods SET is_active = 1 WHERE id = ?', [$methodId]);
-    [$status, $confirmation] = $http('/rentals/checkout', [
+    [$status, $confirmation, $receiptUrl] = $http('/rentals/checkout', [
         '_token' => $token($checkout), 'customer_name' => $name, 'customer_email' => $email,
         'customer_phone' => '', 'payment_method_id' => (string) $methodId,
         'payment_reference' => 'LOCAL-' . $key, 'notes' => 'HTTP test',
         'proof' => new CURLFile($proof, 'image/png', 'proof.png'),
     ]);
     $assert($status === 200 && str_contains($confirmation, 'Request received') && str_contains($confirmation, 'data-rentals-qr'), 'Checkout/QR confirmation failed.');
+    $assert(str_starts_with($receiptUrl, $base . '/rentals/confirmation/')
+        && str_contains($confirmation, 'rentals-payment-badge--pending')
+        && !str_contains(strtolower($confirmation), 'view order status'), 'Receipt redirect/status/button cleanup failed.');
+    $proofDirectory = App\Services\RentalStorage::directory('payment');
+    $proofFilesBeforeRepeat = glob($proofDirectory . '/*') ?: [];
+    $pendingDeliveriesBeforeRepeat = (int) $db->selectValue('SELECT COUNT(*) FROM rental_notification_deliveries d JOIN order_header h ON h.id=d.order_id WHERE h.user_id=?', [$userId]);
     [$duplicateStatus] = $http('/rentals/checkout', [
         '_token' => $token($checkout), 'customer_name' => $name, 'customer_email' => $email,
         'payment_method_id' => (string) $methodId, 'proof' => new CURLFile($proof, 'image/png', 'proof.png'),
     ]);
     $assert($duplicateStatus !== 200 || (int) $db->selectValue('SELECT COUNT(*) FROM order_header WHERE user_id = ?', [$userId]) === 1,
         'Duplicate submission created another order.');
+    $assert((glob($proofDirectory . '/*') ?: []) === $proofFilesBeforeRepeat
+        && (int) $db->selectValue('SELECT COUNT(*) FROM rental_notification_deliveries d JOIN order_header h ON h.id=d.order_id WHERE h.user_id=?', [$userId]) === $pendingDeliveriesBeforeRepeat,
+        'Repeated POST created another stored proof or Pending notification.');
     $orders = $db->select('SELECT id, order_number, payment_status, payment_proof_path, status_token FROM order_header WHERE user_id = ?', [$userId]);
     $assert(count($orders) === 1 && (int) $orders[0]['payment_status'] === 0, 'Checkout did not create one pending order header.');
     $order = $orders[0];
+    $assert($pendingDeliveriesBeforeRepeat === 2, 'Submission did not register exactly one customer and one Owner notification.');
+    [$status, $receiptAgain] = $http('/rentals/confirmation/' . $order['status_token']);
+    $assert($status === 200 && str_contains($receiptAgain, 'rentals-payment-badge--pending'), 'GET receipt reload failed.');
+    [$status] = $http('/rentals/confirmation/' . str_repeat('a', 64));
+    $assert($status === 404, 'Unknown receipt token accepted.');
     $assert((int) $db->selectValue('SELECT COUNT(*) FROM order_details WHERE order_header_id = ?', [(int) $order['id']]) === 2,
         'Checkout did not create two details under one header.');
     $assert(preg_match('/^[a-f0-9]{64}$/', (string) $order['status_token']) === 1, 'Secure status token is missing.');
@@ -192,6 +211,9 @@ try {
         'Approved order was hidden because its snapshot name starts with [TEST].');
     [$status, $statusPage] = $http('/rentals/order-status/' . $order['status_token']);
     $assert($status === 200 && str_contains($statusPage, 'Approved'), 'Status page did not reflect approval.');
+    [$status, $receiptAgain] = $http('/rentals/confirmation/' . $order['status_token']);
+    $assert($status === 200 && str_contains($receiptAgain, 'rentals-payment-badge--approved')
+        && !str_contains($receiptAgain, 'is under review.'), 'Receipt did not read current Approved status.');
     $db->update('UPDATE users SET role = ? WHERE id = ?', ['superadmin', $adminId]);
     [$status, $adminPage] = $http('/rentals/admin');
     $http('/rentals/logout', ['_token' => $token($adminPage)]);
@@ -231,6 +253,8 @@ try {
     $assert($catalog->isAvailable($record, 1, $nextDate, $nextDate), 'Rejected order still reserves equipment.');
     [$status, $statusPage] = $http('/rentals/order-status/' . $secondOrder['status_token']);
     $assert($status === 200 && str_contains($statusPage, 'Rejected'), 'Status page did not reflect rejection.');
+    [$status, $receiptAgain] = $http('/rentals/confirmation/' . $secondOrder['status_token']);
+    $assert($status === 200 && str_contains($receiptAgain, 'rentals-payment-badge--rejected'), 'Receipt did not read current Rejected status.');
     [$status, $adminPage] = $http('/rentals/admin');
     $http('/rentals/logout', ['_token' => $token($adminPage)]);
     [$status, , $ordersLogin] = $http('/rentals/orders');
@@ -246,7 +270,7 @@ try {
     ]);
     $assert($status === 200 && (int) $db->selectValue('SELECT payment_status FROM order_header WHERE id = ?', [(int) $secondOrder['id']]) === 0
         && !$catalog->isAvailable($record, 1, $nextDate, $nextDate), 'Resubmitted proof did not return to Pending and reserve stock.');
-    echo "PASS: dated multi-item cart, one header/two details, encrypted proof, QR/status, Admin login, reports, approval, rejection and proof resubmission.\n";
+    echo "PASS: dated checkout, idle error button, duplicate POST/order/proof/notification protection, GET receipt/current status badges, QR/status, Admin reports/review and proof resubmission.\n";
 } finally {
     if ($userId > 0) {
         foreach ($db->select('SELECT id, payment_proof_path FROM order_header WHERE user_id = ?', [$userId]) as $row) {

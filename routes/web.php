@@ -43,6 +43,7 @@ $router->post('/rentals/cart/remove', [\App\Controllers\Rentals\RentalCartContro
 $router->post('/rentals/cart/clear', [\App\Controllers\Rentals\RentalCartController::class, 'clear'])->name('rentals.cart.clear');
 $router->get('/rentals/checkout', [\App\Controllers\Rentals\RentalCheckoutController::class, 'show'])->name('rentals.checkout');
 $router->post('/rentals/checkout', [\App\Controllers\Rentals\RentalCheckoutController::class, 'submit'])->name('rentals.checkout.submit');
+$router->get('/rentals/confirmation/{token:slug}', [\App\Controllers\Rentals\RentalCheckoutController::class, 'confirmation'])->name('rentals.confirmation');
 $router->get('/rentals/order-status/{token:slug}', [\App\Controllers\Rentals\RentalCheckoutController::class, 'status'])->name('rentals.order-status');
 $router->get('/rentals/account', [\App\Controllers\Rentals\RentalAccountController::class, 'show'])->name('rentals.account');
 $router->post('/rentals/account', [\App\Controllers\Rentals\RentalAccountController::class, 'submit'])->name('rentals.account.submit');
@@ -81,15 +82,6 @@ $router->post('/rentals/admin/payments',         [\App\Controllers\Rentals\Renta
 $router->post('/rentals/admin/payments/{id:int}/edit', [\App\Controllers\Rentals\RentalAdminController::class, 'paymentsUpdate'])->name('rentals.admin.payments.update');
 $router->post('/rentals/admin/payments/toggle',   [\App\Controllers\Rentals\RentalAdminController::class, 'togglePayments'])->name('rentals.admin.payments.toggle');
 $router->get('/rentals/admin/customers', [\App\Controllers\Rentals\RentalAdminController::class, 'customers'])->name('rentals.admin.customers');
-// Separate mailer settings; all mutating routes use the existing CSRF middleware.
-$router->get('/rentals/admin/email', [\App\Controllers\Rentals\RentalEmailController::class, 'index']);
-$router->get('/rentals/admin/email/templates/{event:any}/{audience}', [\App\Controllers\Rentals\RentalEmailController::class, 'edit']);
-$router->post('/rentals/admin/email/templates/{event:any}/{audience}', [\App\Controllers\Rentals\RentalEmailController::class, 'update']);
-$router->get('/rentals/admin/email/recipients', [\App\Controllers\Rentals\RentalEmailController::class, 'recipients']);
-$router->post('/rentals/admin/email/recipients', [\App\Controllers\Rentals\RentalEmailController::class, 'saveRecipient']);
-$router->post('/rentals/admin/email/recipients/{id:int}/remove', [\App\Controllers\Rentals\RentalEmailController::class, 'removeRecipient']);
-$router->get('/rentals/admin/email/history', [\App\Controllers\Rentals\RentalEmailController::class, 'history']);
-$router->post('/rentals/admin/email/deliveries/{id:int}/retry', [\App\Controllers\Rentals\RentalEmailController::class, 'retry']);
 // ── Admin utility ─────────────────────────────────────────────
 $router->post('/rentals/admin/items/{id:int}/blackouts', [\App\Controllers\Rentals\RentalAdminController::class, 'saveBlackout'])->name('rentals.admin.blackouts.save');
 $router->get('/rentals/admin/items/{id:int}/availability', [\App\Controllers\Rentals\RentalAdminController::class, 'availability'])->name('rentals.admin.availability');

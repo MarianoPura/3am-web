@@ -1,4 +1,4 @@
-<?php /* Shared by the email document and safe inline Admin sample preview. */ ?>
+<?php /* Fixed, escaped transactional email content. */ ?>
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td style="padding:24px 12px">
 <table role="presentation" cellspacing="0" cellpadding="0" width="100%" style="max-width:620px;margin:auto;background:#fff">
 <tr><td style="padding:24px;background:#0b1622;color:#fff;border-bottom:3px solid #ffb400"><strong style="font-size:24px">3AM</strong> <span style="color:#ffb400">RENTALS</span></td></tr>
