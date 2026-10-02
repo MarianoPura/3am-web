@@ -57,7 +57,7 @@ $itemId = (int) ($item['id'] ?? 0);
             <input name="ideal_use" maxlength="500" value="<?= e_attr((string) ($item['ideal_use'] ?? '')) ?>">
           </label>
           <?php $productImage = \App\Models\RentalCatalog::imagePath($item['image_path'] ?? null); if ($productImage !== null): ?>
-            <img class="rentals-admin__image-preview" src="<?= e_attr(url($productImage)) ?>" alt="Current product image">
+            <img class="rentals-admin__image-preview" src="<?= e_attr(\App\Models\RentalCatalog::imageUrl($productImage)) ?>" alt="Current product image">
           <?php endif ?>
           <label>Replace image (optional)
             <input type="file" name="product_image" accept="image/jpeg,image/png,image/webp">

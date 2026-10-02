@@ -173,15 +173,18 @@ try {
     $externalImage = App\Services\RentalStorage::path($item['image_path']);
     $assert($externalImage !== null && str_starts_with($externalImage, App\Services\RentalStorage::root() . '/')
         && !is_file(BASE_PATH . '/' . $item['image_path']), 'Product upload was saved inside the checkout.');
-    [$imageCode, $imageBytes, , $imageHeaders] = $http('/' . $item['image_path']);
+    $productImageUrl = '/rentals/product-image/' . basename($item['image_path']);
+    [$imageCode, $imageBytes, , $imageHeaders] = $http($productImageUrl);
     $assert($imageCode === 200 && $imageBytes === $png && stripos($imageHeaders, 'Content-Type: image/png') !== false, 'Externally stored product image route failed.');
-    foreach (['/micro/rentals/products/' . str_repeat('a', 32) . '.php', '/micro/rentals/products/not-an-image.png'] as $badPath) {
+    foreach (['/' . $item['image_path'], '/rentals/product-image/' . str_repeat('a', 32) . '.php', '/rentals/product-image/not-an-image.png'] as $badPath) {
         [$code] = $http($badPath);
-        $assert($code === 404, 'Invalid managed product image path was served.');
+        $assert($code === 404, 'Reserved or invalid managed product image path was served.');
     }
     $oldImage = $item['image_path'];
     [, $public] = $http('/rentals/items');
-    $assert(str_contains($public, $name) && str_contains($public, $item['image_path']) && !str_contains($public, $product['sku']), 'Public product/image missing or SKU exposed.');
+    $assert(str_contains($public, $name) && str_contains($public, $mount . $productImageUrl)
+        && !str_contains($public, $item['image_path']) && !str_contains($public, $product['sku']),
+        'Public product image did not use the Rentals route or exposed its storage path/SKU.');
     $product['id'] = (string) $itemId;
     $product['name'] .= ' edited'; $product['description'] = 'QA edited description';
     $product['rental_rate'] = '150.00'; $product['security_deposit'] = '9000.00'; $product['available_quantity'] = '2';
@@ -209,9 +212,31 @@ try {
     $method = $db->selectOne('SELECT * FROM payment_methods WHERE name = ?', [$name]);
     $methodId = (int) ($method['id'] ?? 0);
     $assert($methodId > 0 && App\Services\RentalManagedImage::publicPath($method['qr_image_path'], 'qr') !== null, 'Payment method QR upload failed.');
+    $checkoutMethods = (new App\Services\RentalCheckout($db, new App\Services\RentalCart()))->activePaymentMethods();
+    $checkoutMethod = array_values(array_filter($checkoutMethods, static fn (array $row): bool => (int) $row['id'] === $methodId))[0] ?? null;
+    $assert($checkoutMethod !== null && $checkoutMethod['qr_image_path'] === $method['qr_image_path'],
+        'Checkout payment-method query omitted the saved QR path.');
+    $noQrMethod = array_replace($checkoutMethod, ['id' => $methodId + 1000000, 'name' => 'No QR test', 'qr_image_path' => null]);
+    $checkoutHtml = (new App\Core\View(BASE_PATH . '/app/Views'))->render('rentals.checkout', [
+        'summary' => ['items' => [['name' => 'QA equipment', 'quantity' => 1,
+            'rental_start_date' => '2026-12-01', 'rental_end_date' => '2026-12-01']],
+            'subtotal' => 100, 'security_deposit' => 0, 'total' => 100, 'preview' => false],
+        'paymentMethods' => [$checkoutMethod, $noQrMethod],
+        'customer' => ['name' => $name, 'email' => $email],
+    ]);
+    $assert(str_contains($checkoutHtml, 'data-payment-qr-for="' . $methodId . '"')
+        && str_contains($checkoutHtml, url('rentals/payment-qr/' . $methodId))
+        && !str_contains($checkoutHtml, 'data-payment-qr-for="' . $noQrMethod['id'] . '"')
+        && str_contains($checkoutHtml, 'data-payment-instructions="' . $noQrMethod['id'] . '" hidden')
+        && str_contains($checkoutHtml, 'Account name') && str_contains($checkoutHtml, 'Amount to pay'),
+        'Checkout did not show the managed QR only for the method with a saved image.');
     $oldQr = $method['qr_image_path']; $payment['id'] = (string) $methodId;
-    $http('/rentals/admin/payments', $payment);
-    $assert($db->selectValue('SELECT qr_image_path FROM payment_methods WHERE id = ?', [$methodId]) === $oldQr, 'QR was lost without replacement.');
+    [, $paymentEditor] = $http('/rentals/admin/payments/' . $methodId . '/edit');
+    $payment['_token'] = $token($paymentEditor);
+    [$code, $savedPayment] = $http('/rentals/admin/payments/' . $methodId . '/edit', $payment);
+    $assert($code === 200 && str_contains($savedPayment, 'Changes saved.')
+        && $db->selectValue('SELECT qr_image_path FROM payment_methods WHERE id = ?', [$methodId]) === $oldQr,
+        'Editing a payment method with its own name or no replacement QR failed.');
     $http('/rentals/admin/payments', $payment + ['qr_image' => new CURLFile($picture, 'image/png', 'qr-replacement.png')]);
     $assert(App\Services\RentalStorage::path($oldQr) === null, 'Old managed QR remained after successful replacement.');
     [$code, $qr] = $http('/rentals/payment-qr/' . $methodId);

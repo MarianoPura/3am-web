@@ -1780,6 +1780,11 @@
 .rentals-module .rentals-payment-qr-dialog img { display: block; width: min(100%, 340px); max-height: 55vh; object-fit: contain; margin: 1rem auto; }
 .rentals-module .rentals-payment-instructions { margin: 1rem 0; padding: 1rem; border: 1px solid var(--rentals-border-strong); border-left: 3px solid var(--c-tally); background: #f4f8fc; }
 .rentals-module .rentals-payment-instructions[hidden] { display: none; }
+.rentals-module .rentals-payment-instructions [hidden] { display: none; }
+.rentals-module .rentals-payment-instructions__qr { width: min(100%, 260px); margin: 1rem 0; padding: .7rem; border: 1px solid var(--rentals-border); background: var(--c-white); text-align: center; }
+.rentals-module .rentals-payment-instructions__qr img { display: block; width: 100%; height: auto; aspect-ratio: 1; object-fit: contain; }
+.rentals-module .rentals-payment-instructions__qr figcaption { margin-top: .45rem; color: var(--rentals-muted); font-size: .75rem; }
+.rentals-module .rentals-payment-instructions__qr [hidden] { display: none; }
 .rentals-module .rentals-payment-instructions dl { margin: .75rem 0; }
 .rentals-module .rentals-payment-instructions dl div { display: flex; justify-content: space-between; gap: 1rem; padding: .4rem 0; border-bottom: 1px solid var(--rentals-border); }
 .rentals-module .rentals-payment-instructions dt { color: var(--rentals-muted); }

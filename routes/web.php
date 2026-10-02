@@ -33,7 +33,7 @@ $router->get('/', [HomeController::class, 'index'])->name('home');
 $router->get('/services', [PageController::class, 'services'])->name('services');
 $router->get('/information', [PageController::class, 'information'])->name('information');
 $router->get('/rentals', [RentalsController::class, 'index'])->name('rentals');
-$router->get('/micro/rentals/products/{filename:any}', [RentalsController::class, 'productImage'])->name('rentals.product-image');
+$router->get('/rentals/product-image/{filename:any}', [RentalsController::class, 'productImage'])->name('rentals.product-image');
 $router->get('/rentals/cart', [\App\Controllers\Rentals\RentalCartController::class, 'index'])->name('rentals.cart');
 $router->get('/rentals/availability', [\App\Controllers\Rentals\RentalCartController::class, 'availability'])->name('rentals.availability');
 $router->get('/rentals/payment-qr/{id:int}', [\App\Controllers\Rentals\RentalCheckoutController::class, 'paymentQr'])->name('rentals.payment-qr');

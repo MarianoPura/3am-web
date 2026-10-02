@@ -85,7 +85,7 @@ final class RentalCheckout
     {
         $local = in_array(config('app.env'), ['local', 'testing'], true) ? 1 : 0;
         return $this->db->select(
-            "SELECT id, name, type, account_name, account_number, provider
+            "SELECT id, name, type, account_name, account_number, provider, qr_image_path
              FROM payment_methods
              WHERE is_active = 1 AND ((type = 'manual' AND NULLIF(TRIM(account_name), '') IS NOT NULL
                  AND NULLIF(TRIM(account_number), '') IS NOT NULL) OR (type = 'test' AND ? = 1))

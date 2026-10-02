@@ -84,6 +84,9 @@ implicitly commit, so do not treat this as an automatic live migration.
 
 New Rentals uploads use the `micro` directory beside the project, outside the
 Git checkout. `RENTALS_STORAGE_ROOT` may specify another absolute directory.
+Product photo references remain `micro/rentals/products/<random>.<ext>` in the
+database, but their public URLs use `/rentals/product-image/<filename>`. The
+`/micro` URL namespace is reserved and must not be opened for direct serving.
 `php bin/rentals-upload-check.php` is a read-only check of the resolved root,
 both upload directories, PHP temporary directory, and upload limits. Run it
 with the same OS identity and PHP configuration as the live web worker; a root

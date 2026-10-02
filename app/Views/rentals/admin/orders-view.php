@@ -1,4 +1,9 @@
-<?php $recordId = (int) ($record['id'] ?? 0); ?>
+<?php
+$recordId = (int) ($record['id'] ?? 0);
+$proofReference = (string) ($record['payment_proof_path'] ?? '');
+$proofAvailable = $proofReference !== '' && \App\Services\RentalPaymentProof::path($proofReference) !== null;
+$proofUrl = url('rentals/admin/proof/' . $recordId);
+?>
 <?php $this->extend('rentals.layouts.admin'); ?>
 <?php $this->start('title') ?>Order <?= e((string) ($record['order_number'] ?? '')) ?> — Rentals Admin<?php $this->end() ?>
 <?php $this->start('content') ?>
@@ -27,16 +32,19 @@
         </dl>
         <?php if (($record['notes'] ?? '') !== ''): ?><p><strong>Customer notes:</strong> <?= e((string) $record['notes']) ?></p><?php endif ?>
       </div>
-      <?php if (($record['payment_proof_path'] ?? '') !== ''): ?>
-        <section class="rentals-admin__proof" aria-labelledby="proof-title">
-          <div><p class="rentals-card__meta">Manual payment</p><h3 id="proof-title">Payment proof review</h3></div>
+      <section class="rentals-admin__proof" aria-labelledby="proof-title">
+        <div><p class="rentals-card__meta">Manual payment</p><h3 id="proof-title">Payment proof review</h3></div>
+        <?php if ($proofAvailable): ?>
           <details class="rentals-admin__proof-detail"><summary>View uploaded proof</summary>
-            <?php $proofUrl = url('rentals/admin/proof/' . $recordId); ?>
-            <?php if (preg_match('/\.pdf(?:\.php)?$/', (string) $record['payment_proof_path'])): ?><a href="<?= e_attr($proofUrl) ?>" target="_blank" rel="noopener">Open PDF proof in a new tab</a>
-            <?php else: ?><img src="<?= e_attr($proofUrl) ?>" loading="lazy" alt="Uploaded payment proof for order <?= e_attr((string) $record['order_number']) ?>"><?php endif ?>
+            <?php if (preg_match('/\.pdf(?:\.php)?$/', $proofReference)): ?><a href="<?= e_attr($proofUrl) ?>" target="_blank" rel="noopener">Open PDF proof in a new tab</a>
+            <?php else: ?>
+              <img src="<?= e_attr($proofUrl) ?>" alt="Uploaded payment proof for order <?= e_attr((string) $record['order_number']) ?>" data-admin-proof-image>
+              <p class="rentals-admin__empty" data-admin-proof-error hidden>The proof could not be displayed. Open the protected proof link to check its response.</p>
+              <a href="<?= e_attr($proofUrl) ?>" target="_blank" rel="noopener">Open proof in a new tab</a>
+            <?php endif ?>
           </details>
-        </section>
-      <?php endif ?>
+        <?php else: ?><p class="rentals-admin__empty"><?= $proofReference === '' ? 'No payment proof has been uploaded yet.' : 'The saved payment proof file is unavailable.' ?></p><?php endif ?>
+      </section>
       <?php if ((int) $record['payment_status'] === \App\Services\RentalPaymentStatus::PENDING): ?>
         <section class="rentals-admin__review" aria-labelledby="review-actions-title">
           <div><p class="rentals-card__meta">Pending review</p><h3 id="review-actions-title">Review payment</h3><p>Approve verified payment or reject this request. Rejection releases its equipment reservation.</p></div>

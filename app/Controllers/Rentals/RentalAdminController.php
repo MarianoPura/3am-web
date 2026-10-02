@@ -649,9 +649,9 @@ final class RentalAdminController extends Controller
 
     public function viewProof(Request $request, string $id): Response
     {
-        if ($denial = $this->deny()) { return $denial; }
+        if ($this->deny() !== null) { return Response::forbidden()->noCache(); }
         $order = $this->db()->selectOne('SELECT payment_proof_path FROM order_header WHERE id = ?', [(int) $id]);
-        return $order === null ? Response::notFound() : RentalPaymentProof::response($order['payment_proof_path']);
+        return $order === null ? Response::notFound()->noCache() : RentalPaymentProof::response($order['payment_proof_path']);
     }
 
     public function reviewProof(Request $request, string $id): Response

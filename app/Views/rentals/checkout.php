@@ -67,6 +67,13 @@ $customer = is_array($customer ?? null) ? $customer : [];
               <div class="rentals-payment-instructions" data-payment-instructions="<?= (int) $method['id'] ?>" hidden>
                 <p class="rentals-card__meta">How to pay · <?= e((string) $method['name']) ?></p>
                 <?php if ($method['type'] === 'manual'): ?>
+                  <?php $qrPath = \App\Services\RentalManagedImage::publicPath($method['qr_image_path'] ?? null, 'qr'); if ($qrPath !== null): ?>
+                    <figure class="rentals-payment-instructions__qr" data-payment-qr-for="<?= (int) $method['id'] ?>">
+                      <img src="<?= e_attr(url('rentals/payment-qr/' . (int) $method['id'])) ?>" alt="<?= e_attr((string) $method['name']) ?> payment QR code" width="240" height="240" loading="lazy" decoding="async" data-payment-qr-inline>
+                      <figcaption>Scan to pay with <?= e((string) $method['name']) ?></figcaption>
+                      <p data-payment-qr-error role="status" hidden>QR image is temporarily unavailable. Use the account details below.</p>
+                    </figure>
+                  <?php endif ?>
                   <dl>
                     <?php if (trim((string) ($method['provider'] ?? '')) !== ''): ?><div><dt>Provider / bank</dt><dd><?= e((string) $method['provider']) ?></dd></div><?php endif ?>
                     <div><dt>Account name</dt><dd><?= e((string) $method['account_name']) ?></dd></div>
@@ -74,7 +81,7 @@ $customer = is_array($customer ?? null) ? $customer : [];
                     <div><dt>Amount to pay</dt><dd>₱<?= e(number_format((float) $summary['total'], 2)) ?></dd></div>
                   </dl>
                   <p>Send the amount to this account, then upload your proof of payment below.</p>
-                  <?php $qrPath = \App\Services\RentalManagedImage::publicPath($method['qr_image_path'] ?? null, 'qr'); if ($qrPath !== null): ?><button class="rentals-btn rentals-btn--dark" type="button" data-payment-qr-open data-qr-src="<?= e_attr(url('rentals/payment-qr/' . (int) $method['id'])) ?>" data-qr-name="<?= e_attr((string) $method['name']) ?>">View / Scan QR</button><?php endif ?>
+                  <?php if ($qrPath !== null): ?><button class="rentals-btn rentals-btn--dark" type="button" data-payment-qr-open data-qr-src="<?= e_attr(url('rentals/payment-qr/' . (int) $method['id'])) ?>" data-qr-name="<?= e_attr((string) $method['name']) ?>">View larger QR</button><?php endif ?>
                 <?php else: ?><p>Local test method only. No real payment is collected.</p><?php endif ?>
               </div>
             <?php endforeach ?>

@@ -275,4 +275,13 @@ final class RentalCatalog
         }
         return $path;
     }
+
+    /** Serve managed product images through Rentals, never the reserved /micro URL. */
+    public static function imageUrl(string $validPath): string
+    {
+        if (str_starts_with($validPath, 'micro/rentals/products/')) {
+            return url('rentals/product-image/' . basename($validPath));
+        }
+        return site_media($validPath) ?? '';
+    }
 }
