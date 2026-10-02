@@ -41,7 +41,6 @@ try {
     exit(1);
 }
 describeDirectory('Configured external storage root', $root);
-echo 'Storage root fingerprint: ' . \App\Services\RentalDiagnostic::fingerprint($root) . "\n";
 foreach (['rentals/products', 'payment', 'payment/qr'] as $relative) {
     $directory = $root . '/' . $relative;
     describeDirectory($relative, $directory);

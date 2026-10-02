@@ -88,10 +88,15 @@ final class SmtpMailer
             }
 
             $this->command('DATA', [354]);
-            $this->write($this->message($to, $cc, $subject, $body, $replyTo, $html) . "\r\n.\r\n");
-            $this->expect([250]);
-
-            $this->command('QUIT', [221]);
+            try {
+                $this->write($this->message($to, $cc, $subject, $body, $replyTo, $html) . "\r\n.\r\n");
+                $this->expect([250]);
+            } catch (RuntimeException $e) {
+                if (preg_match('/^[45][0-9]{2}(?:[ -]|$)/', $e->getMessage())) { throw $e; }
+                throw new SmtpDeliveryUncertain('SMTP acceptance could not be confirmed.');
+            }
+            // A failed QUIT does not undo the server's acknowledged acceptance.
+            try { $this->command('QUIT', [221]); } catch (RuntimeException $e) {}
         } finally {
             $this->close();
         }
@@ -209,8 +214,13 @@ final class SmtpMailer
 
     private function write(string $data): void
     {
-        if ($this->socket === null || fwrite($this->socket, $data) === false) {
-            throw new RuntimeException('SMTP write failed.');
+        if ($this->socket === null) { throw new RuntimeException('SMTP write failed.'); }
+        $offset = 0;
+        $length = strlen($data);
+        while ($offset < $length) {
+            $written = @fwrite($this->socket, substr($data, $offset));
+            if ($written === false || $written === 0) { throw new RuntimeException('SMTP write failed.'); }
+            $offset += $written;
         }
     }
 

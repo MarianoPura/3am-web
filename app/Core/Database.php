@@ -183,6 +183,12 @@ final class Database
     // Transactions (re-entrant via savepoints)
     // ─────────────────────────────────────────────────────────
 
+    /** Allows post-commit side effects to refuse delivery inside an open transaction. */
+    public function inTransaction(): bool
+    {
+        return $this->transactionDepth > 0;
+    }
+
     /**
      * Run a callback in a transaction, committing on success and rolling back
      * on any throwable. Nested calls use savepoints, so a model method that
@@ -328,10 +334,13 @@ final class Database
         } catch (PDOException $e) {
             // Keep database internals in logs even when a form catches a
             // RuntimeException and displays its message to the customer.
-            if (\App\Services\RentalDiagnostic::active()) {
-                \App\Services\RentalDiagnostic::exception('database', 'query', $e, ['db_operation' => 'failed']);
-            } elseif (!\App\Services\RentalDiagnostic::readOnly()) {
-                error_log(sprintf('Database query failed: %s — SQL: %s', $e->getMessage(), $sql));
+            $readOnly = defined('RENTALS_DIAGNOSTIC_READ_ONLY') && RENTALS_DIAGNOSTIC_READ_ONLY === true;
+            if (!$readOnly) {
+                if (preg_match('#(?:^|/)(?:rentals|micro)(?:/|$)#', (string) parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH)) === 1) {
+                    error_log('Rentals database request failed.');
+                } else {
+                    error_log(sprintf('Database query failed: %s — SQL: %s', $e->getMessage(), $sql));
+                }
             }
             throw new RuntimeException(
                 'A database request could not be completed. Please try again later.',

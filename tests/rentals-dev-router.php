@@ -12,6 +12,9 @@ if ($mount !== '' && $path !== $mount && !str_starts_with($path, $mount . '/')) 
 $relative = $mount === '' ? $path : substr($path, strlen($mount));
 $_ENV['APP_BASE_PATH'] = $mount;
 $_ENV['APP_ENV'] = 'testing';
+// Automated HTTP QA must never use credentials from the local .env to send mail.
+$_ENV['MAIL_ENABLED'] = 'false';
+$_ENV['APP_URL'] = 'http://127.0.0.1:' . (int) ($_SERVER['SERVER_PORT'] ?? 8000);
 $_ENV['APP_DEBUG'] = 'false';
 $_ENV['FORCE_HTTPS'] = 'false';
 $_SERVER['SCRIPT_NAME'] = $mount . '/index.php';
