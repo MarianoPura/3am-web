@@ -48,33 +48,33 @@ $this->start('content');
     <!-- Page heading -->
     <div class="analytics-page__heading">
       <div>
-        <p class="analytics-kicker">3AM Digital Media / Meta Pixel</p>
-        <h1>Dashboard</h1>
+        <p class="analytics-kicker">3AM Digital Media / Website Tracking</p>
+        <h1>Analytics Dashboard</h1>
       </div>
-      <p>Overview of all tracked events and visitor sessions.</p>
+      <p>Overview of all tracked visitor actions and website sessions.</p>
     </div>
 
     <!-- Stat cards -->
     <div class="analytics__metrics">
       <div class="analytics__metric">
-        <p>Total Events</p>
+        <p>Total Actions Tracked</p>
         <strong><?= number_format($totalEvents) ?></strong>
-        <small>All time</small>
+        <small>All time &mdash; every click, view &amp; interaction</small>
       </div>
       <div class="analytics__metric">
-        <p>Total Sessions</p>
+        <p>Total Visitors</p>
         <strong><?= number_format($totalVisits) ?></strong>
-        <small>Unique visits recorded</small>
+        <small>Unique browsing sessions recorded</small>
       </div>
       <div class="analytics__metric analytics__metric--feature">
-        <p>Today's Events</p>
+        <p>Actions Today</p>
         <strong><?= number_format($todayEvents) ?></strong>
-        <small>Since midnight (Manila time)</small>
+        <small>Since midnight &mdash; Manila time</small>
       </div>
       <div class="analytics__metric">
-        <p>Today's Sessions</p>
+        <p>Visitors Today</p>
         <strong><?= number_format($todayVisits) ?></strong>
-        <small>New visits today</small>
+        <small>New sessions started today</small>
       </div>
     </div>
 
@@ -83,35 +83,35 @@ $this->start('content');
       <!-- Events over 14 days -->
       <div class="analytics__panel">
         <div class="analytics__panel-heading">
-          <p class="analytics-kicker" style="margin:0">Events</p>
+          <p class="analytics-kicker" style="margin:0">Actions Tracked</p>
           <h2>Last 14 Days</h2>
         </div>
-        <div class="analytics__chart-bars" role="img" aria-label="Events bar chart, last 14 days">
+        <div class="analytics__chart-bars" role="img" aria-label="Tracked actions bar chart, last 14 days">
           <?php foreach ($eventsChart as $day => $count): ?>
-          <div title="<?= e(date('M j', strtotime($day))) ?>: <?= (int)$count ?> events">
+          <div title="<?= e(date('M j', strtotime($day))) ?>: <?= (int)$count ?> actions">
             <span style="height:<?= round(($count / $maxEvt) * 100) ?>%"></span>
             <small><?= e(date('M j', strtotime($day))) ?></small>
           </div>
           <?php endforeach ?>
         </div>
-        <p class="analytics__chart-caption">Each bar = one calendar day</p>
+        <p class="analytics__chart-caption">Each bar represents one day. Hover for exact count.</p>
       </div>
 
       <!-- Sessions over 14 days -->
       <div class="analytics__panel">
         <div class="analytics__panel-heading">
-          <p class="analytics-kicker" style="margin:0">Sessions</p>
+          <p class="analytics-kicker" style="margin:0">Visitor Sessions</p>
           <h2>Last 14 Days</h2>
         </div>
-        <div class="analytics__chart-bars" role="img" aria-label="Sessions bar chart, last 14 days">
+        <div class="analytics__chart-bars" role="img" aria-label="Visitor sessions bar chart, last 14 days">
           <?php foreach ($visitsChart as $day => $count): ?>
-          <div title="<?= e(date('M j', strtotime($day))) ?>: <?= (int)$count ?> sessions">
+          <div title="<?= e(date('M j', strtotime($day))) ?>: <?= (int)$count ?> visitors">
             <span style="height:<?= round(($count / $maxVis) * 100) ?>%;background:var(--c-signal)"></span>
             <small><?= e(date('M j', strtotime($day))) ?></small>
           </div>
           <?php endforeach ?>
         </div>
-        <p class="analytics__chart-caption">Each bar = one calendar day</p>
+        <p class="analytics__chart-caption">Each bar represents one day. Hover for exact count.</p>
       </div>
     </div>
 
@@ -120,7 +120,7 @@ $this->start('content');
       <!-- Events by type -->
       <div class="analytics__panel">
         <div class="analytics__panel-heading">
-          <h2>Events by Type</h2>
+          <h2>Actions by Type</h2>
         </div>
         <?php if (empty($eventsByType)): ?>
           <p class="analytics__empty">No events recorded yet.</p>
@@ -128,7 +128,28 @@ $this->start('content');
           <div class="analytics__rank-bars">
             <?php foreach ($eventsByType as $et): ?>
             <div>
-              <span class="analytics__badge <?= e(analyticsEventBadgeClass($et['event_name'])) ?>"><?= e($et['event_name']) ?></span>
+              <span class="analytics__badge <?= e(analyticsEventBadgeClass($et['event_name'])) ?>" title="Raw: <?= e_attr($et['event_name']) ?>">
+                <?php
+                  // Inline label helper (avoids duplicate function if dashboard loaded alone)
+                  $evtLbl = match($et['event_name']) {
+                    'PageView'         => 'Page View',
+                    'ViewContent'      => 'Content Viewed',
+                    'Lead'             => 'Lead Captured',
+                    'Contact'          => 'Contact Submitted',
+                    'Purchase'         => 'Purchase',
+                    'form_start'       => 'Form Started',
+                    'form_field_focus' => 'Form Field Focused',
+                    'scrolldepth'      => 'Scroll Depth',
+                    'cta_click'        => 'Button Clicked',
+                    'video_25'         => 'Video 25%',
+                    'video_50'         => 'Video 50%',
+                    'video_75'         => 'Video 75%',
+                    'Video_Complete'   => 'Video Complete',
+                    default            => ucfirst(str_replace(['_','-'],' ',$et['event_name'])),
+                  };
+                  echo e($evtLbl);
+                ?>
+              </span>
               <div><i style="width:<?= round(((int)$et['total'] / $etMax) * 100) ?>%"></i></div>
               <strong><?= number_format((int)$et['total']) ?></strong>
             </div>
@@ -143,7 +164,7 @@ $this->start('content');
           <h2>Traffic Sources</h2>
         </div>
         <?php if (empty($utmSources)): ?>
-          <p class="analytics__empty">No UTM data recorded yet.</p>
+          <p class="analytics__empty">No traffic source data recorded yet.</p>
         <?php else: ?>
           <div class="analytics__rank-bars">
             <?php foreach ($utmSources as $utm): ?>
@@ -161,8 +182,11 @@ $this->start('content');
     <!-- Recent events -->
     <div class="analytics__panel" style="margin-top:1rem">
       <div class="analytics__panel-heading">
-        <h2>Recent Events</h2>
-        <a href="<?= e_attr(url('analytics/events')) ?>">View all events →</a>
+        <div>
+          <h2>Recent Activity</h2>
+          <p class="analytics__panel-sub">The 10 most recent actions recorded on the website.</p>
+        </div>
+        <a href="<?= e_attr(url('analytics/events')) ?>">View all events &rarr;</a>
       </div>
       <?php if (empty($recentEvents)): ?>
         <p class="analytics__empty">No events recorded yet.</p>
@@ -171,23 +195,53 @@ $this->start('content');
           <table class="analytics__table">
             <thead>
               <tr>
-                <th>Event</th>
-                <th>Source</th>
-                <th>IP Address</th>
-                <th>UTM Source</th>
+                <th>Action / Event</th>
+                <th>Triggered From</th>
+                <th>Visitor IP</th>
+                <th>Traffic Source</th>
                 <th>Campaign</th>
-                <th>Time</th>
+                <th>Date &amp; Time</th>
               </tr>
             </thead>
             <tbody>
               <?php foreach ($recentEvents as $ev): ?>
+              <?php
+                $rawName   = (string)($ev['event_name'] ?? '');
+                $rawSource = (string)($ev['event_source'] ?? 'browser');
+                $evtLbl = match($rawName) {
+                  'PageView'         => 'Page View',
+                  'ViewContent'      => 'Content Viewed',
+                  'Lead'             => 'Lead Captured',
+                  'Contact'          => 'Contact Submitted',
+                  'Purchase'         => 'Purchase',
+                  'form_start'       => 'Form Started',
+                  'form_field_focus' => 'Form Field Focused',
+                  'scrolldepth'      => 'Scroll Depth',
+                  'cta_click'        => 'Button Clicked',
+                  'video_25'         => 'Video 25%',
+                  'video_50'         => 'Video 50%',
+                  'video_75'         => 'Video 75%',
+                  'Video_Complete'   => 'Video Complete',
+                  default            => ucfirst(str_replace(['_','-'],' ',$rawName)),
+                };
+                $srcLbl = match(strtolower($rawSource)) {
+                  'browser' => 'Website',
+                  'server'  => 'Server',
+                  'pixel'   => 'Meta Pixel',
+                  default   => ucfirst($rawSource),
+                };
+              ?>
               <tr>
-                <td><span class="analytics__badge <?= e(analyticsEventBadgeClass($ev['event_name'])) ?>"><?= e($ev['event_name']) ?></span></td>
-                <td class="mono"><?= e((string)($ev['event_source'] ?? 'browser')) ?></td>
+                <td>
+                  <span class="analytics__badge <?= e(analyticsEventBadgeClass($rawName)) ?>" title="Raw: <?= e_attr($rawName) ?>">
+                    <?= e($evtLbl) ?>
+                  </span>
+                </td>
+                <td><?= e($srcLbl) ?></td>
                 <td class="mono"><?= e((string)($ev['ip_address'] ?? '—')) ?></td>
-                <td><?= e((string)($ev['utm_source'] ?? '—')) ?></td>
-                <td><?= e((string)($ev['utm_campaign'] ?? '—')) ?></td>
-                <td class="mono" style="white-space:nowrap"><?= e(substr((string)($ev['occurred_at'] ?? ''), 0, 16)) ?></td>
+                <td><?= e($ev['utm_source'] !== '' && $ev['utm_source'] !== null ? (string)$ev['utm_source'] : '—') ?></td>
+                <td><?= e($ev['utm_campaign'] !== '' && $ev['utm_campaign'] !== null ? (string)$ev['utm_campaign'] : '—') ?></td>
+                <td class="mono" style="white-space:nowrap"><?= e((string)($ev['occurred_at'] ?? '—')) ?></td>
               </tr>
               <?php endforeach ?>
             </tbody>
