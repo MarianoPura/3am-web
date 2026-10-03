@@ -484,6 +484,55 @@
   font-size: .8rem;
 }
 
+/* Panel subtitle line */
+.analytics__panel-sub {
+  font-size: .8rem;
+  color: var(--fg-muted);
+  margin: .15rem 0 0;
+  font-weight: 400;
+}
+
+/* Event data key-value chip layout */
+.analytics__data-pairs {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: .4rem;
+  align-items: center;
+}
+.analytics__data-key {
+  font-size: .68rem;
+  font-weight: 600;
+  color: var(--fg-muted);
+  text-transform: uppercase;
+  letter-spacing: .03em;
+  white-space: nowrap;
+}
+.analytics__data-val {
+  font-size: .75rem;
+  font-family: var(--f-mono);
+  color: var(--c-ink);
+  background: var(--c-cloud);
+  padding: .1rem .35rem;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+.analytics__data-pairs .analytics__data-key::after {
+  content: ':';
+}
+
+/* Actions count badge in visitors table */
+.analytics__count-badge {
+  display: inline-block;
+  padding: .2rem .55rem;
+  background: var(--c-cloud);
+  border-top: 2px solid var(--c-tally);
+  font-size: .78rem;
+  font-weight: 700;
+  color: var(--c-ink);
+  border-radius: 2px;
+  white-space: nowrap;
+}
+
 /* ── Filters ───────────────────────────────────────────────── */
 .analytics__filter {
   display: grid;

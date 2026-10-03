@@ -15,6 +15,58 @@
 $this->extend('analytics.layout');
 $this->start('title'); echo 'Events'; $this->end();
 
+/** Human-readable label for a raw event name. */
+function analyticsEvtLabel(string $name): string {
+    return match($name) {
+        'PageView'         => 'Page View',
+        'ViewContent'      => 'Content Viewed',
+        'Lead'             => 'Lead Captured',
+        'Contact'          => 'Contact Form Submitted',
+        'Purchase'         => 'Purchase Completed',
+        'form_start'       => 'Form Started',
+        'form_field_focus' => 'Form Field Focused',
+        'scrolldepth'      => 'Scroll Depth Reached',
+        'cta_click'        => 'Button Clicked',
+        'video_25'         => 'Video — 25% Watched',
+        'video_50'         => 'Video — 50% Watched',
+        'video_75'         => 'Video — 75% Watched',
+        'Video_Complete'   => 'Video Fully Watched',
+        default            => ucfirst(str_replace(['_', '-'], ' ', $name)),
+    };
+}
+
+/** Human-readable label for an event trigger source. */
+function analyticsSourceLabel(string $src): string {
+    return match(strtolower(trim($src))) {
+        'browser' => 'Website (Browser)',
+        'server'  => 'Server',
+        'pixel'   => 'Meta Pixel',
+        'api'     => 'API',
+        default   => ucfirst($src),
+    };
+}
+
+/** Human-readable label for an event_data JSON key. */
+function analyticsDataKey(string $key): string {
+    return match(strtolower($key)) {
+        'depth'        => 'Scroll Depth',
+        'percent'      => 'Percentage',
+        'field'        => 'Field',
+        'field_name'   => 'Field Name',
+        'duration'     => 'Duration (s)',
+        'page'         => 'Page',
+        'url'          => 'URL',
+        'label'        => 'Label',
+        'value'        => 'Value',
+        'title'        => 'Page Title',
+        'content_name' => 'Content Name',
+        'button'       => 'Button',
+        'text'         => 'Button Text',
+        default        => ucfirst(str_replace(['_', '-'], ' ', $key)),
+    };
+}
+
+/** Badge CSS class for an event type. */
 function analyticsEvtBadge(string $name): string {
     if ($name === 'Video_Complete' || str_starts_with($name, 'video')) return 'analytics__badge--video';
     if (str_starts_with($name, 'form')) return 'analytics__badge--form';
@@ -36,31 +88,31 @@ $this->start('content');
 
     <div class="analytics-page__heading">
       <div>
-        <p class="analytics-kicker">3AM Digital Media / Meta Pixel</p>
-        <h1>Events</h1>
+        <p class="analytics-kicker">3AM Digital Media / Website Tracking</p>
+        <h1>Tracked Events</h1>
       </div>
-      <p><?= number_format($totalCount) ?> total events tracked</p>
+      <p><?= number_format($totalCount) ?> total actions recorded</p>
     </div>
 
     <!-- Filters -->
     <form method="GET" action="<?= e_attr(url('analytics/events')) ?>">
       <div class="analytics__filter">
         <label>
-          Event Type
+          Filter by Action Type
           <select name="event">
-            <option value="">All events</option>
+            <option value="">All actions</option>
             <?php foreach ($eventNames as $en): ?>
-            <option value="<?= e_attr($en['event_name']) ?>"<?= $filterEvent === $en['event_name'] ? ' selected' : '' ?>><?= e($en['event_name']) ?></option>
+            <option value="<?= e_attr($en['event_name']) ?>"<?= $filterEvent === $en['event_name'] ? ' selected' : '' ?>><?= e(analyticsEvtLabel($en['event_name'])) ?></option>
             <?php endforeach ?>
           </select>
         </label>
         <label>
-          Date
+          Filter by Date
           <input type="date" name="date" value="<?= e_attr($filterDate) ?>" max="<?= date('Y-m-d') ?>">
         </label>
-        <button type="submit" class="analytics-btn analytics-btn--primary" style="align-self:end">Apply</button>
+        <button type="submit" class="analytics-btn analytics-btn--primary" style="align-self:end">Apply Filter</button>
         <?php if ($filterEvent !== '' || $filterDate !== ''): ?>
-        <a href="<?= e_attr(url('analytics/events')) ?>" class="analytics-btn analytics-btn--ghost" style="align-self:end">Clear</a>
+        <a href="<?= e_attr(url('analytics/events')) ?>" class="analytics-btn analytics-btn--ghost" style="align-self:end">Clear Filter</a>
         <?php endif ?>
       </div>
     </form>
@@ -68,37 +120,55 @@ $this->start('content');
     <!-- Table panel -->
     <div class="analytics__panel">
       <div class="analytics__panel-heading">
-        <h2>Event Records</h2>
+        <div>
+          <h2>Event Log</h2>
+          <p class="analytics__panel-sub">Every visitor interaction captured on the website — page views, form activity, video engagement, and button clicks.</p>
+        </div>
       </div>
 
       <?php if (empty($events)): ?>
-        <p class="analytics__empty">No events found matching your filters.</p>
+        <p class="analytics__empty">No events found for the selected filters. Try adjusting the date or action type.</p>
       <?php else: ?>
         <div class="analytics__table-wrap">
           <table class="analytics__table">
             <thead>
               <tr>
-                <th>#</th>
-                <th>Event</th>
-                <th>Source</th>
-                <th>Session ID</th>
-                <th>IP Address</th>
-                <th>UTM Source</th>
+                <th title="Record ID">#</th>
+                <th>Action / Event</th>
+                <th>Triggered From</th>
+                <th>Visitor Session</th>
+                <th>Visitor IP</th>
+                <th>Traffic Source</th>
                 <th>Campaign</th>
-                <th>Event Data</th>
-                <th>Occurred At</th>
+                <th>Additional Details</th>
+                <th>Date &amp; Time</th>
               </tr>
             </thead>
             <tbody>
               <?php foreach ($events as $ev): ?>
+              <?php
+                $rawName   = (string)($ev['event_name'] ?? '');
+                $rawSource = (string)($ev['event_source'] ?? 'browser');
+                $sessionId = (string)($ev['session_id'] ?? '');
+              ?>
               <tr>
                 <td class="mono"><?= (int)$ev['id'] ?></td>
-                <td><span class="analytics__badge <?= e(analyticsEvtBadge($ev['event_name'])) ?>"><?= e($ev['event_name']) ?></span></td>
-                <td class="mono"><?= e((string)($ev['event_source'] ?? 'browser')) ?></td>
-                <td class="mono" style="white-space:nowrap"><?= e((string)($ev['session_id'] ?? '—')) ?></td>
+                <td>
+                  <span class="analytics__badge <?= e(analyticsEvtBadge($rawName)) ?>" title="Raw event name: <?= e_attr($rawName) ?>">
+                    <?= e(analyticsEvtLabel($rawName)) ?>
+                  </span>
+                </td>
+                <td><?= e(analyticsSourceLabel($rawSource)) ?></td>
+                <td class="mono" style="white-space:nowrap;font-size:.72rem" title="Full session ID: <?= e_attr($sessionId) ?>">
+                  <?php if ($sessionId !== ''): ?>
+                    <span style="opacity:.5">…</span><?= e(substr($sessionId, -10)) ?>
+                  <?php else: ?>
+                    <span class="analytics__empty-cell">—</span>
+                  <?php endif ?>
+                </td>
                 <td class="mono" style="white-space:nowrap"><?= e((string)($ev['ip_address'] ?? '—')) ?></td>
-                <td style="white-space:nowrap"><?= e((string)($ev['utm_source'] ?? '—')) ?></td>
-                <td style="white-space:nowrap"><?= e((string)($ev['utm_campaign'] ?? '—')) ?></td>
+                <td style="white-space:nowrap"><?= e($ev['utm_source'] !== '' && $ev['utm_source'] !== null ? (string)$ev['utm_source'] : '—') ?></td>
+                <td style="white-space:nowrap"><?= e($ev['utm_campaign'] !== '' && $ev['utm_campaign'] !== null ? (string)$ev['utm_campaign'] : '—') ?></td>
                 <td>
                   <?php
                     $rawData = $ev['event_data'] ?? null;
@@ -107,9 +177,10 @@ $this->start('content');
                         if (is_array($decoded) && !empty($decoded)) {
                             $parts = [];
                             foreach ($decoded as $k => $v) {
-                                $parts[] = '<strong>' . e((string)$k) . '</strong>:' . e((string)$v);
+                                $parts[] = '<span class="analytics__data-key">' . e(analyticsDataKey((string)$k)) . '</span>'
+                                         . '<span class="analytics__data-val">' . e((string)$v) . '</span>';
                             }
-                            echo '<span class="mono" style="font-size:.7rem;line-height:1.6;white-space:nowrap">' . implode(' &nbsp;&nbsp; ', $parts) . '</span>';
+                            echo '<span class="analytics__data-pairs">' . implode('', $parts) . '</span>';
                         } else {
                             echo '<span class="analytics__empty-cell">—</span>';
                         }
@@ -127,7 +198,7 @@ $this->start('content');
 
         <!-- Pagination -->
         <div class="analytics__pagination">
-          <span class="analytics__pagination-info"><?= number_format($totalCount) ?> records &middot; page <?= $page ?> of <?= $totalPages ?></span>
+          <span class="analytics__pagination-info"><?= number_format($totalCount) ?> actions &middot; page <?= $page ?> of <?= $totalPages ?></span>
           <?php if ($page > 1): ?>
             <a href="<?= e_attr(analyticsPageLink($page - 1, $filterEvent, $filterDate)) ?>">‹ Prev</a>
           <?php endif ?>

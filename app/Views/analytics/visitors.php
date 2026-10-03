@@ -23,34 +23,37 @@ $this->start('content');
 
     <div class="analytics-page__heading">
       <div>
-        <p class="analytics-kicker">3AM Digital Media / Meta Pixel</p>
-        <h1>Visitors</h1>
+        <p class="analytics-kicker">3AM Digital Media / Website Tracking</p>
+        <h1>Website Visitors</h1>
       </div>
-      <p><?= number_format($totalCount) ?> total sessions recorded</p>
+      <p><?= number_format($totalCount) ?> unique visitor sessions recorded</p>
     </div>
 
     <div class="analytics__panel">
       <div class="analytics__panel-heading">
-        <h2>Session Records</h2>
+        <div>
+          <h2>Visitor Sessions</h2>
+          <p class="analytics__panel-sub">Each row represents one browsing session. A visitor may appear multiple times if they return to the website.</p>
+        </div>
       </div>
 
       <?php if (empty($visitors)): ?>
-        <p class="analytics__empty">No sessions recorded yet.</p>
+        <p class="analytics__empty">No visitor sessions recorded yet.</p>
       <?php else: ?>
         <div class="analytics__table-wrap">
           <table class="analytics__table">
             <thead>
               <tr>
-                <th>#</th>
-                <th>IP Address</th>
-                <th>UTM Source</th>
-                <th>UTM Medium</th>
-                <th>UTM Campaign</th>
-                <th>fbp</th>
-                <th>fbc</th>
-                <th>Events</th>
-                <th>First Seen</th>
-                <th>Last Seen</th>
+                <th title="Record ID">#</th>
+                <th>Visitor IP</th>
+                <th>Traffic Source <small style="font-weight:400;opacity:.6">(utm_source)</small></th>
+                <th>Channel <small style="font-weight:400;opacity:.6">(utm_medium)</small></th>
+                <th>Campaign <small style="font-weight:400;opacity:.6">(utm_campaign)</small></th>
+                <th title="Facebook Browser ID — identifies the browser across visits">FB Browser ID <small style="font-weight:400;opacity:.6">(fbp)</small></th>
+                <th title="Facebook Click ID — set when the visitor arrived via a Meta ad click">FB Ad Click ID <small style="font-weight:400;opacity:.6">(fbc)</small></th>
+                <th>Actions</th>
+                <th>First Visit</th>
+                <th>Last Visit</th>
               </tr>
             </thead>
             <tbody>
@@ -58,20 +61,20 @@ $this->start('content');
               <tr>
                 <td class="mono"><?= (int)$v['id'] ?></td>
                 <td class="mono" style="white-space:nowrap"><?= e((string)($v['ip_address'] ?? '—')) ?></td>
-                <td style="white-space:nowrap"><?= e((string)($v['utm_source'] ?? '—')) ?></td>
-                <td style="white-space:nowrap"><?= e((string)($v['utm_medium'] ?? '—')) ?></td>
-                <td style="white-space:nowrap"><?= e((string)($v['utm_campaign'] ?? '—')) ?></td>
-                <td class="mono" style="white-space:nowrap">
+                <td style="white-space:nowrap"><?= e($v['utm_source'] !== '' && $v['utm_source'] !== null ? (string)$v['utm_source'] : '—') ?></td>
+                <td style="white-space:nowrap"><?= e($v['utm_medium'] !== '' && $v['utm_medium'] !== null ? (string)$v['utm_medium'] : '—') ?></td>
+                <td style="white-space:nowrap"><?= e($v['utm_campaign'] !== '' && $v['utm_campaign'] !== null ? (string)$v['utm_campaign'] : '—') ?></td>
+                <td class="mono" style="white-space:nowrap;font-size:.72rem">
                   <?php $fbp = (string)($v['fbp'] ?? '');
-                  echo $fbp !== '' ? e($fbp) : '—' ?>
+                  echo $fbp !== '' ? e($fbp) : '<span class="analytics__empty-cell">—</span>' ?>
                 </td>
-                <td class="mono" style="white-space:nowrap">
+                <td class="mono" style="white-space:nowrap;font-size:.72rem">
                   <?php $fbc = (string)($v['fbc'] ?? '');
-                  echo $fbc !== '' ? e($fbc) : '—' ?>
+                  echo $fbc !== '' ? e($fbc) : '<span class="analytics__empty-cell">—</span>' ?>
                 </td>
                 <td>
                   <?php $cnt = (int)($v['event_count'] ?? 0); ?>
-                  <span style="display:inline-block;padding:.25rem .5rem;border-top:2px solid var(--c-tally);background:var(--c-cloud);font:800 .8rem/1 var(--f-display);color:var(--c-ink)"><?= $cnt ?></span>
+                  <span class="analytics__count-badge"><?= $cnt ?> action<?= $cnt !== 1 ? 's' : '' ?></span>
                 </td>
                 <td class="mono" style="white-space:nowrap"><?= e((string)($v['first_seen_at'] ?? '—')) ?></td>
                 <td class="mono" style="white-space:nowrap"><?= e((string)($v['last_seen_at'] ?? '—')) ?></td>
