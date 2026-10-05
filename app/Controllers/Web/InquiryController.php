@@ -151,7 +151,18 @@ final class InquiryController extends Controller
         }
 
         // ── Capture ───────────────────────────────────────────────────────
-        $store = $this->container->get(InquiryStore::class);
+        $store    = $this->container->get(InquiryStore::class);
+        $tracking = $this->container->get(\App\Services\TrackingService::class);
+
+        // If the user visited manually without an FB ID, a visit session was not
+        // recorded on page load. Now that the inquiry is submitted, record their details
+        // into landing_page_visits so they appear in both the inquiry and visitor page.
+        $visitId = $request->input('visit_id') ?: ($tracking->currentVisitId() ?? null);
+        if ($visitId === null || (int) $visitId <= 0) {
+            $visitId = $tracking->recordVisit($request, [
+                'landing_page' => $path,
+            ]);
+        }
 
         try {
             $reference = $store->capture([
@@ -165,7 +176,7 @@ final class InquiryController extends Controller
                 'ip'               => $request->ip(),
                 'user_agent'       => $request->userAgent(),
                 'attribution'      => $this->attribution($request, $path),
-                'visit_id'         => $request->input('visit_id') ?: null,
+                'visit_id'         => $visitId,
                 'lead_event_id'    => $request->input('lead_event_id') ?: null,
                 'contact_event_id' => $request->input('contact_event_id') ?: null,
             ]);
@@ -185,6 +196,7 @@ final class InquiryController extends Controller
                 'ok'        => true,
                 'success'   => true,
                 'reference' => $reference,
+                'visit_id'  => $visitId,
             ]);
         }
 

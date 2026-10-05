@@ -48,6 +48,7 @@ $hero   = $landing['hero'];
      data-pixel-id="<?= e_attr($landing['meta_pixel_id']) ?>"
      data-content-name="<?= e_attr($hero['kicker']) ?>"
      data-visit-id="<?= e_attr((string) ($visit_id ?? '')) ?>"
+     data-has-fb-id="<?= !empty($has_fb_id) ? '1' : '0' ?>"
      data-csrf-token="<?= e_attr(csrf_token()) ?>"
      data-track-url="<?= e_attr(url('/track-event')) ?>"></div>
 

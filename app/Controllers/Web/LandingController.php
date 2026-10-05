@@ -30,11 +30,19 @@ final class LandingController extends Controller
         $landingConfig = (array) config('landing');
         $formConfig    = (array) config('forms.quote');
 
-        // Record or resume visitor in landing_page_visits
+        /** @var \App\Services\TrackingService $tracking */
         $tracking = $this->container->get(\App\Services\TrackingService::class);
-        $visitId  = $tracking->recordVisit($request, [
-            'landing_page' => $request->path(),
-        ]);
+        $hasFbId  = $tracking->hasFbId($request);
+        $visitId  = null;
+
+        // If the user visited manually by entering the URL or without any FB ID,
+        // do not record a visit session or track movements on load.
+        // Only record the visit upfront if the visitor arrived with an FB ID.
+        if ($hasFbId) {
+            $visitId = $tracking->recordVisit($request, [
+                'landing_page' => $request->path(),
+            ]);
+        }
 
         return $this->render('pages.landing', [
             'landing'      => $landingConfig,
@@ -46,6 +54,7 @@ final class LandingController extends Controller
             'proof'        => config('app.proof'),
             'video'        => $this->resolveVideo((string) ($landingConfig['video_url'] ?? '')),
             'visit_id'     => $visitId,
+            'has_fb_id'    => $hasFbId,
         ])->noCache();
     }
 
