@@ -46,7 +46,10 @@ try {
         if (in_array($role, ['admin', 'superadmin'], true)) {
             [$status, $dashboard] = $http('/rentals/admin');
             $assert($status === 200 && !str_contains($dashboard, 'Email Notifications')
-                && !str_contains($dashboard, '/admin/email') && !str_contains($dashboard, 'lilbeemail88@gmail.com'), 'Admin header still exposes mail configuration.');
+                && !str_contains($dashboard, '/admin/email'), 'Admin header still exposes mail configuration.');
+            foreach (array_merge([config('rentals-mail.owner')], config('rentals-mail.cc')) as $address) {
+                $assert(!str_contains($dashboard, $address), 'Admin header exposes a fixed mail recipient.');
+            }
         }
         $http('/rentals/logout', ['_token' => $csrf]);
     }
