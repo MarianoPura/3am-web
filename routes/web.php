@@ -48,6 +48,8 @@ $router->get('/rentals/order-status/{token:slug}', [\App\Controllers\Rentals\Ren
 $router->get('/rentals/account', [\App\Controllers\Rentals\RentalAccountController::class, 'show'])->name('rentals.account');
 $router->post('/rentals/account', [\App\Controllers\Rentals\RentalAccountController::class, 'submit'])->name('rentals.account.submit');
 $router->post('/rentals/logout', [\App\Controllers\Rentals\RentalAccountController::class, 'logout'])->name('rentals.logout');
+$router->get('/rentals/account/settings', [\App\Controllers\Rentals\RentalAccountController::class, 'showSettings'])->name('rentals.account.settings');
+$router->post('/rentals/account/settings', [\App\Controllers\Rentals\RentalAccountController::class, 'submitSettings'])->name('rentals.account.settings.submit');
 $router->get('/rentals/orders', [\App\Controllers\Rentals\RentalAccountController::class, 'orders'])->name('rentals.orders');
 $router->post('/rentals/orders/{id:int}/proof', [\App\Controllers\Rentals\RentalAccountController::class, 'uploadProof'])->name('rentals.orders.proof');
 $router->get('/rentals/orders/{id:int}/proof', [\App\Controllers\Rentals\RentalAccountController::class, 'viewProof'])->name('rentals.orders.proof.view');

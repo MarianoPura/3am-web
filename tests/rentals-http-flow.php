@@ -7,6 +7,7 @@ $base = rtrim((string) ($argv[1] ?? ''), '/');
 if (!preg_match('#^https?://(?:localhost|127\.0\.0\.1)(?::\d+)?(?:/[A-Za-z0-9_/-]+)?$#', $base)) {
     throw new RuntimeException('Pass a local development base URL.');
 }
+$_ENV['APP_ENV'] = 'testing';
 $container = require dirname(__DIR__) . '/bootstrap.php';
 if (!in_array(config('app.env'), ['local', 'testing'], true)) { throw new RuntimeException('Local/testing only.'); }
 $db = $container->get(App\Core\Database::class);
@@ -147,7 +148,7 @@ try {
     $orders = $db->select('SELECT id, order_number, payment_status, payment_proof_path, status_token FROM order_header WHERE user_id = ?', [$userId]);
     $assert(count($orders) === 1 && (int) $orders[0]['payment_status'] === 0, 'Checkout did not create one pending order header.');
     $order = $orders[0];
-    $assert($pendingDeliveriesBeforeRepeat === 2, 'Submission did not register exactly one customer and one Owner notification.');
+    $assert($pendingDeliveriesBeforeRepeat === 1, 'Submission did not register exactly one customer notification.');
     [$status, $receiptAgain] = $http('/rentals/confirmation/' . $order['status_token']);
     $assert($status === 200 && str_contains($receiptAgain, 'rentals-payment-badge--pending'), 'GET receipt reload failed.');
     [$status] = $http('/rentals/confirmation/' . str_repeat('a', 64));

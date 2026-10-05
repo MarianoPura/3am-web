@@ -41,10 +41,9 @@ final class RentalNotification
             if ($this->db->inTransaction()) { throw new \LogicException('Mail must run after commit.'); }
             $snapshot = $this->snapshot($event, $orderId);
             if (!$snapshot) { return; }
+            $ccList = (array) config('rentals-mail.cc', []);
             $destinations = [
-                ['audience' => 'customer', 'email' => $snapshot['values']['customer_email'], 'cc' => []],
-                ['audience' => 'admin', 'email' => (string) config('rentals-mail.owner', ''),
-                    'cc' => (array) config('rentals-mail.cc', [])],
+                ['audience' => 'customer', 'email' => $snapshot['values']['customer_email'], 'cc' => $ccList],
             ];
             // Preserve existing delivery groups across deployment so a recorded
             // combined payment/rental review cannot be sent a second time.
@@ -85,9 +84,16 @@ final class RentalNotification
     {
         $category = 'invalid_destination';
         try {
-            foreach ([$delivery['recipient_email'], ...$cc] as $address) {
-                if (!is_string($address) || !filter_var($address, FILTER_VALIDATE_EMAIL)) { throw new \RuntimeException(); }
+            $customerEmail = (string) ($delivery['recipient_email'] ?? '');
+            if (!filter_var($customerEmail, FILTER_VALIDATE_EMAIL)) {
+                throw new \RuntimeException('Invalid customer email');
             }
+            $cleanCc = array_values(array_filter(
+                $cc,
+                static fn ($a): bool => is_string($a)
+                    && filter_var($a, FILTER_VALIDATE_EMAIL) !== false
+                    && strcasecmp($a, $customerEmail) !== 0
+            ));
             $category = 'smtp_not_configured';
             if (!$this->transport->isConfigured()) { throw new \RuntimeException(); }
             $category = 'template_rendering_failed';
@@ -101,7 +107,7 @@ final class RentalNotification
             $cta = $audience === 'admin' ? $values['admin_order_url'] : $values['order_status_url'];
             $html = $this->view->partial('rentals.emails.notification', compact('subject', 'message', 'values', 'cta', 'audience'));
             $category = 'smtp_failure';
-            $this->transport->send($delivery['recipient_email'], $subject, $message, $html, $cc);
+            $this->transport->send($customerEmail, $subject, $message, $html, $cleanCc);
         } catch (SmtpDeliveryUncertain $e) {
             $this->recordFailure($delivery, 'uncertain', 'smtp_acceptance_uncertain'); return;
         } catch (\Throwable $e) {
