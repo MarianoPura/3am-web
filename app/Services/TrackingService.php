@@ -159,6 +159,18 @@ final class TrackingService
     }
 
     /**
+     * Determine if the request contains any Facebook identifiers (fbclid, _fbc, _fbp).
+     */
+    public function hasFbId(Request $request, array $extra = []): bool
+    {
+        $fbclid = $this->cleanStr($request->input('fbclid') ?? $extra['fbclid'] ?? null, 255);
+        $fbc    = $this->cleanStr($_COOKIE['_fbc'] ?? $request->input('fbc') ?? $extra['fbc'] ?? null, 255);
+        $fbp    = $this->cleanStr($_COOKIE['_fbp'] ?? $request->input('fbp') ?? $extra['fbp'] ?? null, 255);
+
+        return $fbclid !== null || $fbc !== null || $fbp !== null;
+    }
+
+    /**
      * Retrieve the active visit ID from session.
      */
     public function currentVisitId(): ?int

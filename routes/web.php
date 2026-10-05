@@ -123,6 +123,7 @@ $router->post('/analytics/logout',[AnalyticsController::class, 'logout'])->name(
 $router->get('/analytics',        [AnalyticsController::class, 'dashboard'])->name('analytics.dashboard');
 $router->get('/analytics/events', [AnalyticsController::class, 'events'])->name('analytics.events');
 $router->get('/analytics/visitors',[AnalyticsController::class, 'visitors'])->name('analytics.visitors');
+$router->get('/analytics/visitors/{visitId:int}/events', [AnalyticsController::class, 'visitorEvents'])->name('analytics.visitor-events');
 
 
 /*

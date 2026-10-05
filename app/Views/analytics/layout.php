@@ -65,10 +65,6 @@ else { $activeKey = 'dashboard'; }
           <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M1 11h2v4H1zm4-4h2v8H5zm4-3h2v11H9zm4-3h2v14h-2z"/></svg>
           Dashboard
         </a>
-        <a href="<?= e_attr(url('analytics/events')) ?>"<?= $activeKey === 'events' ? ' aria-current="page"' : '' ?>>
-          <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M14 2H2a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1zM2 12V4h12v8H2zm2-5h8v1H4zm0 2h6v1H4z"/></svg>
-          Events
-        </a>
         <a href="<?= e_attr(url('analytics/visitors')) ?>"<?= $activeKey === 'visitors' ? ' aria-current="page"' : '' ?>>
           <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 7a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm0 1c-2.67 0-8 1.34-8 4v1h16v-1c0-2.66-5.33-4-8-4z"/></svg>
           Visitors
