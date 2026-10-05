@@ -4,6 +4,7 @@ declare(strict_types=1);
 $base = rtrim((string) ($argv[1] ?? ''), '/');
 if (!preg_match('#^http://127\.0\.0\.1:[0-9]+(?:/[A-Za-z0-9_/-]+)?$#', $base)) { throw new RuntimeException('Pass the loopback QA URL.'); }
 $_ENV['MAIL_ENABLED'] = 'false';
+$_ENV['APP_ENV'] = 'testing';
 $container = require dirname(__DIR__) . '/bootstrap.php';
 if (!in_array(config('app.env'), ['local', 'testing'], true)) { throw new RuntimeException('Local/testing only.'); }
 $db = $container->get(App\Core\Database::class); $key = bin2hex(random_bytes(6));

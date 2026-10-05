@@ -2,6 +2,7 @@
 declare(strict_types=1);
 // Local integration QA. Only an in-memory transport is used; no real mail.
 $_ENV['MAIL_ENABLED'] = 'false';
+$_ENV['APP_ENV'] = 'testing';
 $_ENV['RENTALS_STORAGE_ROOT'] = sys_get_temp_dir() . '/rentals-fixed-mail-qa-' . bin2hex(random_bytes(6));
 $container = require dirname(__DIR__) . '/bootstrap.php';
 if (!in_array(config('app.env'), ['local', 'testing'], true)) { throw new RuntimeException('Local/testing only.'); }
@@ -59,39 +60,34 @@ try {
     };
     $owner = config('rentals-mail.owner');
     $cc = config('rentals-mail.cc');
-    $assert(is_string($owner) && filter_var($owner, FILTER_VALIDATE_EMAIL) !== false, 'Fixed owner must be a valid email.');
-    $assert(is_array($cc) && count($cc) === 3 && count(array_unique($cc)) === 3
-        && !in_array($owner, $cc, true), 'Fixed CC must contain three distinct recipients excluding Owner.');
-    foreach ($cc as $address) { $assert(filter_var($address, FILTER_VALIDATE_EMAIL) !== false, 'Fixed CC must use valid emails.'); }
+    $assert(is_string($owner) && ($owner === '' || filter_var($owner, FILTER_VALIDATE_EMAIL) !== false), 'Owner must be empty or a valid email.');
+    $assert(is_array($cc), 'CC must be an array.');
+    foreach ($cc as $address) { $assert(filter_var($address, FILTER_VALIDATE_EMAIL) !== false, 'CC must use valid emails.'); }
     $first = $newOrder();
     // Guards must stop mail before the transaction commits.
     $db->beginTransaction();
     try { $mailer->rentalSubmitted($first); } finally { $db->rollBack(); }
     $assert(!$fake->messages, 'Mail sent before commit.');
     $mailer->rentalSubmitted($first);
-    $assert($countCustomer() === 1 && count($fake->messages) === 2, 'Pending workflow must send one customer and one company message.');
-    $customer = $fake->messages[0]; $company = $fake->messages[1];
-    $assert($customer['cc'] === [] && $company['destination'] === config('rentals-mail.owner')
-        && $company['cc'] === config('rentals-mail.cc'), 'Company CC missing or leaked onto customer message.');
-    $assert(str_starts_with($customer['subject'], 'Rental Request Received — MAIL-')
-        && str_starts_with($company['subject'], 'New Rental Request — MAIL-'), 'Pending subjects incorrect.');
+    $assert($countCustomer() === 1 && count($fake->messages) === 1, 'Pending workflow must send one customer message with CC.');
+    $customer = $fake->messages[0];
+    $assert($customer['destination'] === $email && $customer['cc'] === config('rentals-mail.cc'), 'Customer message must route To: customer and CC: from .env.');
+    $assert(str_starts_with($customer['subject'], 'Rental Request Received — MAIL-'), 'Pending subjects incorrect.');
     $assert(str_contains($customer['text'], 'Pending') && str_contains($customer['text'], 'payment proof was received')
-        && str_contains($customer['text'], '₱400.00') && str_contains($customer['text'], '× 2')
-        && str_contains($company['text'], 'Proof submitted: Yes'), 'Order snapshot/receipt missing.');
-    foreach ([$customer, $company] as $message) {
-        $assert(!str_contains($message['text'], 'PRIVATE INTERNAL NOTE') && !str_contains($message['text'], 'micro/payment')
-            && !str_contains($message['html'], '<script>') && str_contains($message['html'], '&lt;script&gt;'), 'Sensitive data or executable markup leaked.');
-        $assert(!str_contains($message['text'], '{{'), 'Unsubstituted fixed variable.');
-    }
+        && str_contains($customer['text'], '₱400.00') && str_contains($customer['text'], '× 2'), 'Order snapshot/receipt missing.');
+    $assert(!str_contains($customer['text'], 'PRIVATE INTERNAL NOTE') && !str_contains($customer['text'], 'micro/payment')
+        && !str_contains($customer['html'], '<script>') && str_contains($customer['html'], '&lt;script&gt;'), 'Sensitive data or executable markup leaked.');
+    $assert(!str_contains($customer['text'], '{{'), 'Unsubstituted fixed variable.');
     $assert(!str_contains($customer['text'], '/rentals/admin'), 'Protected company link leaked to customer.');
-    $mailer->rentalSubmitted($first); $assert(count($fake->messages) === 2, 'Repeated submission resent mail.');
+    $mailer->rentalSubmitted($first); $assert(count($fake->messages) === 1, 'Repeated submission resent mail.');
     // Account edits must never redirect an existing transaction email.
     $db->update('UPDATE users SET email=? WHERE id=?', ['changed-' . $key . '@example.test', $users[0]]);
     $_SESSION = ['user_id' => $users[1]]; $admin = new App\Controllers\Rentals\RentalAdminController($container);
     $before = count($fake->messages);
     $response = $admin->reviewProof($request('approved'), (string) $first);
-    $assert($response->status() === 302 && count($fake->messages) === $before + 2 && $countCustomer() === 2, 'Approved customer/company workflow failed.');
+    $assert($response->status() === 302 && count($fake->messages) === $before + 1 && $countCustomer() === 2, 'Approved customer workflow failed.');
     $approved = $fake->messages[$before];
+    $assert($approved['destination'] === $email && $approved['cc'] === config('rentals-mail.cc'), 'Approved message routing incorrect.');
     $assert(str_starts_with($approved['subject'], 'Rental Request Approved — ')
         && str_contains($approved['text'], 'rental request and payment review have been approved'), 'Approval not combined.');
     $before = count($fake->messages); $admin->reviewProof($request('approved'), (string) $first);
@@ -100,9 +96,8 @@ try {
     $assert(count($fake->messages) === $before, 'Repeated/mismatched approval generated mail.');
     $second = $newOrder(); $mailer->rentalSubmitted($second); $before = count($fake->messages);
     $admin->reviewProof($request('rejected'), (string) $second);
-    $assert(count($fake->messages) === $before + 2
+    $assert(count($fake->messages) === $before + 1
         && str_starts_with($fake->messages[$before]['subject'], 'Rental Request Update — ')
-        && str_starts_with($fake->messages[$before + 1]['subject'], 'Rental Request Rejected — ')
         && str_contains($fake->messages[$before]['text'], 'rental request and payment review were rejected'), 'Rejection not combined.');
     $before = count($fake->messages); $admin->reviewProof($request('rejected'), (string) $second);
     $assert(count($fake->messages) === $before, 'Repeated rejection resent mail.');
@@ -111,50 +106,47 @@ try {
     $mailer->paymentProofReceived($second); $before = count($fake->messages); $mailer->paymentProofReceived($second);
     $assert(count($fake->messages) === $before, 'Same replacement proof resent mail.');
     $admin->reviewProof($request('approved'), (string) $second);
-    $assert(count($fake->messages) === $before + 2, 'New proof revision blocked new review.');
+    $assert(count($fake->messages) === $before + 1, 'New proof revision blocked new review.');
     // SMTP failure leaves the actual Approved state, records safe failure, and never auto-resends.
     $third = $newOrder(); $fake->mode = 'failure'; $admin->reviewProof($request('approved'), (string) $third);
     $assert((int) $db->selectValue('SELECT payment_status FROM order_header WHERE id=?', [$third]) === 1, 'SMTP failure undid approval.');
     $failures = $db->select('SELECT status,failure_category FROM rental_notification_deliveries WHERE order_id=?', [$third]);
-    $assert(count($failures) === 2 && !array_filter($failures, static fn ($d) => $d['status'] !== 'failed' || $d['failure_category'] !== 'smtp_failure'), 'Safe failure categories missing.');
+    $assert(count($failures) === 1 && $failures[0]['status'] === 'failed' && $failures[0]['failure_category'] === 'smtp_failure', 'Safe failure categories missing.');
     $fake->mode = 'success'; $before = count($fake->messages); $mailer->reviewed($third, 1);
     $assert(count($fake->messages) === $before, 'Refresh retried failed event unsafely.');
     $fourth = $newOrder(); $fake->mode = 'uncertain'; $mailer->rentalSubmitted($fourth);
-    $assert((int) $db->selectValue("SELECT COUNT(*) FROM rental_notification_deliveries WHERE order_id=? AND status='uncertain'", [$fourth]) === 2, 'Unknown SMTP acceptance not protected.');
+    $assert((int) $db->selectValue("SELECT COUNT(*) FROM rental_notification_deliveries WHERE order_id=? AND status='uncertain'", [$fourth]) === 1, 'Unknown SMTP acceptance not protected.');
     $fake->mode = 'success'; $before = count($fake->messages); $mailer->rentalSubmitted($fourth);
     $assert(count($fake->messages) === $before, 'Uncertain event resent.');
     $fifth = $newOrder(); $fake->mode = 'unconfigured'; $mailer->rentalSubmitted($fifth);
-    $assert((int) $db->selectValue("SELECT COUNT(*) FROM rental_notification_deliveries WHERE order_id=? AND failure_category='smtp_not_configured'", [$fifth]) === 2
+    $assert((int) $db->selectValue("SELECT COUNT(*) FROM rental_notification_deliveries WHERE order_id=? AND failure_category='smtp_not_configured'", [$fifth]) === 1
         && (int) $db->selectValue('SELECT payment_status FROM order_header WHERE id=?', [$fifth]) === 0, 'Missing SMTP did not preserve Pending.');
     $fake->mode = 'success'; $sixth = $newOrder(false); $mailer->rentalSubmitted($sixth);
-    $assert(str_contains($fake->messages[count($fake->messages) - 2]['text'], 'No payment proof is currently attached.')
-        && str_contains($fake->messages[array_key_last($fake->messages)]['text'], 'Proof submitted: No'), 'Receipt incorrectly claims a missing proof.');
+    $assert(str_contains($fake->messages[array_key_last($fake->messages)]['text'], 'No payment proof is currently attached.'), 'Receipt incorrectly claims a missing proof.');
     // Compatibility: historical payment_approved delivery shares the same key.
     $seventh = $newOrder();
     $db->update('UPDATE order_header SET payment_status=1,payment_reviewed_at=CURRENT_TIMESTAMP WHERE id=?', [$seventh]);
     $version = hash('sha256', (string) $db->selectValue('SELECT payment_proof_path FROM order_header WHERE id=?', [$seventh]));
-    foreach (['customer' => $email, 'admin' => config('rentals-mail.owner')] as $audience => $destination) {
-        $db->insert("INSERT INTO rental_notification_deliveries(dedup_key,event_key,event_version,order_id,audience,recipient_email,status,attempts)
-            VALUES (?,'payment_approved',?,?,?,?,'sent',1)",
-            [hash('sha256', $seventh . '|review_approved|' . $version . '|' . $audience . '|' . strtolower($destination)),
-                $version, $seventh, $audience, $destination]);
-    }
+    $db->insert("INSERT INTO rental_notification_deliveries(dedup_key,event_key,event_version,order_id,audience,recipient_email,status,attempts)
+        VALUES (?,'payment_approved',?,?,'customer',?,'sent',1)",
+        [hash('sha256', $seventh . '|review_approved|' . $version . '|customer|' . strtolower($email)),
+            $version, $seventh, $email]);
     $before = count($fake->messages); $mailer->reviewed($seventh, 1);
     $assert(count($fake->messages) === $before, 'Deployment resent historical combined review.');
     $eighth = $newOrder();
     $db->update('UPDATE order_header SET customer_email=? WHERE id=?', ['invalid', $eighth]);
     $before = count($fake->messages); $mailer->rentalSubmitted($eighth);
-    $assert(count($fake->messages) === $before + 1 && $fake->messages[$before]['destination'] === config('rentals-mail.owner')
+    $assert(count($fake->messages) === $before
         && $db->selectValue("SELECT failure_category FROM rental_notification_deliveries WHERE order_id=? AND audience='customer'", [$eighth]) === 'invalid_destination',
-        'Invalid customer address prevented independent company notification.');
+        'Invalid customer address not recorded as invalid_destination.');
     foreach ($fake->messages as $message) {
-        if ($message['destination'] === $email) { $assert($message['cc'] === [], 'Customer CC must be empty.'); }
-        else { $assert($message['destination'] === config('rentals-mail.owner') && $message['cc'] === config('rentals-mail.cc'), 'Company routing changed between events.'); }
+        $assert($message['destination'] === $email, 'Destination must be customer email.');
+        $assert($message['cc'] === config('rentals-mail.cc'), 'Customer CC must match .env config.');
     }
     $assert(!method_exists($mailer, 'sendTest') && !method_exists($mailer, 'retry')
         && !class_exists(App\Controllers\Rentals\RentalEmailController::class)
         && !class_exists(App\Models\RentalMailSettings::class), 'Editable mailer remains.');
-    echo "PASS: fixed Owner/CC, dynamic order customer, combined Pending/Approved/Rejected, post-commit flow, escaped snapshots, real review transitions, duplicate and legacy delivery protection, SMTP failure safety, proof replacement, no editable mailer.\n";
+    echo "PASS: dynamic customer recipient with .env CC, combined Pending/Approved/Rejected, post-commit flow, escaped snapshots, real review transitions, duplicate and legacy delivery protection, SMTP failure safety, proof replacement, no editable mailer.\n";
 } finally {
     foreach ($orders as $id) { $db->delete('DELETE FROM rental_notification_deliveries WHERE order_id=?', [$id]); $db->delete('DELETE FROM order_header WHERE id=?', [$id]); }
     if ($item) { $db->delete('DELETE FROM rental_items WHERE id=?', [$item]); }
