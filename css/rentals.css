@@ -1633,7 +1633,15 @@
   border-left: 3px solid var(--rentals-accent);
   background: var(--c-cloud);
 }
+.rentals-module .rentals-account__success {
+  margin-bottom: 1.5rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--c-blue-line);
+  border-left: 3px solid #2e9e5b; /* green to signal success */
+  background: var(--c-cloud);
+}
 .rentals-module [id^='rental-item-'] { scroll-margin-top: 8rem; }
+
 
 @media (prefers-reduced-motion: reduce) {
   .rentals-module .rentals-account__auth { animation: none; }
