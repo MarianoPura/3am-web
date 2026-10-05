@@ -533,6 +533,214 @@
   white-space: nowrap;
 }
 
+/* ── Visitors table — identifier cell ─────────────────────── */
+
+/* Overrride min-width for the cleaner visitors table */
+.visitors-table {
+  min-width: 820px;
+}
+
+/* Primary identifier line inside the ID cell */
+.visitor-id {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  flex-wrap: wrap;
+}
+
+.visitor-id__value {
+  font-family: var(--f-mono);
+  font-size: .78rem;
+  color: var(--c-ink);
+  white-space: nowrap;
+}
+
+/* Small "#N" secondary line */
+.visitor-id__meta {
+  font-size: .68rem;
+  color: var(--fg-muted);
+  margin-top: .1rem;
+}
+
+/* Coloured pill showing the identifier type (FB, Email, Phone) */
+.visitor-id__label {
+  display: inline-block;
+  padding: .12rem .4rem;
+  border-radius: 3px;
+  font: 700 .6rem/1.3 var(--f-mono);
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.visitor-id__label--fb    { background: #dbeafe; color: #1d4ed8; }
+.visitor-id__label--email { background: #d1fae5; color: #065f46; }
+.visitor-id__label--phone { background: #fef3c7; color: #92400e; }
+
+/* Visitor name */
+.visitor-name {
+  font-size: .875rem;
+  font-weight: 500;
+  color: var(--c-ink);
+}
+
+/* Date cell */
+.visitor-date {
+  font-family: var(--f-mono);
+  font-size: .75rem;
+  color: var(--fg-muted);
+  white-space: nowrap;
+}
+
+/* ── Visitor events modal ──────────────────────────────────── */
+
+/* Full-screen overlay — centers the modal box */
+.vmodal {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+/* Semi-transparent backdrop */
+.vmodal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(11, 22, 34, .6);
+  cursor: pointer;
+}
+
+/* Centered floating dialog box */
+.vmodal__box {
+  position: relative;
+  z-index: 1;
+  width: min(600px, 100%);
+  max-height: min(80vh, 720px);
+  overflow-y: auto;
+  background: var(--c-white);
+  border-radius: 4px;
+  box-shadow: 0 8px 48px rgba(0, 0, 0, .28);
+  display: flex;
+  flex-direction: column;
+}
+
+.vmodal__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.4rem 1.5rem 1rem;
+  border-bottom: 1px solid var(--c-blue-line);
+  position: sticky;
+  top: 0;
+  background: var(--c-white);
+  z-index: 1;
+}
+
+.vmodal__title {
+  font: 700 1rem/1.2 var(--f-display);
+  color: var(--c-ink);
+  margin: 0;
+}
+
+.vmodal__sub {
+  font: 400 .75rem/1.4 var(--f-mono);
+  color: var(--fg-muted);
+  margin: .2rem 0 0;
+  word-break: break-all;
+}
+
+.vmodal__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  background: transparent;
+  border: 1px solid var(--c-blue-line);
+  border-radius: 2px;
+  color: var(--fg-muted);
+  cursor: pointer;
+  transition: background var(--m-micro), color var(--m-micro);
+}
+
+.vmodal__close:hover {
+  background: var(--c-cloud);
+  color: var(--c-ink);
+}
+
+.vmodal__body {
+  flex: 1;
+  padding: 1.25rem 1.5rem 2rem;
+}
+
+.vmodal__loading,
+.vmodal__empty {
+  color: var(--fg-muted);
+  font-size: .875rem;
+  padding: 1.5rem 0;
+  text-align: center;
+}
+
+/* Numbered event list */
+.vmodal__event-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: .9rem;
+}
+
+.vmodal__event {
+  padding: .85rem 1rem;
+  background: var(--c-cloud);
+  border-left: 3px solid var(--c-blue-line);
+  border-radius: 0 4px 4px 0;
+  /* prevent long text from overflowing the modal horizontally */
+  overflow: hidden;
+  word-break: break-word;
+}
+
+.vmodal__event-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem;
+  margin-bottom: .25rem;
+  flex-wrap: wrap;
+}
+
+.vmodal__event-time {
+  font: 400 .7rem/1.3 var(--f-mono);
+  color: var(--fg-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Friendly detail line below the badge (e.g. "Section: Event production") */
+.vmodal__event-detail {
+  margin: .3rem 0 0;
+  font-size: .8rem;
+  color: var(--fg-muted);
+  line-height: 1.4;
+}
+
+/* Accent colour on the left border based on event type */
+.vmodal__event:has(.analytics__badge--lead)   { border-color: var(--c-tally); }
+.vmodal__event:has(.analytics__badge--page)   { border-color: #60a5fa; }
+.vmodal__event:has(.analytics__badge--video)  { border-color: #a78bfa; }
+.vmodal__event:has(.analytics__badge--form)   { border-color: #34d399; }
+.vmodal__event:has(.analytics__badge--scroll) { border-color: #fb923c; }
+.vmodal__event:has(.analytics__badge--cta)    { border-color: #f472b6; }
+
+
+
+
 /* ── Filters ───────────────────────────────────────────────── */
 .analytics__filter {
   display: grid;
