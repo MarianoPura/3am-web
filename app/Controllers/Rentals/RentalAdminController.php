@@ -152,6 +152,7 @@ final class RentalAdminController extends Controller
             $draft = $_SESSION['rentals_admin_product_draft']['fields'] ?? [];
             unset($_SESSION['rentals_admin_product_draft']);
             if (!empty($draft)) {
+                unset($draft['is_service']);
                 $item = array_merge($item, $draft);
             }
         }
@@ -756,7 +757,7 @@ final class RentalAdminController extends Controller
             throw new \InvalidArgumentException('Name: use valid text with 190 characters or fewer.');
         }
 
-        $existing = $id > 0 ? $this->db()->selectOne('SELECT id, slug, image_path, is_active FROM rental_items WHERE id = ?', [$id]) : null;
+        $existing = $id > 0 ? $this->db()->selectOne('SELECT id, slug, image_path, is_active, is_service, availability_status, available_quantity, security_deposit FROM rental_items WHERE id = ?', [$id]) : null;
         if ($id > 0 && $existing === null) {
             throw new \InvalidArgumentException('That product no longer exists.');
         }
@@ -804,8 +805,11 @@ final class RentalAdminController extends Controller
             throw new \InvalidArgumentException('Type: choose Equipment or Service.');
         }
         $isService = (int) $type;
+        if ($existing !== null && $isService !== (int) $existing['is_service']) {
+            throw new \InvalidArgumentException('Type: existing records keep their Equipment or Service type to protect inventory and bookings. Create a separate record for the other type.');
+        }
 
-        $status = $request->string('availability_status');
+        $status = $isService ? (string) ($existing['availability_status'] ?? 'inquire') : $request->string('availability_status');
         if (!in_array($status, self::AVAILABILITY, true)) {
             throw new \InvalidArgumentException('Choose a valid availability status.');
         }
@@ -822,7 +826,7 @@ final class RentalAdminController extends Controller
         }
         $rate = $rateInput;
 
-        $depositInput = $request->string('security_deposit');
+        $depositInput = $isService ? (string) ($existing['security_deposit'] ?? '0.00') : $request->string('security_deposit');
         if ($depositInput === '') {
             $deposit = '0.00';
         } else {
@@ -832,7 +836,7 @@ final class RentalAdminController extends Controller
             $deposit = $depositInput;
         }
 
-        $quantityInput = $request->string('available_quantity');
+        $quantityInput = $isService ? (string) ($existing['available_quantity'] ?? 0) : $request->string('available_quantity');
         if (!preg_match('/^[0-9]{1,6}$/D', $quantityInput)) {
             throw new \InvalidArgumentException('Available quantity: enter a whole number from 0 to 999999.');
         }

@@ -107,3 +107,17 @@ document.querySelectorAll('[data-admin-proof-image]').forEach(image => {
   image.addEventListener('error', showError);
   if (image.complete && image.naturalWidth === 0) showError();
 });
+
+// One handler for Add/Edit; disabled equipment controls never submit stale values.
+document.querySelectorAll('[data-rental-product-form]').forEach(form => {
+  const type = form.querySelector('[data-rental-type]');
+  const updateType = () => {
+    const service = type.value === '1';
+    form.querySelectorAll('[data-equipment-field]').forEach(group => {
+      group.hidden = service;
+      group.querySelectorAll('input, select, textarea').forEach(input => { input.disabled = service; });
+    });
+  };
+  type.addEventListener('change', updateType);
+  updateType();
+});

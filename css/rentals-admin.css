@@ -288,3 +288,13 @@
   .rentals-admin-module .rentals-admin__form > .rentals-btn { width: 100%; }
   .rentals-admin-module .rentals-admin__order-facts dl > div { grid-template-columns: 1fr; gap: .25rem; }
 }
+
+/* Product type and capacity remain the first compact form group. */
+.rentals-admin-module .rentals-admin__form :is(fieldset, label, input, select, textarea) { min-width: 0; max-width: 100%; }
+.rentals-admin-module .rentals-admin__form [data-equipment-field][hidden] { display: none; }
+.rentals-admin-module .rentals-admin__quantity { padding: 0 .85rem; background: var(--c-cloud); }
+.rentals-admin-module .rentals-admin__quantity input { border-color: var(--c-tally); font-weight: 700; }
+.rentals-admin-module .rentals-admin__quantity small { font-weight: 400; line-height: 1.5; }
+.rentals-admin-module .rentals-admin__form fieldset { overflow-wrap: anywhere; }
+
+.rentals-admin-module [data-rental-product-form] .rentals-admin__two { align-items: start; }

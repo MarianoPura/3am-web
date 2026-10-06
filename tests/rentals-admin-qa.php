@@ -187,13 +187,34 @@ try {
     $assert($validRow['name'] === $valid['name'] && $validRow['sku'] === $valid['sku'] && $validRow['description'] === $valid['description']
         && $validRow['ideal_use'] === $valid['ideal_use'] && $validRow['rental_unit'] === $valid['rental_unit']
         && (float) $validRow['security_deposit'] === 0.0 && (float) $validRow['rental_rate'] === .50, 'Valid Unicode text, optional deposit or decimal rate was rejected/truncated.');
-    foreach (['0', '1'] as $type) {
+    foreach (['0'] as $type) {
         foreach (['available', 'unavailable', 'out_of_stock', 'reserved', 'inquire'] as $availability) {
             $http('/rentals/admin/items', array_replace($autoProduct, ['id' => $autoId, 'is_service' => $type, 'availability_status' => $availability, 'rental_unit' => 'event']));
             $actual = $db->selectOne('SELECT is_service, availability_status, rental_unit FROM rental_items WHERE id = ?', [$autoId]);
             $assert((string) $actual['is_service'] === $type && $actual['availability_status'] === $availability && $actual['rental_unit'] === 'event', 'Valid product type/availability/unit was rejected.');
         }
     }
+    [, $serviceSaved] = $http('/rentals/admin/items', array_replace($autoProduct, [
+        'name' => 'QA Service ' . $key, 'slug' => 'qa-service-' . $key, 'sku' => '', 'is_service' => '1',
+        'available_quantity' => 'invalid stale stock', 'security_deposit' => 'invalid stale deposit', 'availability_status' => 'invalid stale availability',
+    ]));
+    $service = $db->selectOne('SELECT * FROM rental_items WHERE slug = ?', ['qa-service-' . $key]);
+    if ($service) { $extraItemIds[] = (int) $service['id']; }
+    $assert($service && (int) $service['is_service'] === 1 && (int) $service['available_quantity'] === 0
+        && (float) $service['security_deposit'] === 0.0 && $service['availability_status'] === 'inquire', 'Service creation used stale equipment controls.');
+    $db->update('UPDATE rental_items SET available_quantity=7, security_deposit=35, availability_status=? WHERE id=?', ['unavailable', $service['id']]);
+    $serviceFields = array_replace($autoProduct, ['id' => $service['id'], 'is_service' => '1', 'name' => 'QA Service edited ' . $key,
+        'slug' => $service['slug'], 'available_quantity' => '999999', 'security_deposit' => '999', 'availability_status' => 'available']);
+    $http('/rentals/admin/items', $serviceFields);
+    $serviceAfter = $db->selectOne('SELECT * FROM rental_items WHERE id=?', [$service['id']]);
+    $assert($serviceAfter['name'] === $serviceFields['name'] && (int) $serviceAfter['available_quantity'] === 7
+        && (float) $serviceAfter['security_deposit'] === 35.0 && $serviceAfter['availability_status'] === 'unavailable', 'Service edit overwrote hidden existing equipment data.');
+    [, $typeRejected] = $http('/rentals/admin/items', array_replace($autoProduct, ['id' => $autoId, 'is_service' => '1']));
+    $assert(str_contains($typeRejected, 'protect inventory and bookings')
+        && (int) $db->selectValue('SELECT is_service FROM rental_items WHERE id=?', [$autoId]) === 0, 'Editing converted an existing equipment record.');
+    $assert(strpos($editor, 'data-rental-type') < strpos($editor, 'name="category_id"')
+        && strpos($editor, 'name="available_quantity"') < strpos($editor, 'name="name"'), 'Rental type/capacity are not at the top.');
+    echo "PASS: equipment validation; service create/edit ignores stale inventory fields; existing type protected.\n";
     $externalImage = App\Services\RentalStorage::path($item['image_path']);
     $assert($externalImage !== null && str_starts_with($externalImage, App\Services\RentalStorage::root() . '/')
         && !is_file(BASE_PATH . '/' . $item['image_path']), 'Product upload was saved inside the checkout.');
@@ -272,6 +293,44 @@ try {
     $blackoutId = (int) $db->selectValue('SELECT id FROM rental_item_blackouts WHERE rental_item_id = ?', [$itemId]);
     $catalog = new App\Models\RentalCatalog($db); $record = $catalog->find((string) $itemId);
     $assert($blackoutId > 0 && !$catalog->isAvailable($record, 1, $date, $date), 'Admin blackout did not block availability.');
+    // Exercise the actual Admin write and both calendar APIs, including inclusive boundaries.
+    $parityStart = (new DateTimeImmutable('today'))->modify('+4 days');
+    $monthBoundary = (new DateTimeImmutable('first day of next month'))->modify('last day of this month');
+    $yearBoundary = new DateTimeImmutable(date('Y') . '-12-31');
+    $ranges = [
+        [$parityStart, $parityStart], [$parityStart, $parityStart->modify('+1 day')],
+        [$parityStart, $parityStart->modify('+2 days')], [$monthBoundary, $monthBoundary->modify('+2 days')],
+        [$yearBoundary, $yearBoundary->modify('+2 days')],
+        [new DateTimeImmutable('first day of this month'), (new DateTimeImmutable('first day of this month'))->modify('+2 days')],
+    ];
+    foreach ($ranges as [$first, $last]) {
+        $db->update('UPDATE rental_item_blackouts SET is_active=0 WHERE rental_item_id=?', [$itemId]);
+        $from = $first->format('Y-m-d'); $through = $last->format('Y-m-d');
+        $http('/rentals/admin/items/' . $itemId . '/blackouts', ['_token'=>$csrf, 'start_date'=>$from, 'end_date'=>$through]);
+        $stored = $db->selectOne('SELECT * FROM rental_item_blackouts WHERE rental_item_id=? AND is_active=1', [$itemId]);
+        $assert($stored['start_date'] === $from && $stored['end_date'] === $through, 'Admin stored an expanded/shifted range.');
+        $expected = []; for ($d=$first; $d <= $last; $d=$d->modify('+1 day')) { $expected[]=$d->format('Y-m-d'); }
+        $customerBlocked = $adminBlocked = [];
+        for ($m=$first->modify('first day of this month'); $m <= $last; $m=$m->modify('+1 month')) {
+            $month=$m->format('Y-m');
+            [$customerCode, $customerJson]=$http('/rentals/availability?id='.$itemId.'&month='.$month.'&quantity=1');
+            [$adminCode, $adminJson]=$http('/rentals/admin/items/'.$itemId.'/availability?month='.$month);
+            $assert($customerCode===200 && $adminCode===200, 'Calendar parity APIs failed.');
+            $customerDays=json_decode($customerJson,true)['days']; $adminDays=json_decode($adminJson,true)['days'];
+            foreach ($customerDays as $day) {
+                if ($day['admin_blocked']) { $customerBlocked[]=$day['date']; }
+                $assert($day['past'] === ($day['date'] < date('Y-m-d')), 'Past date reason is missing or shifted.');
+                if (!$day['admin_blocked'] && !$day['past']) { $assert($day['remaining']===2 && $day['available'], 'Block changed stock outside its range.'); }
+            }
+            foreach ($adminDays as $day) { if ($day['admin_blocked']) { $adminBlocked[]=$day['date']; } }
+        }
+        $assert($customerBlocked===$expected && $adminBlocked===$expected, 'Exact Admin/customer date parity failed: '.$from.' through '.$through);
+        $http('/rentals/admin/items/'.$itemId.'/blackouts/'.$stored['id'].'/toggle', ['_token'=>$csrf]);
+        $assert($catalog->isAvailable($record,2,$from,$through), 'Unblock did not restore exact range capacity.');
+    }
+    $db->update('UPDATE rental_item_blackouts SET is_active=0 WHERE rental_item_id=?', [$itemId]);
+    $http('/rentals/admin/items/'.$itemId.'/blackouts/'.$blackoutId.'/toggle', ['_token'=>$csrf]);
+    echo "PASS: exact stored/Admin/customer parity for 1/2/3 days, month/year boundaries, past dates, unblock and unchanged stock outside range.\n";
     $api = '/rentals/availability?id=' . $itemId . '&month=' . substr($date, 0, 7) . '&quantity=1';
     [, $json] = $http($api);
     $day = array_values(array_filter(json_decode($json, true)['days'], static fn ($d) => $d['date'] === $date))[0];
@@ -312,6 +371,15 @@ try {
     [, $calendarJson] = $http($adminApi);
     $reserved = array_values(array_filter(json_decode($calendarJson, true)['days'], static fn ($d) => $d['date'] === $date))[0];
     $assert(!$reserved['admin_blocked'] && $reserved['reserved'] === 4 && $reserved['remaining'] === 0, 'Calendar lost Pending/Approved reservations after removing manual block.');
+    $db->update('UPDATE rental_items SET available_quantity=6 WHERE id=?', [$itemId]);
+    foreach ([2 => true, 3 => false] as $requested => $expectedAvailable) {
+        [, $quantityJson] = $http('/rentals/availability?id='.$itemId.'&month='.substr($date,0,7).'&quantity='.$requested);
+        $quantityDay = array_values(array_filter(json_decode($quantityJson,true)['days'], static fn($d)=>$d['date']===$date))[0];
+        $assert(!$quantityDay['admin_blocked'] && $quantityDay['reserved']===4 && $quantityDay['remaining']===2
+            && $quantityDay['available']===$expectedAvailable, 'Partial customer reservations or selected quantity changed blackout meaning.');
+    }
+    $db->update('UPDATE rental_items SET available_quantity=2 WHERE id=?', [$itemId]);
+    echo "PASS: unblock preserves Pending/Approved reservations; rejected reservations excluded; partial stock and quantity checks remain correct.\n";
     foreach (['QA-' . $key . '-0', $name] as $search) {
         [$code, $orders] = $http('/rentals/admin/orders?q=' . rawurlencode($search));
         $assert($code === 200 && str_contains($orders, 'QA-' . $key . '-0'), 'Server-side order search failed.');

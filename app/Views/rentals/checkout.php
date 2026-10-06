@@ -36,7 +36,7 @@ $customer = is_array($customer ?? null) ? $customer : [];
         <a class="rentals-btn rentals-btn--primary" href="<?= e_attr(url('rentals/items')) ?>">Browse equipment</a>
       </div>
     <?php else: ?>
-      <div class="rentals-cart-layout">
+      <div class="rentals-cart-layout rentals-cart-layout--checkout">
         <div class="rentals-support-panel">
           <p class="rentals-card__meta">Selected equipment</p>
           <?php foreach ($items as $item): ?>

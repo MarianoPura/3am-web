@@ -21,9 +21,26 @@ $itemId = (int) ($item['id'] ?? 0);
         <p class="rentals-card__meta">Existing record</p>
         <h2>Edit <?= e((string) ($item['name'] ?? 'Product')) ?></h2>
       </div>
-      <form method="post" action="<?= e_attr(url('rentals/admin/items/' . $itemId . '/edit')) ?>" class="rentals-admin__form" enctype="multipart/form-data">
+      <form method="post" action="<?= e_attr(url('rentals/admin/items/' . $itemId . '/edit')) ?>" class="rentals-admin__form" data-rental-product-form enctype="multipart/form-data">
         <?= csrf_field() ?>
         <input type="hidden" name="id" value="<?= e_attr((string) $itemId) ?>">
+        <fieldset>
+          <legend>Rental type and capacity</legend>
+          <div class="rentals-admin__two">
+            <label>Rental type
+              <select data-rental-type disabled>
+                <option value="0"<?= (int) ($item['is_service'] ?? 0) === 0 ? ' selected' : '' ?>>Equipment</option>
+                <option value="1"<?= (int) ($item['is_service'] ?? 0) === 1 ? ' selected' : '' ?>>Service</option>
+              </select>
+              <small>Type is preserved on existing records to protect inventory and bookings.</small>
+            </label>
+            <input type="hidden" name="is_service" value="<?= e_attr((string) (int) ($item['is_service'] ?? 0)) ?>">
+            <label class="rentals-admin__quantity" data-equipment-field>Available quantity
+              <input type="number" min="0" max="999999" step="1" name="available_quantity" required value="<?= e_attr((string) ($item['available_quantity'] ?? '0')) ?>">
+              <small>Maximum number of units that can be rented for overlapping dates.</small>
+            </label>
+          </div>
+        </fieldset>
         <fieldset>
           <legend>Basic information</legend>
           <label>Category
@@ -67,13 +84,8 @@ $itemId = (int) ($item['id'] ?? 0);
         <fieldset>
           <legend>Rental settings</legend>
           <div class="rentals-admin__two">
-            <label>Type
-              <select name="is_service">
-                <option value="0"<?= (int) ($item['is_service'] ?? 0) === 0 ? ' selected' : '' ?>>Equipment</option>
-                <option value="1"<?= (int) ($item['is_service'] ?? 0) === 1 ? ' selected' : '' ?>>Service</option>
-              </select>
-            </label>
-            <label>Availability
+
+            <label data-equipment-field>Availability
               <select name="availability_status">
                 <?php foreach (['available', 'unavailable', 'out_of_stock', 'reserved', 'inquire'] as $status): ?>
                   <option value="<?= e_attr($status) ?>"<?= ($item['availability_status'] ?? 'available') === $status ? ' selected' : '' ?>><?= e(ucwords(str_replace('_', ' ', $status))) ?></option>
@@ -85,15 +97,13 @@ $itemId = (int) ($item['id'] ?? 0);
             <label>Rental unit
               <input name="rental_unit" maxlength="30" value="<?= e_attr((string) ($item['rental_unit'] ?? 'day')) ?>">
             </label>
-            <label>Available quantity
-              <input type="number" min="0" max="999999" step="1" name="available_quantity" required value="<?= e_attr((string) ($item['available_quantity'] ?? '0')) ?>">
-            </label>
+
           </div>
           <div class="rentals-admin__two">
             <label>Rate (₱)
               <input type="number" min="0" max="9999999999.99" step="0.01" name="rental_rate" required value="<?= e_attr((string) ($item['rental_rate'] ?? '0.00')) ?>">
             </label>
-            <label>Security deposit (₱, optional)
+            <label data-equipment-field>Security deposit (₱, optional)
               <input type="number" min="0" max="9999999999.99" step="0.01" name="security_deposit" value="<?= e_attr((string) ($item['security_deposit'] ?? '0.00')) ?>">
             </label>
           </div>
