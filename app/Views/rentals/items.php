@@ -115,6 +115,7 @@ unset($_SESSION['rentals_notice']);
         <div><dt>Listed rate</dt><dd data-detail-rate></dd></div>
         <div><dt>Security deposit</dt><dd data-detail-deposit></dd></div>
         <div><dt>Availability</dt><dd data-detail-status></dd></div>
+        <div><dt>Stock quantity</dt><dd data-detail-quantity></dd></div>
       </dl>
       <form method="post" action="<?= e_attr(url('rentals/cart/add')) ?>" data-detail-form data-availability-url="<?= e_attr(url('rentals/availability')) ?>">
         <?= csrf_field() ?><input type="hidden" name="id" data-detail-id>
@@ -128,7 +129,7 @@ unset($_SESSION['rentals_notice']);
           <div class="rentals-availability__weekdays" aria-hidden="true"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div>
           <div class="rentals-availability__days" data-calendar-days></div>
           <button class="rentals-availability__clear" type="button" data-date-clear>Clear dates</button>
-          <p class="rentals-availability__legend"><span>● Available</span><span class="is-blocked">● Admin blocked</span><span class="is-reserved">● Customer reserved</span><span class="is-past">● Past / unavailable</span></p>
+          <p class="rentals-availability__legend"><span>● Available</span><span class="is-blocked">● blocked</span><span class="is-reserved">● Customer reserved</span><span class="is-past">● Past / unavailable</span></p>
         </div>
         <button class="rentals-btn rentals-btn--primary" type="submit" data-detail-add>Add to Cart</button>
       </form>

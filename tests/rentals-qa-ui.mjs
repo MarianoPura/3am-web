@@ -29,8 +29,25 @@ for(const zone of ['Asia/Manila','UTC','America/Los_Angeles','Europe/London']){
  const past=render({date:'2026-10-04',admin_blocked:false,past:true,available:false,reserved:0,remaining:3});
  assert.equal(past.className,'is-past');assert.match(past.attrs['aria-label'],/Past date/);
  const partial=render({date:'2026-10-13',admin_blocked:false,past:false,available:true,reserved:1,remaining:2});
- assert.equal(partial.className,'is-reserved');assert.equal(partial.disabled,false);assert.match(partial.attrs['aria-label'],/Customer reserved; 2 available/);
+ assert.equal(partial.className,'is-reserved');assert.equal(partial.disabled,true);assert.equal(partial.attrs['aria-label'],'2026-10-13: Customer reserved');
  const full=render({date:'2026-10-14',admin_blocked:false,past:false,available:false,reserved:3,remaining:0});
  assert.equal(full.className,'is-reserved');assert.equal(full.disabled,true);
 }
-console.log('PASS: one accessible type-change handler; equipment controls hidden/disabled/restored; date labels unchanged in four timezones; blocks/past/partial/full reservations distinct.');
+const rangeSource=source.slice(source.indexOf('const rangeAvailable = async'),source.indexOf('const refreshCalendar = async'));
+const monthOf=date=>`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}`;
+const checkRange=vm.runInNewContext(`${rangeSource}\nrangeAvailable`,{
+ currentDetail:{id:'test'},quantityInput:{value:'1'},monthOf,
+ getMonth:async month=>[
+  {date:'2026-10-30',available:true,reserved:0},
+  {date:'2026-10-31',available:true,reserved:1},
+  {date:'2026-11-01',available:true,reserved:0},
+  {date:'2026-11-02',available:true,reserved:0},
+  {date:'2026-11-03',available:false,reserved:0}
+ ].filter(day=>day.date.startsWith(month))
+});
+assert.equal(await checkRange('2026-10-30','2026-10-30'),true);
+assert.equal(await checkRange('2026-10-31','2026-10-31'),false);
+assert.equal(await checkRange('2026-10-30','2026-11-01'),false);
+assert.equal(await checkRange('2026-11-01','2026-11-02'),true);
+assert.equal(await checkRange('2026-11-01','2026-11-03'),false);
+console.log('PASS: type controls restored; date labels unchanged in four timezones; partial/full reservations disabled; date ranges cannot cross reserved dates, including month boundaries.');

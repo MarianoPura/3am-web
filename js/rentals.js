@@ -103,7 +103,7 @@ const initRentalsCatalogue = () => {
     const quantity = quantityInput.value || '1';
     const lookup = new Map();
     while (month <= end.slice(0, 7)) {
-      (await getMonth(month, detail, quantity)).forEach((day) => lookup.set(day.date, day.available));
+      (await getMonth(month, detail, quantity)).forEach((day) => lookup.set(day.date, day.available && !(day.reserved > 0)));
       const [year, number] = month.split('-').map(Number);
       month = monthOf(new Date(year, number, 1));
     }
@@ -139,11 +139,11 @@ const initRentalsCatalogue = () => {
         cell.textContent = String(Number(day.date.slice(-2)));
         cell.dataset.date = day.date;
         const state = day.admin_blocked ? 'blocked' : (day.past ? 'past' : (day.reserved > 0 ? 'reserved' : (day.available ? 'available' : 'unavailable')));
-        const label = day.admin_blocked ? 'Admin blocked' : (day.past ? 'Past date' : (day.reserved > 0 ? `Customer reserved; ${day.remaining} available` : (day.available ? `${day.remaining} available` : 'Unavailable')));
+        const label = day.admin_blocked ? 'Admin blocked' : (day.past ? 'Past date' : (day.reserved > 0 ? 'Customer reserved' : (day.available ? `${day.remaining} available` : 'Unavailable')));
         cell.className = `is-${state}`;
-        cell.disabled = !day.available;
+        cell.disabled = !day.available || day.reserved > 0;
         cell.setAttribute('aria-label', `${day.date}: ${label}`);
-        cell.title = `${label} · ${day.remaining} remaining`;
+        cell.title = day.reserved > 0 ? label : `${label} · ${day.remaining} remaining`;
         if (day.date === startInput.value || day.date === endInput.value) cell.classList.add('is-selected');
         if (startInput.value && endInput.value && day.date > startInput.value && day.date < endInput.value) cell.classList.add('is-in-range');
         cell.addEventListener('click', async () => {
@@ -263,6 +263,7 @@ const initRentalsCatalogue = () => {
     calendarMonth = monthOf(new Date());
     setText('[data-detail-category]', detail.category);
     setText('[data-detail-name]', detail.name);
+    setText('[data-detail-quantity]', detail.isSample ? 'Not confirmed' : `${detail.available} unit${detail.available === 1 ? '' : 's'}`);
     setText('[data-detail-description]', detail.description);
     setText('[data-detail-ideal]', detail.ideal);
     setText('[data-detail-rate]', detail.rate);
