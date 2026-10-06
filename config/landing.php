@@ -51,13 +51,13 @@ return [
     'video_alt'    => 'Professional camera covering a live event with stage lighting',
 
     'meta' => [
-        'title'       => 'Event Production & Livestreaming Quote — 3AM Digital Media',
+        'title'       => 'Event Production and Livestreaming Quote — 3AM Digital Media',
         'description' => 'Event coverage, livestreaming, LED/AV and technical production from one in-house team in Quezon City. Tell us about your event and get a quote.',
         'og_image'    => 'media/hero.jpg',
     ],
 
     'hero' => [
-        'kicker'   => 'Event production & livestreaming',
+        'kicker'   => 'Event production and livestreaming',
         'headline' => 'Your event, live on every screen — handled by one team.',
         'lede'     => 'Event coverage, livestreaming, LED/AV and technical production. '
                     . 'One crew runs the camera, the switcher, the stream and the screens, '

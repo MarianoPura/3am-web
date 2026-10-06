@@ -35,8 +35,10 @@ final class TrackingController extends Controller
         }
 
         if ($visitId <= 0) {
-            // Attempt to record or retrieve visit if missing
-            $visitId = $tracking->recordVisit($request) ?? 0;
+            // Only auto-create visit if visitor has FB ID or if this is a conversion event
+            if ($tracking->hasFbId($request) || in_array($eventName, ['Lead', 'Contact'], true)) {
+                $visitId = $tracking->recordVisit($request) ?? 0;
+            }
         }
 
         if ($visitId <= 0 || $eventName === '') {

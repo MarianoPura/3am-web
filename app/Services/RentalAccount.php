@@ -84,6 +84,82 @@ final class RentalAccount
         return $this->current() ?? throw new RuntimeException('Account could not be loaded.');
     }
 
+    /**
+     * Update the authenticated user's name, email, and optionally their password.
+     *
+     * - Name and email are always updated.
+     * - Password is only updated when $newPassword is non-empty, in which case
+     *   $currentPassword must match the stored hash first.
+     *
+     * @throws RuntimeException with a user-facing message on any failure.
+     */
+    public function updateProfile(int $userId, string $name, string $email, string $currentPassword, string $newPassword): void
+    {
+        // 1. Validate name
+        $name = trim($name);
+        if ($name === '' || strlen($name) > 150) {
+            throw new RuntimeException('Enter a valid name (max 150 characters).');
+        }
+
+        // 2. Validate email
+        $email = strtolower(trim($email));
+        if (filter_var($email, FILTER_VALIDATE_EMAIL) === false || strlen($email) > 190) {
+            throw new RuntimeException('Enter a valid email address.');
+        }
+
+        // 3. Load the user's current record so we can verify their password later
+        $user = $this->db->selectOne(
+            'SELECT id, email, password FROM users WHERE id = ?',
+            [$userId]
+        );
+        if ($user === null) {
+            throw new RuntimeException('Account not found.');
+        }
+
+        // 4. If the email is changing, make sure no other account already uses it
+        if ($email !== strtolower((string) $user['email'])) {
+            $taken = $this->db->selectOne(
+                'SELECT id FROM users WHERE email = ? AND id != ?',
+                [$email, $userId]
+            );
+            if ($taken !== null) {
+                throw new RuntimeException('That email address is already in use by another account.');
+            }
+        }
+
+        // 5. If they want to change the password, validate it properly
+        $hashedPassword = null;
+        if ($newPassword !== '') {
+            // Always verify the current password before allowing a change
+            if (!password_verify($currentPassword, (string) $user['password'])) {
+                throw new RuntimeException('Current password is incorrect.');
+            }
+            if (strlen($newPassword) < 8) {
+                throw new RuntimeException('New password must be at least 8 characters.');
+            }
+            if (strlen($newPassword) > 72) {
+                throw new RuntimeException('New password is too long. Use a shorter one.');
+            }
+            if (str_contains($newPassword, "\0")) {
+                throw new RuntimeException('New password contains an unsupported character.');
+            }
+            $hashedPassword = password_hash($newPassword, PASSWORD_DEFAULT);
+        }
+
+        // 6. Run the update — include password column only when it's changing
+        if ($hashedPassword !== null) {
+            $this->db->update(
+                'UPDATE users SET name = ?, email = ?, password = ? WHERE id = ?',
+                [$name, $email, $hashedPassword, $userId]
+            );
+        } else {
+            $this->db->update(
+                'UPDATE users SET name = ?, email = ? WHERE id = ?',
+                [$name, $email, $userId]
+            );
+        }
+    }
+
     public function logout(): void
     {
         $_SESSION = [];

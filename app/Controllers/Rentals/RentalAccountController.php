@@ -85,6 +85,66 @@ final class RentalAccountController extends Controller
         return $this->redirect(url('rentals'));
     }
 
+    /**
+     * Show the account settings page (name + password change form).
+     * Only accessible when signed in.
+     */
+    public function showSettings(Request $request): Response
+    {
+        $account = new RentalAccount($this->db(), new RentalCart());
+        $user = $account->current();
+
+        // Not signed in — send them to the login page
+        if ($user === null) {
+            return $this->redirect(url('rentals/account'));
+        }
+
+        return $this->render('rentals.settings', [
+            'user'    => $user,
+            'success' => null,
+            'error'   => null,
+        ])->noCache();
+    }
+
+    /**
+     * Handle the settings form submission.
+     * Validates and saves name / email / password changes.
+     */
+    public function submitSettings(Request $request): Response
+    {
+        $account = new RentalAccount($this->db(), new RentalCart());
+        $user    = $account->current();
+
+        if ($user === null) {
+            return $this->redirect(url('rentals/account'));
+        }
+
+        $error   = null;
+        $success = null;
+
+        try {
+            $account->updateProfile(
+                userId:          (int) $user['id'],
+                name:            $request->string('name'),
+                email:           $request->string('email'),
+                currentPassword: $request->string('current_password'),
+                newPassword:     $request->string('new_password'),
+            );
+
+            // Refresh the user record so the view shows the updated name/email
+            $user    = $account->current();
+            $success = 'Your account details have been updated.';
+        } catch (RuntimeException $exception) {
+            $error = $exception->getMessage();
+        }
+
+        return $this->render('rentals.settings', [
+            'user'    => $user,
+            'success' => $success,
+            'error'   => $error,
+        ])->noCache();
+    }
+
     public function orders(Request $request): Response
     {
         $userId = (int) ((new RentalAccount($this->db(), new RentalCart()))->current()['id'] ?? 0);

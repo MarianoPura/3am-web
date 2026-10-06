@@ -17,9 +17,23 @@
   const config = document.getElementById('landing-config');
   const PIXEL_ID     = config?.dataset.pixelId    ?? '';
   const CONTENT_NAME = config?.dataset.contentName ?? 'Event Production & Livestreaming';
-  const VISIT_ID     = config?.dataset.visitId    ?? '';
+  let   VISIT_ID     = config?.dataset.visitId    ?? '';
   const CSRF_TOKEN   = config?.dataset.csrfToken  ?? '';
   const TRACK_URL    = config?.dataset.trackUrl   ?? '';
+
+  /**
+   * Helper to check whether the visitor has Facebook tracking identifiers.
+   * If the user visited manually or without any FB ID, movements are not tracked
+   * unless they submit an inquiry.
+   */
+  function checkHasFbId() {
+    if (config?.dataset.hasFbId === '1') return true;
+    if (VISIT_ID && VISIT_ID !== '0') return true;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('fbclid') || params.get('fbc') || params.get('fbp')) return true;
+    if (getCookie('_fbc') || getCookie('_fbp')) return true;
+    return false;
+  }
 
   /**
    * Helper to generate a unique, collision-resistant event ID for Meta deduplication.
@@ -43,6 +57,13 @@
    */
   async function trackServerEvent(eventName, eventId, eventData = {}, eventSource = 'browser') {
     if (!TRACK_URL) return;
+
+    // Movement events (PageView, ViewContent, form_start, form_field_focus, scrolldepth, cta_click, video_*)
+    // must NOT be tracked for manual visitors without an FB ID.
+    const isConversion = eventName === 'Lead' || eventName === 'Contact';
+    if (!checkHasFbId() && !isConversion) {
+      return;
+    }
 
     try {
       const payload = new URLSearchParams({
@@ -74,13 +95,13 @@
   }
 
   // ── Meta Pixel ──────────────────────────────────────────────────────────
+  let pixelLoaded = false;
+
   /**
-   * Initialise the Meta Pixel (Facebook). Only runs when PIXEL_ID is set.
-   * We avoid using fbq('init') until the Pixel ID is confirmed to prevent
-   * unnecessary requests to Facebook's servers.
+   * Ensure Meta Pixel SDK is loaded and initialised.
    */
-  function initPixel() {
-    if (!PIXEL_ID) return;
+  function ensurePixelLoaded() {
+    if (!PIXEL_ID || pixelLoaded) return;
 
     /* eslint-disable */
     !function(f,b,e,v,n,t,s) {
@@ -94,6 +115,17 @@
     /* eslint-enable */
 
     fbq('init', PIXEL_ID);
+    pixelLoaded = true;
+  }
+
+  /**
+   * Initialise the Meta Pixel (Facebook). Only runs when PIXEL_ID is set and visitor has FB ID.
+   */
+  function initPixel() {
+    if (!PIXEL_ID) return;
+    if (!checkHasFbId()) return;
+
+    ensurePixelLoaded();
 
     const pvEventId = generateEventId('pv');
     fbq('track', 'PageView', {}, { eventID: pvEventId });
@@ -108,6 +140,9 @@
    * @param {string} [eventId]  Unique event deduplication ID.
    */
   function trackPixel(eventName, params = {}, eventId = null) {
+    const isConversion = eventName === 'Lead' || eventName === 'Contact';
+    if (!checkHasFbId() && !isConversion) return;
+
     if (typeof fbq !== 'function') return;
     if (eventId) {
       fbq('track', eventName, params, { eventID: eventId });
@@ -118,6 +153,8 @@
 
   // Fire ViewContent once when the visitor scrolls into page content.
   function setupViewContent() {
+    if (!checkHasFbId()) return;
+
     const section = document.getElementById('services');
     if (!section) return;
 
@@ -272,6 +309,19 @@
           const data = await response.json();
 
           if (data.ok || data.success) {
+            // If server returned a visit_id (e.g. for a manual visitor whose visit was recorded on submit),
+            // update client state so subsequent calls have the visit ID
+            if (data.visit_id) {
+              VISIT_ID = String(data.visit_id);
+              if (config) config.dataset.visitId = VISIT_ID;
+              document.querySelectorAll('[data-lp-visit-id]').forEach(input => {
+                input.value = VISIT_ID;
+              });
+            }
+
+            // Ensure Meta Pixel is loaded for conversion events
+            ensurePixelLoaded();
+
             // ── Only fire pixels on confirmed server success ──────────────
             trackPixel('Lead',    { content_name: CONTENT_NAME, currency: 'PHP' }, leadEventId);
             trackPixel('Contact', { content_name: CONTENT_NAME }, contactEventId);
@@ -299,6 +349,8 @@
 
   // ── Form Engagement Tracking (form_start, form_field_focus) ─────────────
   function setupFormTracking() {
+    if (!checkHasFbId()) return;
+
     let formStarted = false;
     const focusedFields = new Set();
     const forms = document.querySelectorAll('.lp-form, #quote-form');
@@ -354,6 +406,8 @@
 
   // ── Scroll Depth Tracking (scrolldepth) ─────────────────────────────────
   function setupScrollDepthTracking() {
+    if (!checkHasFbId()) return;
+
     const milestones = [25, 50, 75, 100];
     const firedDepths = new Set();
     let ticking = false;
@@ -403,6 +457,8 @@
 
   // ── CTA Click Tracking (cta_click) ──────────────────────────────────────
   function setupCTAClickTracking() {
+    if (!checkHasFbId()) return;
+
     document.addEventListener('click', (e) => {
       const cta = e.target.closest('[data-lp-cta], [data-lp-modal-trigger], [data-lp-submit], a[href="#lead-form"], button.lp-form__submit, #submit-btn');
       if (!cta) return;
@@ -788,6 +844,9 @@
     }
 
     // Video milestones: video_25, video_50, video_75, Video_Complete
+    // Do not track movements if user has no FB ID
+    if (!checkHasFbId()) return;
+
     const firedVideoEvents = new Set();
     let lastTime = 0;
 

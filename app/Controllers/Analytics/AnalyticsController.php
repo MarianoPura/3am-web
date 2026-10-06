@@ -280,18 +280,31 @@ final class AnalyticsController extends Controller
         $user = $this->currentUser();
 
         $page    = max(1, $request->int('page') ?: 1);
-        $perPage = 10;
+        $perPage = 15;
         $offset  = ($page - 1) * $perPage;
 
         $totalCount = (int) $db->selectValue('SELECT COUNT(*) FROM landing_page_visits');
 
+        // Join inquiries once to get the visitor's identity (name, email, phone).
+        // If a visitor submitted the form, those fields will be populated.
+        // We use MIN() so GROUP BY works correctly even if multiple inquiries exist per visit.
         $visitors = $db->select(
-            'SELECT lpv.*,
-                    COUNT(te.id) AS event_count
+            'SELECT lpv.id,
+                    lpv.fbc,
+                    lpv.fbp,
+                    lpv.email          AS lpv_email,
+                    lpv.contact        AS lpv_contact,
+                    lpv.first_seen_at,
+                    lpv.last_seen_at,
+                    MIN(inq.name)      AS inq_name,
+                    MIN(inq.email)     AS inq_email,
+                    MIN(inq.phone)     AS inq_phone,
+                    COUNT(te.id)       AS event_count
              FROM landing_page_visits lpv
+             LEFT JOIN inquiries     inq ON inq.visit_id = lpv.id
              LEFT JOIN tracking_events te ON te.visit_id = lpv.id
              GROUP BY lpv.id
-             ORDER BY lpv.first_seen_at DESC
+             ORDER BY COALESCE(lpv.last_seen_at, lpv.first_seen_at) DESC, lpv.id DESC
              LIMIT ? OFFSET ?',
             [$perPage, $offset]
         );
@@ -305,5 +318,57 @@ final class AnalyticsController extends Controller
             'totalPages' => $totalPages,
             'totalCount' => $totalCount,
         ])->noCache();
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Visitor events modal (AJAX)
+    // ─────────────────────────────────────────────────────────────
+
+    /**
+     * Returns a JSON list of events for a given visit ID.
+     * Used by the "View Events" modal on the visitors page.
+     */
+    public function visitorEvents(Request $request, string $visitId): Response
+    {
+        if ($denial = $this->requireAdmin()) {
+            return $denial;
+        }
+
+        $db = $this->db();
+
+        // Route params arrive as strings; cast to int for the query
+        $id = (int) $visitId;
+
+        if ($id <= 0) {
+            return Response::json(['ok' => false, 'error' => 'Invalid visit ID'], 400);
+        }
+
+        // Confirm visit exists
+        $exists = $db->selectValue(
+            'SELECT id FROM landing_page_visits WHERE id = ?',
+            [$id]
+        );
+
+        if (!$exists) {
+            return Response::json(['ok' => false, 'error' => 'Visit not found'], 404);
+        }
+
+        // Fetch all events for this visit, ordered by oldest first
+        $events = $db->select(
+            'SELECT id, event_name, event_data, occurred_at
+             FROM tracking_events
+             WHERE visit_id = ?
+             ORDER BY occurred_at ASC',
+            [$id]
+        );
+
+        // Decode JSON event_data so the front-end doesn't have to
+        foreach ($events as &$event) {
+            $decoded = json_decode((string) ($event['event_data'] ?? '{}'), true);
+            $event['event_data'] = is_array($decoded) ? $decoded : [];
+        }
+        unset($event);
+
+        return Response::json(['ok' => true, 'events' => $events]);
     }
 }

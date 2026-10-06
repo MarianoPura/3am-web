@@ -48,6 +48,7 @@ $hero   = $landing['hero'];
      data-pixel-id="<?= e_attr($landing['meta_pixel_id']) ?>"
      data-content-name="<?= e_attr($hero['kicker']) ?>"
      data-visit-id="<?= e_attr((string) ($visit_id ?? '')) ?>"
+     data-has-fb-id="<?= !empty($has_fb_id) ? '1' : '0' ?>"
      data-csrf-token="<?= e_attr(csrf_token()) ?>"
      data-track-url="<?= e_attr(url('/track-event')) ?>"></div>
 
@@ -243,25 +244,21 @@ $hero   = $landing['hero'];
            * ────────────────────────────────────────────────────────────────
            */
           $clients = [
-            ['name' => 'Apex Live',   'logo' => 'media/clients/client-1.svg'],
-            ['name' => 'Vortex',      'logo' => 'media/clients/client-2.svg'],
-            ['name' => 'Nexus Media', 'logo' => 'media/clients/client-3.svg'],
-            ['name' => 'Pulse AV',    'logo' => 'media/clients/client-4.svg'],
-            ['name' => 'Horizon',     'logo' => 'media/clients/client-5.svg'],
-            ['name' => 'Spectra',     'logo' => 'media/clients/client-6.svg'],
-            ['name' => 'Meridian',    'logo' => 'media/clients/client-7.svg'],
-            ['name' => 'Zenith',      'logo' => 'media/clients/client-8.svg'],
+            ['name' => 'Crystal Quartz 2',             'logo' => 'media/clients/cryztal-quartz.png'],
+            ['name' => 'Civil-Military Operations School (CMOC AFP)', 'logo' => 'media/clients/civil-military-school.png'],
+            ['name' => 'Deakin University',             'logo' => 'media/clients/deakin-university.png'],
+            ['name' => 'Titanium 2 Life Insurance Agency Inc.', 'logo' => 'media/clients/titanium-2.png'],
           ];
         ?>
         <?php foreach ($clients as $client): ?>
         <div class="lp-logos-item">
-          <img src="<?= e_attr(site_media($client['logo'])) ?>" alt="<?= e_attr($client['name']) ?>" width="180" height="48" loading="lazy">
+          <img src="<?= e_attr(site_media($client['logo'])) ?>" alt="<?= e_attr($client['name']) ?>" width="160" height="110" loading="lazy">
         </div>
         <?php endforeach ?>
         <!-- Duplicate set for seamless infinite loop -->
         <?php foreach ($clients as $client): ?>
         <div class="lp-logos-item" aria-hidden="true">
-          <img src="<?= e_attr(site_media($client['logo'])) ?>" alt="" width="180" height="48" loading="lazy">
+          <img src="<?= e_attr(site_media($client['logo'])) ?>" alt="" width="160" height="110" loading="lazy">
         </div>
         <?php endforeach ?>
       </div>
