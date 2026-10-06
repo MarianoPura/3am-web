@@ -583,9 +583,11 @@ final class RentalAdminController extends Controller
         $item['db_id'] = (int) $item['id'];
         $dates = (new RentalCatalog($this->db()))->availabilityByDate($item, $first->format('Y-m-d'), $first->modify('last day of this month')->format('Y-m-d'));
         $days  = [];
+        $today = (new \DateTimeImmutable('today'))->format('Y-m-d');
         foreach ($dates as $date => $day) {
             if ((int) $item['is_active'] !== 1 || $item['availability_status'] !== 'available') { $day['remaining'] = 0; }
-            $days[] = ['date' => $date] + $day;
+            $days[] = ['date' => $date, 'past' => $date < $today,
+                'available' => $date >= $today && !$day['admin_blocked'] && $day['remaining'] > 0] + $day;
         }
         return Response::json(['ok' => true, 'month' => $month, 'capacity' => (int) $item['available_quantity'],
             'stock_status' => (string) $item['availability_status'], 'active' => (int) $item['is_active'] === 1,
@@ -963,17 +965,22 @@ final class RentalAdminController extends Controller
         if ($name === '' || mb_strlen($name, 'UTF-8') > 120) {
             throw new \InvalidArgumentException('Enter a valid name.');
         }
-        $duplicateName = $this->db()->selectValue(
-            'SELECT id FROM rental_categories WHERE LOWER(TRIM(name)) = LOWER(?) AND id <> ? LIMIT 1',
-            [$name, $id]
-        );
-        if ($duplicateName !== null) {
-            throw new \InvalidArgumentException('A category with this name already exists.');
-        }
-
-        $existing = $id > 0 ? $this->db()->selectOne('SELECT id, slug, image_path, is_active FROM rental_categories WHERE id = ?', [$id]) : null;
+        $existing = $id > 0 ? $this->db()->selectOne('SELECT id, name, slug, image_path, is_active FROM rental_categories WHERE id = ?', [$id]) : null;
         if ($id > 0 && $existing === null) {
             throw new \InvalidArgumentException('That category no longer exists.');
+        }
+
+        // Existing duplicate names must not block status/image edits that keep the name.
+        $nameUnchanged = $existing !== null
+            && mb_strtolower(trim((string) $existing['name']), 'UTF-8') === mb_strtolower($name, 'UTF-8');
+        if (!$nameUnchanged) {
+            $duplicateName = $this->db()->selectValue(
+                'SELECT id FROM rental_categories WHERE LOWER(TRIM(name)) = LOWER(?) AND id <> ? LIMIT 1',
+                [$name, $id]
+            );
+            if ($duplicateName !== null) {
+                throw new \InvalidArgumentException('A category with this name already exists.');
+            }
         }
 
         $slugInput = strtolower(trim($request->string('slug')));

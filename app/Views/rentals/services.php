@@ -119,17 +119,18 @@ $servicesList = is_array($services ?? null)
                 <?php else: ?>Rate on request<?php endif ?>
               </p>
 
+              <?php if (empty($service['is_sample']) && (int) ($service['db_id'] ?? 0) > 0 && in_array($availability, ['available', 'inquire'], true)): ?>
               <a
                 class="rentals-item-card__link"
                 href="<?= e_attr(
                     url(
-                        '/start?type=Rentals&rental=' .
-                        rawurlencode($serviceId)
+                        '/rentals/services/' . (int) ($service['db_id'] ?? $serviceId) . '/request'
                     )
                 ) ?>"
               >
                 Request service →
               </a>
+              <?php else: ?><p class="rentals-card__meta">Contact the team for availability</p><?php endif ?>
 
             </article>
 
@@ -154,6 +155,7 @@ $servicesList = is_array($services ?? null)
     </div>
 
     <div class="rentals-inline-actions">
+      <a class="rentals-btn" href="<?= e_attr(url('rentals/service-requests')) ?>">My service requests</a>
       <a
         class="rentals-btn rentals-btn--dark"
         href="<?= e_attr(url('rentals/support')) ?>"

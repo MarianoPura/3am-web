@@ -122,14 +122,14 @@ unset($_SESSION['rentals_notice']);
         <div class="rentals-detail__dates">
           <input type="hidden" name="rental_start_date"><input type="hidden" name="rental_end_date">
           <div class="rentals-detail__date-choice"><span>Rental dates</span><button type="button" data-date-trigger aria-expanded="false" aria-controls="rental-date-picker">Select rental dates</button></div>
-          <label>Quantity<input type="number" name="quantity" min="1" max="999" value="1" required></label>
+          <label>Quantity<input type="number" name="quantity" min="1" max="1" value="1" required><small data-detail-quantity-available role="status"></small></label>
         </div>
         <div class="rentals-availability" id="rental-date-picker" data-availability-calendar aria-label="Choose rental dates" hidden>
           <div class="rentals-availability__head"><button type="button" data-month-prev aria-label="Previous month">←</button><strong data-month-label></strong><button type="button" data-month-next aria-label="Next month">→</button></div>
           <div class="rentals-availability__weekdays" aria-hidden="true"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div>
           <div class="rentals-availability__days" data-calendar-days></div>
           <button class="rentals-availability__clear" type="button" data-date-clear>Clear dates</button>
-          <p class="rentals-availability__legend"><span>● Available</span><span class="is-blocked">● blocked</span><span class="is-reserved">● Customer reserved</span><span class="is-past">● Past / unavailable</span></p>
+          <p class="rentals-availability__legend"><span>● Available</span><span class="is-blocked">● Blocked</span><span class="is-reserved">● Customer reserved</span><span class="is-past">● Past / unavailable</span></p>
         </div>
         <button class="rentals-btn rentals-btn--primary" type="submit" data-detail-add>Add to Cart</button>
       </form>

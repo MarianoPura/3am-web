@@ -14,6 +14,18 @@ document.querySelectorAll('[data-admin-availability]').forEach((panel) => {
   let month = monthOf(today);
   let request = 0;
   let anchor = null;
+  const updateMode = () => {
+    const removing = form.querySelector('[name="availability_action"]:checked')?.value === 'available';
+    const note = form.querySelector('[data-admin-block-note]');
+    note.hidden = removing;
+    note.querySelector('input').disabled = removing;
+    form.querySelector('[data-admin-block-submit]').textContent = removing ? 'Remove block' : 'Block dates';
+    message.textContent = removing
+      ? 'Select the dates to remove manual blocks. Customer reservations remain unchanged.'
+      : 'Select the dates to block for maintenance or internal use.';
+  };
+  form.querySelectorAll('[name="availability_action"]').forEach(mode => mode.addEventListener('change', updateMode));
+  updateMode();
   const highlight = () => {
     grid.querySelectorAll('[data-date]').forEach(cell => {
       const selected = Boolean(start.value && end.value && cell.dataset.date >= start.value && cell.dataset.date <= end.value);
@@ -44,19 +56,23 @@ document.querySelectorAll('[data-admin-availability]').forEach((panel) => {
       data.days.forEach(day => {
         const cell = document.createElement('button');
         cell.type = 'button'; cell.dataset.date = day.date;
-        const state = day.admin_blocked ? 'blocked' : (day.reserved > 0 ? 'reserved' : (day.remaining > 0 ? 'available' : 'unavailable'));
-        const label = day.admin_blocked ? 'Admin blocked' : (day.reserved > 0 ? 'Customer reserved' : (day.remaining > 0 ? 'Available' : 'Unavailable'));
+        const state = day.past ? 'past' : (day.admin_blocked ? 'blocked' : (day.reserved > 0 ? 'reserved' : (day.remaining > 0 ? 'available' : 'unavailable')));
+        const label = day.past ? 'Past / unavailable' : (day.admin_blocked ? 'Admin blocked' : (day.reserved > 0
+          ? (day.remaining > 0 ? `Reserved · ${day.remaining} available` : 'Fully reserved')
+          : (day.remaining > 0 ? 'Available' : 'Unavailable')));
         cell.className = `is-${state}`;
         const date = document.createElement('strong'); date.textContent = String(Number(day.date.slice(-2)));
-        const status = document.createElement('small'); status.textContent = label;
+        const status = document.createElement('small'); status.textContent = !day.past && !day.admin_blocked && day.reserved > 0 && day.remaining > 0
+          ? `${day.remaining} available` : label;
         cell.append(date, status);
-        cell.setAttribute('aria-label', `${day.date}: ${label}; ${day.reserved} reserved, ${day.remaining} remaining. Select availability dates.`);
-        cell.title = `${label} · ${day.reserved} reserved · ${day.remaining} remaining`;
+        cell.setAttribute('aria-label', `${day.date}: ${label}; ${day.reserved} reserved, ${day.remaining} remaining${day.admin_blocked ? '; Admin blocked' : ''}. Select dates to manage manual blocks.`);
+        cell.title = `${label} · ${day.reserved} reserved · ${day.remaining} remaining${day.admin_blocked ? ' · Admin blocked' : ''}`;
         cell.addEventListener('click', () => {
           if (anchor === null) { anchor = day.date; start.value = day.date; end.value = day.date; }
           else { start.value = anchor < day.date ? anchor : day.date; end.value = anchor > day.date ? anchor : day.date; anchor = null; }
           highlight();
-          message.textContent = `Selected ${start.value} to ${end.value}. Block dates, make available, or open Customer reserved to create an order.`;
+          const removing = form.querySelector('[name="availability_action"]:checked')?.value === 'available';
+          message.textContent = `Selected ${start.value} to ${end.value}. ${removing ? 'Remove manual blocks; customer reservations remain unchanged.' : 'Block these dates for maintenance or internal use.'}`;
         });
         grid.append(cell);
       });
@@ -108,11 +124,47 @@ document.querySelectorAll('[data-admin-proof-image]').forEach(image => {
   if (image.complete && image.naturalWidth === 0) showError();
 });
 
+// Fit the complete number to its own card, including after a resize or font load.
+const fitAdminMetricValue = (value) => {
+  value.style.removeProperty('--metric-fit-size');
+  const width = value.clientWidth;
+  const naturalWidth = value.scrollWidth;
+  if (width <= 0 || naturalWidth <= width) return;
+  const base = parseFloat(getComputedStyle(value).fontSize);
+  value.style.setProperty('--metric-fit-size', `${base * width / naturalWidth}px`);
+  if (value.scrollWidth > width) {
+    value.style.setProperty('--metric-fit-size', `${parseFloat(getComputedStyle(value).fontSize) * width / value.scrollWidth}px`);
+  }
+};
+document.querySelectorAll('.rentals-admin__metric strong').forEach(value => {
+  fitAdminMetricValue(value);
+  document.fonts?.ready.then(() => fitAdminMetricValue(value));
+  if (typeof ResizeObserver !== 'undefined') {
+    let previousWidth;
+    new ResizeObserver(entries => {
+      const width = entries[0].contentRect.width;
+      if (width !== previousWidth) { previousWidth = width; fitAdminMetricValue(value); }
+    }).observe(value);
+  } else {
+    window.addEventListener('resize', () => fitAdminMetricValue(value));
+  }
+  new MutationObserver(() => fitAdminMetricValue(value)).observe(value, { childList: true, characterData: true, subtree: true });
+});
+
 // One handler for Add/Edit; disabled equipment controls never submit stale values.
 document.querySelectorAll('[data-rental-product-form]').forEach(form => {
   const type = form.querySelector('[data-rental-type]');
   const updateType = () => {
     const service = type.value === '1';
+    const heading = form.closest?.('.rentals-admin__editor')?.querySelector('[data-create-product-heading]');
+    if (heading) heading.textContent = service ? 'Add service' : 'Add equipment';
+    form.querySelectorAll('[data-product-label]').forEach(label => {
+      label.textContent = service ? label.dataset.serviceText : label.dataset.equipmentText;
+    });
+    form.querySelectorAll('[data-product-placeholder]').forEach(input => {
+      input.placeholder = service ? input.dataset.servicePlaceholder : input.dataset.equipmentPlaceholder;
+    });
+    form.querySelectorAll('[data-service-field]').forEach(group => { group.hidden = !service; });
     form.querySelectorAll('[data-equipment-field]').forEach(group => {
       group.hidden = service;
       group.querySelectorAll('input, select, textarea').forEach(input => { input.disabled = service; });

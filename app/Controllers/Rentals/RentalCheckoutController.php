@@ -131,15 +131,17 @@ final class RentalCheckoutController extends Controller
         }
         // A token locates the order; it never grants access by itself.
         // Return only status data, not customer details or stored proof paths.
-        $order = $this->db()->selectOne('SELECT order_number, user_id, payment_status,
+        $order = $this->db()->selectOne('SELECT id, order_number, user_id, payment_status,
             CASE WHEN NULLIF(TRIM(payment_proof_path), \'\') IS NULL THEN 0 ELSE 1 END AS has_proof
             FROM order_header WHERE status_token = ?', [$token]);
         if ($order === null) { return Response::notFound()->noCache(); }
-        if ((int) $order['user_id'] !== (int) $user['id']
-            && !in_array(strtolower((string) $user['role']), ['admin', 'superadmin'], true)) {
+        if (in_array(strtolower((string) $user['role']), ['admin', 'superadmin'], true)) {
+            return $this->redirect(url('rentals/admin/orders/' . (int) $order['id']))->noCache();
+        }
+        if ((int) $order['user_id'] !== (int) $user['id']) {
             return Response::forbidden('This rental order is not available to your account.')->noCache();
         }
-        unset($order['user_id']);
+        unset($order['id'], $order['user_id']);
         return $order;
     }
 

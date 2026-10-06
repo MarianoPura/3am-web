@@ -1,0 +1,35 @@
+-- Service quotations are separate from equipment/payment orders.
+-- Apply explicitly before deploying the Services request/history routes.
+-- No existing tables, records, mail settings or payment statuses are changed.
+CREATE TABLE IF NOT EXISTS rental_service_requests (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    reference VARCHAR(40) NOT NULL,
+    submission_key CHAR(64) NOT NULL,
+    user_id BIGINT UNSIGNED NOT NULL,
+    rental_item_id BIGINT UNSIGNED NOT NULL,
+    service_name VARCHAR(190) NOT NULL,
+    customer_name VARCHAR(190) NOT NULL,
+    customer_email VARCHAR(190) NOT NULL,
+    customer_phone VARCHAR(40) NOT NULL,
+    event_start_date DATE NOT NULL,
+    event_end_date DATE NOT NULL,
+    location VARCHAR(255) NOT NULL,
+    details TEXT NOT NULL,
+    status VARCHAR(10) NOT NULL DEFAULT 'pending',
+    customer_message VARCHAR(1000) DEFAULT NULL,
+    reviewed_by BIGINT UNSIGNED DEFAULT NULL,
+    reviewed_at TIMESTAMP NULL DEFAULT NULL,
+    notification_attempted_at TIMESTAMP NULL DEFAULT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_service_request_reference (reference),
+    UNIQUE KEY uq_service_request_submission (submission_key),
+    KEY idx_service_request_customer (user_id, created_at, id),
+    KEY idx_service_request_status (status, created_at, id),
+    KEY idx_service_request_item (rental_item_id),
+    KEY idx_service_request_reviewer (reviewed_by),
+    CONSTRAINT fk_service_request_customer FOREIGN KEY (user_id) REFERENCES users (id),
+    CONSTRAINT fk_service_request_item FOREIGN KEY (rental_item_id) REFERENCES rental_items (id),
+    CONSTRAINT fk_service_request_reviewer FOREIGN KEY (reviewed_by) REFERENCES users (id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

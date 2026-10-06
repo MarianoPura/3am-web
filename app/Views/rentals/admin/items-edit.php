@@ -25,7 +25,7 @@ $itemId = (int) ($item['id'] ?? 0);
         <?= csrf_field() ?>
         <input type="hidden" name="id" value="<?= e_attr((string) $itemId) ?>">
         <fieldset>
-          <legend>Rental type and capacity</legend>
+          <legend><span data-product-label data-equipment-text="Rental type and capacity" data-service-text="Service type">Rental type and capacity</span></legend>
           <div class="rentals-admin__two">
             <label>Rental type
               <select data-rental-type disabled>
@@ -41,6 +41,7 @@ $itemId = (int) ($item['id'] ?? 0);
             </label>
           </div>
         </fieldset>
+        <p class="rentals-admin__notice" data-service-field hidden>Services describe work performed by 3AM, such as event coverage with cameras and crew, live production or technical support. Describe what is included below. Customer requests are discussed and confirmed with the team; services do not use equipment stock or Add to Cart.</p>
         <fieldset>
           <legend>Basic information</legend>
           <label>Category
@@ -51,27 +52,27 @@ $itemId = (int) ($item['id'] ?? 0);
               <?php endforeach ?>
             </select>
           </label>
-          <label>Name
-            <input name="name" maxlength="190" required value="<?= e_attr((string) ($item['name'] ?? '')) ?>">
+          <label><span data-product-label data-equipment-text="Name" data-service-text="Service name">Name</span>
+            <input name="name" data-product-placeholder data-equipment-placeholder="e.g. Sony A7 III Camera" data-service-placeholder="e.g. Event coverage with camera crew" maxlength="190" required value="<?= e_attr((string) ($item['name'] ?? '')) ?>">
           </label>
           <div class="rentals-admin__two">
             <label>Slug (optional)
-              <input name="slug" maxlength="190" placeholder="e.g. sony-a7-iii" value="<?= e_attr((string) ($item['slug'] ?? '')) ?>">
-              <small>Used in product URL. Leave blank to generate automatically.</small>
+              <input name="slug" data-product-placeholder data-equipment-placeholder="e.g. sony-a7-iii" data-service-placeholder="e.g. event-production-coverage" maxlength="190" placeholder="e.g. sony-a7-iii" value="<?= e_attr((string) ($item['slug'] ?? '')) ?>">
+              <small><span data-product-label data-equipment-text="Used in product URL. Leave blank to generate automatically." data-service-text="Used in the service URL. Leave blank to generate automatically.">Used in product URL. Leave blank to generate automatically.</span></small>
             </label>
-            <label>SKU (optional)
-              <input name="sku" maxlength="80" placeholder="e.g. CAM-001" value="<?= e_attr((string) ($item['sku'] ?? '')) ?>">
-              <small>Unique inventory code.</small>
+            <label><span data-product-label data-equipment-text="SKU (optional)" data-service-text="Service code (optional)">SKU (optional)</span>
+              <input name="sku" data-product-placeholder data-equipment-placeholder="e.g. CAM-001" data-service-placeholder="e.g. SRV-001" maxlength="80" placeholder="e.g. CAM-001" value="<?= e_attr((string) ($item['sku'] ?? '')) ?>">
+              <small><span data-product-label data-equipment-text="Unique inventory code." data-service-text="Optional reference for this service.">Unique inventory code.</span></small>
             </label>
           </div>
         </fieldset>
         <fieldset>
-          <legend>Product details</legend>
-          <label>Description
-            <textarea name="description" rows="3" maxlength="5000"><?= e((string) ($item['description'] ?? '')) ?></textarea>
+          <legend><span data-product-label data-equipment-text="Product details" data-service-text="Service scope">Product details</span></legend>
+          <label><span data-product-label data-equipment-text="Description" data-service-text="Coverage, crew and equipment">Description</span>
+            <textarea name="description" data-product-placeholder data-equipment-placeholder="Product features and overview..." data-service-placeholder="Describe the event coverage, camera operators, lighting/audio support, crew roles, duration and deliverables." rows="3" maxlength="5000"><?= e((string) ($item['description'] ?? '')) ?></textarea>
           </label>
-          <label>Ideal use
-            <input name="ideal_use" maxlength="500" value="<?= e_attr((string) ($item['ideal_use'] ?? '')) ?>">
+          <label><span data-product-label data-equipment-text="Ideal use" data-service-text="Event / project types">Ideal use</span>
+            <input name="ideal_use" data-product-placeholder data-equipment-placeholder="e.g. Weddings, corporate videos, studio shoots" data-service-placeholder="e.g. Corporate events, weddings, livestream productions" maxlength="500" value="<?= e_attr((string) ($item['ideal_use'] ?? '')) ?>">
           </label>
           <?php $productImage = \App\Models\RentalCatalog::imagePath($item['image_path'] ?? null); if ($productImage !== null): ?>
             <img class="rentals-admin__image-preview" src="<?= e_attr(\App\Models\RentalCatalog::imageUrl($productImage)) ?>" alt="Current product image">
@@ -82,7 +83,7 @@ $itemId = (int) ($item['id'] ?? 0);
           </label>
         </fieldset>
         <fieldset>
-          <legend>Rental settings</legend>
+          <legend><span data-product-label data-equipment-text="Rental settings" data-service-text="Service pricing">Rental settings</span></legend>
           <div class="rentals-admin__two">
 
             <label data-equipment-field>Availability
@@ -94,13 +95,13 @@ $itemId = (int) ($item['id'] ?? 0);
             </label>
           </div>
           <div class="rentals-admin__two">
-            <label>Rental unit
-              <input name="rental_unit" maxlength="30" value="<?= e_attr((string) ($item['rental_unit'] ?? 'day')) ?>">
+            <label><span data-product-label data-equipment-text="Rental unit" data-service-text="Pricing basis">Rental unit</span>
+              <input name="rental_unit" data-product-placeholder data-equipment-placeholder="e.g. day, hour, event" data-service-placeholder="e.g. event, project, day" maxlength="30" value="<?= e_attr((string) ($item['rental_unit'] ?? 'day')) ?>">
             </label>
 
           </div>
           <div class="rentals-admin__two">
-            <label>Rate (₱)
+            <label><span data-product-label data-equipment-text="Rate (₱)" data-service-text="Starting price (₱)">Rate (₱)</span>
               <input type="number" min="0" max="9999999999.99" step="0.01" name="rental_rate" required value="<?= e_attr((string) ($item['rental_rate'] ?? '0.00')) ?>">
             </label>
             <label data-equipment-field>Security deposit (₱, optional)
@@ -128,15 +129,21 @@ $itemId = (int) ($item['id'] ?? 0);
             <div class="rentals-admin-calendar__head"><button type="button" data-admin-prev aria-label="Previous availability month">←</button><strong data-admin-month></strong><button type="button" data-admin-next aria-label="Next availability month">→</button></div>
             <div class="rentals-admin-calendar__weekdays" aria-hidden="true"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div>
             <div class="rentals-admin-calendar__days" data-admin-days></div>
-            <p class="rentals-admin-calendar__legend"><span>Available</span><span class="is-reserved">Customer reserved</span><span class="is-blocked">Admin blocked</span></p>
+            <p class="rentals-admin-calendar__legend"><span>Available</span><span class="is-reserved">Customer reserved</span><span class="is-blocked">Admin blocked</span><span class="is-past">Past / unavailable</span></p>
+            <p>Past dates cannot be rented. You can still select them to manage historical manual blocks.</p>
             <p data-admin-calendar-message role="status">Select dates to create a manual block.</p>
             <button type="button" class="rentals-admin-calendar__clear" data-admin-clear>Clear selection</button>
           </div>
           <form method="post" action="<?= e_attr(url('rentals/admin/items/' . $itemId . '/blackouts')) ?>" class="rentals-admin__blackout-form"><?= csrf_field() ?>
+            <fieldset class="rentals-admin__availability-mode">
+              <legend>Mode</legend>
+              <label><input type="radio" name="availability_action" value="blocked" checked>Block dates</label>
+              <label><input type="radio" name="availability_action" value="available">Remove block</label>
+            </fieldset>
             <label>From<input type="date" name="start_date" required></label>
             <label>Through<input type="date" name="end_date" required></label>
-            <label>Note<input name="note" maxlength="255" placeholder="Maintenance, internal use…"></label>
-            <button class="rentals-btn rentals-btn--dark" type="submit">Block dates</button>
+            <label data-admin-block-note>Note<input name="note" maxlength="255" placeholder="Maintenance, internal use…"></label>
+            <button class="rentals-btn rentals-btn--dark" type="submit" data-admin-block-submit>Block dates</button>
           </form>
           <h4>Manual blocks</h4>
           <?php if (($blackouts ?? []) === []): ?><p>No manual blocks yet.</p><?php endif ?>

@@ -4,6 +4,7 @@ $links = [
     ['key' => 'dashboard', 'label' => 'Dashboard', 'href' => url('rentals/admin')],
     ['key' => 'analytics', 'label' => 'Analytics', 'href' => url('rentals/admin/analytics')],
     ['key' => 'orders', 'label' => 'Orders', 'href' => url('rentals/admin/orders')],
+    ['key' => 'service-requests', 'label' => 'Service Requests', 'href' => url('rentals/admin/service-requests')],
     ['key' => 'items', 'label' => 'Products', 'href' => url('rentals/admin/items')],
     ['key' => 'categories', 'label' => 'Categories', 'href' => url('rentals/admin/categories')],
     ['key' => 'sales-report', 'label' => 'Sales Report', 'href' => url('rentals/admin/sales-report')],

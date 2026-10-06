@@ -36,9 +36,9 @@ foreach ($summary['items'] as $line) { $lineSummaries[(string) $line['line_id']]
             <div class="rentals-cart-item__main">
               <div class="rentals-cart-item__heading"><div><p class="rentals-card__meta"><?= e((string) ($item['category'] ?? 'Equipment')) ?></p><h2><?= e($name) ?></h2></div><span class="rentals-cart-item__state"><?= ($item['is_unavailable'] ?? false) ? 'Unavailable' : (!$hasDates ? 'Dates needed' : (($item['can_checkout'] ?? false) ? 'Ready to review' : 'Check availability')) ?></span></div>
               <p class="rentals-cart-item__rate">Listed rate: ₱<?= e(number_format((float) ($item['rental_rate'] ?? 0), 2)) ?><?= ($item['rental_unit'] ?? '') !== '' ? ' / ' . e((string) $item['rental_unit']) : '' ?></p>
-              <form method="post" action="<?= e_attr(url('rentals/cart/update')) ?>" class="rentals-cart-form rentals-cart-form--update">
+              <form method="post" action="<?= e_attr(url('rentals/cart/update')) ?>" class="rentals-cart-form rentals-cart-form--update" data-availability-url="<?= e_attr(url('rentals/availability')) ?>">
                 <?= csrf_field() ?><input type="hidden" name="line" value="<?= e_attr($lineId) ?>"><input type="hidden" name="id" value="<?= e_attr($itemId) ?>">
-                <label class="rentals-date-field"><span>Quantity</span><input type="number" name="quantity" min="1" max="999" value="<?= e_attr((string) $quantity) ?>" required></label>
+                <label class="rentals-date-field"><span>Quantity</span><input type="number" name="quantity" min="1" max="<?= e_attr((string) max(0, (int) ($item['max_quantity'] ?? 0))) ?>" value="<?= e_attr((string) $quantity) ?>" required<?= (int) ($item['max_quantity'] ?? 0) === 0 ? ' disabled' : '' ?>><small data-cart-quantity-available role="status"><?= e((string) (int) ($item['max_quantity'] ?? 0)) ?> units available for these dates.</small></label>
                 <label class="rentals-date-field"><span>Start date</span><input type="date" name="rental_start_date" min="<?= e_attr(date('Y-m-d')) ?>" value="<?= e_attr($start) ?>" required></label>
                 <label class="rentals-date-field"><span>End date</span><input type="date" name="rental_end_date" min="<?= e_attr(date('Y-m-d')) ?>" value="<?= e_attr($end) ?>" required></label>
                 <noscript><button type="submit" class="rentals-btn rentals-btn--dark">Save changes</button></noscript>
@@ -53,7 +53,7 @@ foreach ($summary['items'] as $line) { $lineSummaries[(string) $line['line_id']]
         <?php if ($ready): ?>
           <dl><div><dt>Rental subtotal</dt><dd>₱<?= e(number_format((float) $summary['subtotal'], 2)) ?></dd></div><div><dt>Security deposits</dt><dd>₱<?= e(number_format((float) $summary['security_deposit'], 2)) ?></dd></div><div class="rentals-cart-summary__total"><dt>Estimated total</dt><dd>₱<?= e(number_format((float) $summary['total'], 2)) ?></dd></div></dl>
           <p>Availability and final terms are confirmed by the Rentals team.</p>
-          <a class="rentals-btn rentals-btn--primary" href="<?= e_attr(url('rentals/checkout')) ?>">Continue to checkout</a>
+          <a class="rentals-btn rentals-btn--primary" href="<?= e_attr(url('rentals/checkout')) ?>" data-cart-checkout>Continue to checkout</a>
         <?php else: ?>
           <p>Choose valid dates and quantities for every item. Your changes save automatically.</p>
           <span class="rentals-btn rentals-btn--preview" aria-disabled="true">Complete cart details first</span>

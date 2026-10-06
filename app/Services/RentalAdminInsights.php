@@ -54,17 +54,33 @@ final class RentalAdminInsights
         $end = $to->modify('+1 day')->format('Y-m-d 00:00:00');
         $dates = [$start, $end];
         $scope = $this->reportScope('h');
+        $rangeDays = (int) $from->diff($to)->days + 1;
+        // Long custom ranges use calendar buckets rather than an unbounded daily array.
+        [$aggregation, $dateExpression, $step, $cursor] = $rangeDays <= 366
+            ? ['day', 'DATE(h.created_at)', '+1 day', $from]
+            : ($rangeDays <= 3650
+                ? ['month', "DATE_FORMAT(h.created_at, '%Y-%m-01')", '+1 month', $from->modify('first day of this month')]
+                : ['year', "DATE_FORMAT(h.created_at, '%Y-01-01')", '+1 year', $from->modify('first day of January this year')]);
+        $dailyRows = $this->db->select("SELECT $dateExpression AS period, COUNT(*) AS orders,
+            COALESCE(SUM(CASE WHEN h.payment_status = 1 THEN h.subtotal ELSE 0 END), 0) AS sales
+            FROM order_header h WHERE h.created_at >= ? AND h.created_at < ? $scope
+            GROUP BY $dateExpression ORDER BY period", $dates);
+        $byPeriod = array_column($dailyRows, null, 'period');
+        $daily = [];
+        for (; $cursor <= $to; $cursor = $cursor->modify($step)) {
+            $date = $cursor->format('Y-m-d');
+            $daily[] = $byPeriod[$date] ?? ['period' => $date, 'orders' => 0, 'sales' => 0];
+        }
         $kpis = $this->db->selectOne('SELECT COUNT(*) AS orders,
+            COALESCE(SUM(h.payment_status = 1), 0) AS approved_orders,
             COALESCE(SUM(CASE WHEN h.payment_status = 1 THEN h.subtotal ELSE 0 END), 0) AS sales,
             COALESCE(AVG(CASE WHEN h.payment_status = 1 THEN h.subtotal END), 0) AS average_sale
             FROM order_header h WHERE h.created_at >= ? AND h.created_at < ? ' . $scope, $dates);
         return [
             'filters' => ['period' => $period, 'from' => $from->format('Y-m-d'), 'to' => $to->format('Y-m-d')],
             'kpis' => $kpis,
-            'daily' => $this->db->select('SELECT DATE(h.created_at) AS period, COUNT(*) AS orders,
-                COALESCE(SUM(CASE WHEN h.payment_status = 1 THEN h.subtotal ELSE 0 END), 0) AS sales
-                FROM order_header h WHERE h.created_at >= ? AND h.created_at < ? ' . $scope . '
-                GROUP BY DATE(h.created_at) ORDER BY period', $dates),
+            'daily' => $daily,
+            'aggregation' => $aggregation,
             'paymentStatuses' => $this->db->select('SELECT h.payment_status AS status, COUNT(*) AS total
                 FROM order_header h WHERE h.created_at >= ? AND h.created_at < ? ' . $scope . '
                 GROUP BY h.payment_status ORDER BY h.payment_status', $dates),

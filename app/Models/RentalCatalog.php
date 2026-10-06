@@ -82,7 +82,8 @@ final class RentalCatalog
 
             $preview = config('rentals.preview_samples', false)
                 && $categories === []
-                && $rows === [];
+                && $rows === []
+                && is_readable(BASE_PATH . '/database/seeds/rentals.php');
 
             if ($preview) {
                 $samples = require BASE_PATH . '/database/seeds/rentals.php';
@@ -121,6 +122,7 @@ final class RentalCatalog
 
             // Never present demo stock as real inventory when a live DB fails.
             $samples = config('rentals.preview_samples', false)
+                && is_readable(BASE_PATH . '/database/seeds/rentals.php')
                 ? require BASE_PATH . '/database/seeds/rentals.php'
                 : [];
 

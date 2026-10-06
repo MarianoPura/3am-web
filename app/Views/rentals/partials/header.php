@@ -58,7 +58,7 @@ if (preg_match('/\p{L}/u', trim((string) ($navCustomer['name'] ?? '')), $firstLe
       <details class="rentals-account-menu" data-account-menu>
         <summary class="rentals-header__account" aria-controls="rentals-account-popover" aria-expanded="false">
           <?php if ($navCustomer !== null): ?><span class="rentals-header__avatar" aria-hidden="true"><?= e($navInitial) ?></span><?php endif ?>
-          <span><?= $navCustomer !== null ? 'Account' : 'Sign In' ?></span><span aria-hidden="true">⌄</span>
+          <span><?= $navCustomer !== null ? 'Account' : 'Sign In' ?></span><svg class="rentals-account-menu__caret" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true" focusable="false"><path d="m4 6 4 4 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
         </summary>
         <div class="rentals-account-menu__panel" id="rentals-account-popover">
           <?php if ($navCustomer === null): ?>
@@ -68,6 +68,7 @@ if (preg_match('/\p{L}/u', trim((string) ($navCustomer['name'] ?? '')), $firstLe
           <?php else: ?>
             <p class="rentals-account-menu__name"><?= e((string) $navCustomer['name']) ?></p>
             <a href="<?= e_attr(url('rentals/orders')) ?>">My Rentals</a>
+            <a href="<?= e_attr(url('rentals/service-requests')) ?>">Service requests</a>
             <a href="<?= e_attr(url('rentals/account')) ?>">Account</a>
             <?php if (in_array(strtolower((string) $navCustomer['role']), ['admin', 'superadmin'], true)): ?><a href="<?= e_attr(url('rentals/admin')) ?>">Rentals Admin</a><?php endif ?>
             <form method="post" action="<?= e_attr(url('rentals/logout')) ?>"><?= csrf_field() ?><button type="submit">Log out</button></form>

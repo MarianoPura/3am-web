@@ -59,27 +59,48 @@ try {
             [$code, $body, $final, $headers] = $http($jar, '/rentals/account',
                 ['_token' => $csrf($failure), 'action' => 'login', 'email' => $user['email'], 'password' => $user['password']]);
             $expected = $kind === 'other' ? 403 : 200;
-            $assert($code === $expected && $final === $base . $target && str_contains($headers, 'no-store'), 'QR login return/access failed for ' . $page . '/' . $kind);
-            foreach ([$privateName, $proofPath, $users['owner']['email'], 'PRIVATE-PHONE', 'PRIVATE-REFERENCE', 'PRIVATE-NOTE'] as $secret) {
+            $isAdmin = in_array($kind, ['admin','superadmin'], true);
+            $expectedUrl = $isAdmin ? $base . '/rentals/admin/orders/' . $orderId : $base . $target;
+            $assert($code === $expected && $final === $expectedUrl && str_contains($headers, 'no-store'), 'QR login return/access failed for ' . $page . '/' . $kind);
+            if ($isAdmin) {
+                $assert(str_contains($body,'Payment status') && str_contains($body,'rentals-payment-badge--pending')
+                    && !str_contains($body,'data-qr-url=') && !str_contains($body,$statusToken) && !str_contains($body,$proofPath), 'Admin was not routed to its dedicated authorized order view.');
+                [$redirectCode,$redirectBody,,$redirectHeaders]=$http($jar,$target,null,false);
+                $assert($redirectCode===302 && str_contains($redirectHeaders,'Location: '.$mount.'/rentals/admin/orders/'.$orderId)
+                    && !str_contains($redirectBody,$privateName), 'Admin token route rendered customer status or leaked details.');
+            }
+            foreach ($isAdmin ? [] : [$privateName, $proofPath, $users['owner']['email'], 'PRIVATE-PHONE', 'PRIVATE-REFERENCE', 'PRIVATE-NOTE'] as $secret) {
                 $assert(!str_contains($body, $secret), 'QR page exposed private order fields.');
             }
-            if ($code === 200) {
+            if ($kind === 'owner') {
+                $assert(str_contains($body, '<meta name="referrer" content="no-referrer">')
+                    && str_contains($body, '<meta name="robots" content="noindex, nofollow">'), 'Token page lacks scoped referrer/index protection.');
                 $assert(str_contains($body, 'RNT-QR-' . $key) && str_contains($body, 'rentals-payment-badge--pending'), 'Authorized status missing.');
                 $assert(preg_match('/data-qr-url="([^"]+)"/', $body, $qr) === 1
                     && html_entity_decode($qr[1], ENT_QUOTES, 'UTF-8') === $base . '/rentals/order-status/' . $statusToken,
                     'QR payload contains anything other than the protected token URL.');
-            } else {
+            } elseif (!$isAdmin) {
                 $assert(!str_contains($body, 'RNT-QR-' . $key) && !str_contains($body, $statusToken), '403 disclosed order or QR data.');
             }
             [$code] = $http($jar, '/rentals/' . $page . '/' . str_repeat('f', 64));
             $assert($code === 404, 'Unknown token accepted.');
+            [$code] = $http($jar, '/rentals/' . $page . '/' . $orderId);
+            $assert($code === 404, 'Numeric ID accepted as a customer status token.');
+            if ($kind === 'other') {
+                [$code] = $http($jar,'/rentals/orders/'.$orderId.'/proof');
+                $assert($code===404,'Another customer accessed a numeric proof ID.');
+                [$code] = $http($jar,'/rentals/admin/orders/'.$orderId);
+                $assert($code===403,'Customer bypassed dedicated Admin order access.');
+                [$code] = $http($jar,'/rentals/admin/proof/'.$orderId);
+                $assert($code===403,'Customer bypassed Admin proof authorization.');
+            }
             [, $account] = $http($jar, '/rentals/account');
             $http($jar, '/rentals/logout', ['_token' => $csrf($account)]);
             [$code] = $http($jar, $target, null, false);
             $assert($code === 302, 'Logout left the protected QR page accessible.');
         }
     }
-    echo "PASS: status and confirmation require login; failed login retains return target; owner/admin/superadmin allowed; other customer 403; private fields/proof paths omitted; opaque QR URL; unknown token 404; logout protection; mounted redirects/no-store.\n";
+    echo "PASS: status/confirmation require login; owner allowed; other customer 403; Admin/Superadmin redirected to dedicated Admin order/status view; numeric token/proof tampering blocked; private paths omitted; opaque QR; unknown token 404; logout and no-store preserved.\n";
 } finally {
     if ($orderId > 0) { $db->delete('DELETE FROM order_header WHERE id=?', [$orderId]); }
     foreach ($users as $user) {
