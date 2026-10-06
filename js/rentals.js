@@ -138,9 +138,12 @@ const initRentalsCatalogue = () => {
         cell.type = 'button';
         cell.textContent = String(Number(day.date.slice(-2)));
         cell.dataset.date = day.date;
-        cell.className = day.available ? 'is-available' : 'is-unavailable';
+        const state = day.admin_blocked ? 'blocked' : (day.past ? 'past' : (day.reserved > 0 ? 'reserved' : (day.available ? 'available' : 'unavailable')));
+        const label = day.admin_blocked ? 'Admin blocked' : (day.past ? 'Past date' : (day.reserved > 0 ? `Customer reserved; ${day.remaining} available` : (day.available ? `${day.remaining} available` : 'Unavailable')));
+        cell.className = `is-${state}`;
         cell.disabled = !day.available;
-        cell.setAttribute('aria-label', `${day.date}: ${day.available ? `${day.remaining} available` : (day.admin_blocked ? 'Admin blocked' : 'unavailable')}`);
+        cell.setAttribute('aria-label', `${day.date}: ${label}`);
+        cell.title = `${label} · ${day.remaining} remaining`;
         if (day.date === startInput.value || day.date === endInput.value) cell.classList.add('is-selected');
         if (startInput.value && endInput.value && day.date > startInput.value && day.date < endInput.value) cell.classList.add('is-in-range');
         cell.addEventListener('click', async () => {

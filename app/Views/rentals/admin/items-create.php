@@ -20,8 +20,24 @@ $draft = $draft ?? [];
         <p class="rentals-card__meta">New record</p>
         <h2>Add product</h2>
       </div>
-      <form method="post" action="<?= e_attr(url('rentals/admin/items')) ?>" class="rentals-admin__form" enctype="multipart/form-data">
+      <form method="post" action="<?= e_attr(url('rentals/admin/items')) ?>" class="rentals-admin__form" data-rental-product-form enctype="multipart/form-data">
         <?= csrf_field() ?>
+        <fieldset>
+          <legend>Rental type and capacity</legend>
+          <div class="rentals-admin__two">
+            <label>Rental type
+              <select name="is_service" data-rental-type>
+                <option value="0"<?= ($draft['is_service'] ?? '0') === '0' ? ' selected' : '' ?>>Equipment</option>
+                <option value="1"<?= ($draft['is_service'] ?? '') === '1' ? ' selected' : '' ?>>Service</option>
+              </select>
+              <small>Choose equipment stock or a production service.</small>
+            </label>
+            <label class="rentals-admin__quantity" data-equipment-field>Available quantity
+              <input type="number" min="0" max="999999" step="1" name="available_quantity" required value="<?= e_attr((string) ($draft['available_quantity'] ?? '1')) ?>">
+              <small>Maximum number of units that can be rented for overlapping dates.</small>
+            </label>
+          </div>
+        </fieldset>
         <fieldset>
           <legend>Basic information</legend>
           <label>Category
@@ -62,13 +78,8 @@ $draft = $draft ?? [];
         <fieldset>
           <legend>Rental settings</legend>
           <div class="rentals-admin__two">
-            <label>Type
-              <select name="is_service">
-                <option value="0"<?= ($draft['is_service'] ?? '0') === '0' ? ' selected' : '' ?>>Equipment</option>
-                <option value="1"<?= ($draft['is_service'] ?? '') === '1' ? ' selected' : '' ?>>Service</option>
-              </select>
-            </label>
-            <label>Availability
+
+            <label data-equipment-field>Availability
               <select name="availability_status">
                 <?php foreach (['available', 'unavailable', 'out_of_stock', 'reserved', 'inquire'] as $status): ?>
                   <option value="<?= e_attr($status) ?>"<?= ($draft['availability_status'] ?? 'available') === $status ? ' selected' : '' ?>><?= e(ucwords(str_replace('_', ' ', $status))) ?></option>
@@ -80,15 +91,13 @@ $draft = $draft ?? [];
             <label>Rental unit
               <input name="rental_unit" maxlength="30" value="<?= e_attr((string) ($draft['rental_unit'] ?? 'day')) ?>" placeholder="e.g. day, hour, event">
             </label>
-            <label>Available quantity
-              <input type="number" min="0" max="999999" step="1" name="available_quantity" required value="<?= e_attr((string) ($draft['available_quantity'] ?? '1')) ?>">
-            </label>
+
           </div>
           <div class="rentals-admin__two">
             <label>Rate (₱)
               <input type="number" min="0" max="9999999999.99" step="0.01" name="rental_rate" required placeholder="0.00" value="<?= e_attr((string) ($draft['rental_rate'] ?? '')) ?>">
             </label>
-            <label>Security deposit (₱, optional)
+            <label data-equipment-field>Security deposit (₱, optional)
               <input type="number" min="0" max="9999999999.99" step="0.01" name="security_deposit" placeholder="0.00" value="<?= e_attr((string) ($draft['security_deposit'] ?? '0.00')) ?>">
             </label>
           </div>

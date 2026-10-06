@@ -128,7 +128,7 @@ unset($_SESSION['rentals_notice']);
           <div class="rentals-availability__weekdays" aria-hidden="true"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div>
           <div class="rentals-availability__days" data-calendar-days></div>
           <button class="rentals-availability__clear" type="button" data-date-clear>Clear dates</button>
-          <p class="rentals-availability__legend"><span>● Available</span><span>● Reserved / unavailable</span></p>
+          <p class="rentals-availability__legend"><span>● Available</span><span class="is-blocked">● Admin blocked</span><span class="is-reserved">● Customer reserved</span><span class="is-past">● Past / unavailable</span></p>
         </div>
         <button class="rentals-btn rentals-btn--primary" type="submit" data-detail-add>Add to Cart</button>
       </form>

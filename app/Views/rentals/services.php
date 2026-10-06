@@ -18,7 +18,7 @@ $servicesList = is_array($services ?? null)
     : [];
 ?>
 
-<section class="rentals-page-hero rentals-page-hero--media">
+<section class="rentals-page-hero rentals-page-hero--media rentals-page-hero--services">
   <div class="rentals-shell rentals-page-hero__inner">
     <div>
       <p class="rentals-kicker">Rental services</p>
@@ -65,7 +65,7 @@ $servicesList = is_array($services ?? null)
 
         <?php if ($servicesList !== []): ?>
 
-          <?php foreach ($servicesList as $service): ?>
+          <?php foreach ($servicesList as $index => $service): ?>
 
             <?php
             $serviceId = (string) ($service['id'] ?? '');
@@ -93,7 +93,7 @@ $servicesList = is_array($services ?? null)
             <article class="rentals-service">
 
               <p class="rentals-card__meta">
-                Service
+                Service / <?= e(str_pad((string) ($index + 1), 2, '0', STR_PAD_LEFT)) ?>
               </p>
 
               <h3>
@@ -101,7 +101,7 @@ $servicesList = is_array($services ?? null)
               </h3>
 
               <?php if ($description !== ''): ?>
-                <p>
+                <p class="rentals-service__description">
                   <?= e($description) ?>
                 </p>
               <?php endif ?>
@@ -113,28 +113,11 @@ $servicesList = is_array($services ?? null)
                 </p>
               <?php endif ?>
 
-              <div class="rentals-item-card__meta-row">
-
-                <span>
-                  <?= e(
-                      $availability !== ''
-                          ? $availability
-                          : 'Inquire for availability'
-                  ) ?>
-                </span>
-
-                <span>
-                  <?php if ($rate > 0): ?>
-                    ₱<?= e(number_format($rate, 2)) ?>
-                    <?= $rentalUnit !== ''
-                        ? ' / ' . e($rentalUnit)
-                        : '' ?>
-                  <?php else: ?>
-                    Rate on request
-                  <?php endif ?>
-                </span>
-
-              </div>
+              <p class="rentals-service__rate">
+                <?php if ($rate > 0): ?>
+                  ₱<?= e(number_format($rate, 2)) ?><?= $rentalUnit !== '' ? ' / ' . e($rentalUnit) : '' ?>
+                <?php else: ?>Rate on request<?php endif ?>
+              </p>
 
               <a
                 class="rentals-item-card__link"

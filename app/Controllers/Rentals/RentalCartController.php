@@ -34,7 +34,7 @@ final class RentalCartController extends Controller
         $days = [];
         foreach ($remaining as $date => $day) {
             $days[] = ['date' => $date, 'remaining' => $day['remaining'], 'admin_blocked' => $day['admin_blocked'],
-                'reserved' => $day['reserved'],
+                'reserved' => $day['reserved'], 'past' => $date < $today->format('Y-m-d'),
                 'available' => $date >= $today->format('Y-m-d')
                     && $canRent && $day['remaining'] >= $quantity];
         }
