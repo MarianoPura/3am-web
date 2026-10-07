@@ -35,7 +35,9 @@ final class TrackingController extends Controller
         }
 
         if ($visitId <= 0) {
-            $visitId = $tracking->recordVisit($request) ?? 0;
+            if ($tracking->isFromFacebook($request)) {
+                $visitId = $tracking->recordVisit($request) ?? 0;
+            }
         }
 
         if ($visitId <= 0 || $eventName === '') {

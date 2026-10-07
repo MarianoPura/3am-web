@@ -38,27 +38,56 @@ function formatVisitorDate(string $datetime): string {
 }
 
 /**
+ * Extract only the last unique characters of a Facebook Click ID.
+ * e.g. "IwZXh0bg..._aem_0Y1ScDuBzWHShQX1Z6tIcA" -> "0Y1ScDuBzWHShQX1Z6tIcA"
+ */
+function extractShortFbId(string $raw): string {
+    $val = trim($raw);
+    if ($val === '') {
+        return '';
+    }
+
+    // Strip leading "fb.1.<timestamp>." or "fb.0.<timestamp>." if present
+    if (preg_match('/^fb\.[01]\.\d+\.(.+)$/', $val, $m)) {
+        $val = $m[1];
+    }
+
+    // Modern Meta Click ID: extract suffix after "_aem_"
+    if (($pos = strrpos($val, '_aem_')) !== false) {
+        return substr($val, $pos + 5);
+    }
+
+    // If it has dot notation, take the final segment
+    if (str_contains($val, '.')) {
+        $parts = explode('.', $val);
+        $val = end($parts);
+    }
+
+    // If still very long, display the trailing 20 unique characters
+    if (strlen($val) > 24) {
+        return substr($val, -20);
+    }
+
+    return $val;
+}
+
+/**
  * Determine the best identifier label for a visitor row.
- * Priority: FB Click ID → inquiry email → inquiry phone → "Anonymous"
+ * Priority: FB Click ID (unique short suffix) → inquiry email → inquiry phone → "Anonymous"
  */
 function visitorIdentifier(array $v): array {
     $fbc   = trim((string) ($v['fbc'] ?? ''));
-    $fbp   = trim((string) ($v['fbp'] ?? ''));
     $email = trim((string) ($v['inq_email'] ?? '')) ?: trim((string) ($v['lpv_email'] ?? ''));
     $phone = trim((string) ($v['inq_phone'] ?? '')) ?: trim((string) ($v['lpv_contact'] ?? ''));
 
     if ($fbc !== '') {
-        // Show shortened FB Click ID — keep only the last segment for readability
-        $parts = explode('.', $fbc);
-        $short = count($parts) >= 4 ? end($parts) : $fbc;
-        return ['label' => 'FB ID', 'value' => $short, 'title' => $fbc, 'type' => 'fb'];
-    }
-
-    if ($fbp !== '') {
-        // Show shortened FB Browser ID
-        $parts = explode('.', $fbp);
-        $short = count($parts) >= 4 ? end($parts) : $fbp;
-        return ['label' => 'FB ID', 'value' => $short, 'title' => $fbp, 'type' => 'fb'];
+        $short = extractShortFbId($fbc);
+        return [
+            'label' => 'FB ID',
+            'value' => $short,
+            'title' => $fbc, // Full original raw ID preserved in hover tooltip
+            'type'  => 'fb',
+        ];
     }
 
     if ($email !== '') {
@@ -69,7 +98,7 @@ function visitorIdentifier(array $v): array {
         return ['label' => 'Phone', 'value' => $phone, 'title' => $phone, 'type' => 'phone'];
     }
 
-    return ['label' => '', 'value' => 'Anonymous', 'title' => '', 'type' => 'anon'];
+    return ['label' => '', 'value' => 'Anonymous #' . (int) ($v['id'] ?? 0), 'title' => '', 'type' => 'anon'];
 }
 
 $this->start('content');
@@ -102,6 +131,7 @@ $this->start('content');
               <tr>
                 <th title="Best available identifier for this visitor">Visitor ID</th>
                 <th>Name</th>
+                <th title="Total visit sessions recorded for this visitor">Visits</th>
                 <th title="Number of tracking events fired during this session">Events</th>
                 <th>First Visit</th>
                 <th>Last Visit</th>
@@ -112,6 +142,7 @@ $this->start('content');
               <?php foreach ($visitors as $v):
                 $ident    = visitorIdentifier($v);
                 $name     = trim((string) ($v['inq_name'] ?? ''));
+                $visitCnt = max(1, (int) ($v['visit_count'] ?? 1));
                 $eventCnt = (int) ($v['event_count'] ?? 0);
               ?>
               <tr>
@@ -139,6 +170,11 @@ $this->start('content');
                   <?php else: ?>
                     <span class="analytics__empty-cell">—</span>
                   <?php endif ?>
+                </td>
+
+                <!-- Visits count -->
+                <td>
+                  <span class="analytics__count-badge analytics__count-badge--visits"><?= $visitCnt ?> visit<?= $visitCnt !== 1 ? 's' : '' ?></span>
                 </td>
 
                 <!-- Event count -->
