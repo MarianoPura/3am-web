@@ -33,16 +33,11 @@ final class LandingController extends Controller
         /** @var \App\Services\TrackingService $tracking */
         $tracking = $this->container->get(\App\Services\TrackingService::class);
         $hasFbId  = $tracking->hasFbId($request);
-        $visitId  = null;
 
-        // If the user visited manually by entering the URL or without any FB ID,
-        // do not record a visit session or track movements on load.
-        // Only record the visit upfront if the visitor arrived with an FB ID.
-        if ($hasFbId) {
-            $visitId = $tracking->recordVisit($request, [
-                'landing_page' => $request->path(),
-            ]);
-        }
+        // Record the visit session unconditionally (no restriction on insertion)
+        $visitId = $tracking->recordVisit($request, [
+            'landing_page' => $request->path(),
+        ]);
 
         return $this->render('pages.landing', [
             'landing'      => $landingConfig,

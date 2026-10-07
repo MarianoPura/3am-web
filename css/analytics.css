@@ -605,11 +605,17 @@
   padding: 1rem;
 }
 
-/* Semi-transparent backdrop */
+.vmodal[hidden] {
+  display: none !important;
+}
+
+/* Semi-transparent backdrop with subtle blur */
 .vmodal__backdrop {
   position: absolute;
   inset: 0;
-  background: rgba(11, 22, 34, .6);
+  background: rgba(11, 22, 34, .65);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
   cursor: pointer;
 }
 
@@ -617,126 +623,388 @@
 .vmodal__box {
   position: relative;
   z-index: 1;
-  width: min(600px, 100%);
-  max-height: min(80vh, 720px);
-  overflow-y: auto;
+  width: min(840px, 100%);
+  max-height: min(88vh, 680px);
   background: var(--c-white);
-  border-radius: 4px;
-  box-shadow: 0 8px 48px rgba(0, 0, 0, .28);
+  border: 1px solid var(--c-blue-line);
+  border-radius: 6px;
+  box-shadow: 0 16px 48px -8px rgba(11, 22, 34, .32), 0 0 0 1px rgba(11, 22, 34, .06);
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+  animation: vmodalBoxIn 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes vmodalBoxIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .vmodal__header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 1rem;
-  padding: 1.4rem 1.5rem 1rem;
-  border-bottom: 1px solid var(--c-blue-line);
-  position: sticky;
-  top: 0;
+  gap: 1.25rem;
+  padding: 1.2rem 1.5rem 1rem;
   background: var(--c-white);
-  z-index: 1;
+  border-bottom: 1px solid var(--c-blue-line);
+  flex-shrink: 0;
+}
+
+.vmodal__header-content {
+  display: flex;
+  flex-direction: column;
+  gap: .35rem;
+  min-width: 0;
+}
+
+.vmodal__header-title-row {
+  display: flex;
+  align-items: center;
+  gap: .65rem;
+  flex-wrap: wrap;
 }
 
 .vmodal__title {
+  font: 800 1.15rem/1.2 var(--f-display);
+  color: var(--c-ink);
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+.vmodal__total-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: .15rem .55rem;
+  background: var(--c-cloud);
+  border: 1px solid var(--c-blue-line);
+  border-radius: 12px;
+  font: 700 .68rem/1.2 var(--f-mono);
+  color: var(--fg-muted);
+  letter-spacing: .02em;
+}
+
+.vmodal__meta-row {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  font-size: .8rem;
+  color: var(--fg-muted);
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.vmodal__meta-label {
+  font: 700 .7rem/1.2 var(--f-mono);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--fg-muted);
+}
+
+.vmodal__meta-val {
+  font: 500 .76rem/1.3 var(--f-mono);
+  color: var(--c-ink);
+  background: var(--c-mist);
+  padding: .1rem .45rem;
+  border-radius: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: min(440px, 58vw);
+}
+
+.vmodal__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  background: var(--c-cloud);
+  border: 1px solid var(--c-blue-line);
+  border-radius: 4px;
+  color: var(--fg-muted);
+  cursor: pointer;
+  transition: all var(--m-micro);
+}
+
+.vmodal__close:hover {
+  background: var(--c-mist);
+  border-color: var(--c-ink);
+  color: var(--c-ink);
+}
+
+.vmodal__close:focus-visible {
+  outline: 2px solid var(--c-ink);
+  outline-offset: 2px;
+}
+
+/* Modal Body */
+.vmodal__body {
+  flex: 1;
+  overflow-y: auto;
+  position: relative;
+  background: var(--c-white);
+  min-height: 250px;
+}
+
+/* Table layout */
+.vmodal__table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.vmodal__table {
+  width: 100%;
+  min-width: 580px;
+  border-collapse: collapse;
+  font-size: .85rem;
+  text-align: left;
+}
+
+.vmodal__table th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--c-cloud);
+  padding: .75rem 1.25rem;
+  color: var(--fg-muted);
+  font: 700 .68rem/1.3 var(--f-mono);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--c-blue-line);
+}
+
+.vmodal__th-event {
+  width: 175px;
+}
+
+.vmodal__th-desc {
+  width: auto;
+}
+
+.vmodal__th-time {
+  width: 190px;
+}
+
+.vmodal__table td {
+  padding: .85rem 1.25rem;
+  border-bottom: 1px solid var(--c-line-lt);
+  vertical-align: middle;
+  background: var(--c-white);
+  transition: background var(--m-micro);
+}
+
+.vmodal__table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.vmodal__table tbody tr:hover td {
+  background: var(--c-cloud);
+}
+
+/* Event Cell */
+.vmodal__event-cell {
+  display: flex;
+  flex-direction: column;
+  gap: .25rem;
+  align-items: flex-start;
+}
+
+.vmodal__event-badge-wrap {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+}
+
+.vmodal__event-raw {
+  font: 400 .68rem/1.2 var(--f-mono);
+  color: var(--fg-muted);
+  letter-spacing: .02em;
+}
+
+/* Description Cell */
+.vmodal__desc-cell {
+  display: flex;
+  flex-direction: column;
+  gap: .25rem;
+}
+
+.vmodal__desc-main {
+  font-weight: 500;
+  color: var(--c-ink);
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.vmodal__desc-detail {
+  font-size: .78rem;
+  color: var(--fg-muted);
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+/* Date and Time Cell */
+.vmodal__time-cell {
+  display: flex;
+  flex-direction: column;
+  gap: .15rem;
+  font: 400 .75rem/1.3 var(--f-mono);
+}
+
+.vmodal__time-date {
+  color: var(--c-ink);
+  font-weight: 500;
+}
+
+.vmodal__time-hour {
+  color: var(--fg-muted);
+  font-size: .7rem;
+}
+
+/* Footer / Pagination */
+.vmodal__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: .85rem 1.5rem;
+  background: var(--c-paper);
+  border-top: 1px solid var(--c-blue-line);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.vmodal__footer[hidden] {
+  display: none !important;
+}
+
+.vmodal__footer-info {
+  font: 400 .75rem/1.3 var(--f-mono);
+  color: var(--fg-muted);
+}
+
+.vmodal__pagination {
+  display: flex;
+  align-items: center;
+  gap: .3rem;
+  margin-left: auto;
+}
+
+.vmodal__page-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 .55rem;
+  border: 1px solid var(--c-blue-line);
+  border-radius: 3px;
+  background: var(--c-white);
+  color: var(--c-ink);
+  font: 700 .72rem/1 var(--f-mono);
+  cursor: pointer;
+  transition: all var(--m-micro);
+  user-select: none;
+}
+
+.vmodal__page-btn:hover:not(:disabled) {
+  background: var(--c-cloud);
+  border-color: var(--c-ink);
+}
+
+.vmodal__page-btn:disabled,
+.vmodal__page-btn[aria-disabled="true"] {
+  opacity: .4;
+  cursor: not-allowed;
+  border-color: var(--c-blue-line);
+  background: var(--c-paper);
+  color: var(--fg-muted);
+}
+
+.vmodal__page-btn.is-active {
+  background: var(--c-tally);
+  border-color: var(--c-tally);
+  color: var(--c-ink);
+  cursor: default;
+}
+
+.vmodal__page-ellipsis {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 32px;
+  font: 700 .75rem/1 var(--f-mono);
+  color: var(--fg-muted);
+}
+
+/* Loading & Empty & Error states */
+.vmodal__state-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 3.5rem 1.5rem;
+  gap: .5rem;
+}
+
+.vmodal__state-icon {
+  color: var(--fg-muted);
+  margin-bottom: .25rem;
+}
+
+.vmodal__state-title {
   font: 700 1rem/1.2 var(--f-display);
   color: var(--c-ink);
   margin: 0;
 }
 
-.vmodal__sub {
-  font: 400 .75rem/1.4 var(--f-mono);
+.vmodal__state-sub {
+  font-size: .85rem;
   color: var(--fg-muted);
-  margin: .2rem 0 0;
-  word-break: break-all;
-}
-
-.vmodal__close {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  flex-shrink: 0;
-  background: transparent;
-  border: 1px solid var(--c-blue-line);
-  border-radius: 2px;
-  color: var(--fg-muted);
-  cursor: pointer;
-  transition: background var(--m-micro), color var(--m-micro);
-}
-
-.vmodal__close:hover {
-  background: var(--c-cloud);
-  color: var(--c-ink);
-}
-
-.vmodal__body {
-  flex: 1;
-  padding: 1.25rem 1.5rem 2rem;
-}
-
-.vmodal__loading,
-.vmodal__empty {
-  color: var(--fg-muted);
-  font-size: .875rem;
-  padding: 1.5rem 0;
-  text-align: center;
-}
-
-/* Numbered event list */
-.vmodal__event-list {
-  list-style: none;
+  max-width: 380px;
   margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: .9rem;
+  line-height: 1.45;
 }
 
-.vmodal__event {
-  padding: .85rem 1rem;
-  background: var(--c-cloud);
-  border-left: 3px solid var(--c-blue-line);
-  border-radius: 0 4px 4px 0;
-  /* prevent long text from overflowing the modal horizontally */
-  overflow: hidden;
-  word-break: break-word;
-}
-
-.vmodal__event-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: .5rem;
-  margin-bottom: .25rem;
-  flex-wrap: wrap;
-}
-
-.vmodal__event-time {
-  font: 400 .7rem/1.3 var(--f-mono);
-  color: var(--fg-muted);
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-/* Friendly detail line below the badge (e.g. "Section: Event production") */
-.vmodal__event-detail {
-  margin: .3rem 0 0;
+.vmodal__retry-btn {
+  margin-top: .75rem;
   font-size: .8rem;
-  color: var(--fg-muted);
-  line-height: 1.4;
+  padding: .4rem .9rem;
 }
 
-/* Accent colour on the left border based on event type */
-.vmodal__event:has(.analytics__badge--lead)   { border-color: var(--c-tally); }
-.vmodal__event:has(.analytics__badge--page)   { border-color: #60a5fa; }
-.vmodal__event:has(.analytics__badge--video)  { border-color: #a78bfa; }
-.vmodal__event:has(.analytics__badge--form)   { border-color: #34d399; }
-.vmodal__event:has(.analytics__badge--scroll) { border-color: #fb923c; }
-.vmodal__event:has(.analytics__badge--cta)    { border-color: #f472b6; }
+/* Skeleton loader for table rows */
+.vmodal__skeleton-row td {
+  padding: .95rem 1.25rem;
+}
+
+.vmodal__skeleton-bar {
+  display: block;
+  height: 13px;
+  background: linear-gradient(90deg, var(--c-cloud) 25%, var(--c-mist) 50%, var(--c-cloud) 75%);
+  background-size: 200% 100%;
+  animation: vmodalShimmer 1.4s infinite;
+  border-radius: 3px;
+}
+
+@keyframes vmodalShimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.vmodal__table-loading {
+  opacity: .5;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
 
 
 

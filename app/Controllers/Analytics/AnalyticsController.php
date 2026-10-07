@@ -283,13 +283,17 @@ final class AnalyticsController extends Controller
         $perPage = 15;
         $offset  = ($page - 1) * $perPage;
 
-        $totalCount = (int) $db->selectValue('SELECT COUNT(*) FROM landing_page_visits');
+        // Display only visitors with Facebook IDs (fbc or fbp) in the front-end
+        $whereFb = "WHERE (lpv.fbc IS NOT NULL AND TRIM(lpv.fbc) != '')
+                       OR (lpv.fbp IS NOT NULL AND TRIM(lpv.fbp) != '')";
+
+        $totalCount = (int) $db->selectValue("SELECT COUNT(*) FROM landing_page_visits lpv {$whereFb}");
 
         // Join inquiries once to get the visitor's identity (name, email, phone).
         // If a visitor submitted the form, those fields will be populated.
         // We use MIN() so GROUP BY works correctly even if multiple inquiries exist per visit.
         $visitors = $db->select(
-            'SELECT lpv.id,
+            "SELECT lpv.id,
                     lpv.fbc,
                     lpv.fbp,
                     lpv.email          AS lpv_email,
@@ -303,9 +307,10 @@ final class AnalyticsController extends Controller
              FROM landing_page_visits lpv
              LEFT JOIN inquiries     inq ON inq.visit_id = lpv.id
              LEFT JOIN tracking_events te ON te.visit_id = lpv.id
+             {$whereFb}
              GROUP BY lpv.id
              ORDER BY COALESCE(lpv.last_seen_at, lpv.first_seen_at) DESC, lpv.id DESC
-             LIMIT ? OFFSET ?',
+             LIMIT ? OFFSET ?",
             [$perPage, $offset]
         );
 
@@ -325,7 +330,8 @@ final class AnalyticsController extends Controller
     // ─────────────────────────────────────────────────────────────
 
     /**
-     * Returns a JSON list of events for a given visit ID.
+     * Returns a paginated JSON list of events for a given visit ID.
+     * Records are limited to 5 per page at the database query level.
      * Used by the "View Events" modal on the visitors page.
      */
     public function visitorEvents(Request $request, string $visitId): Response
@@ -353,13 +359,29 @@ final class AnalyticsController extends Controller
             return Response::json(['ok' => false, 'error' => 'Visit not found'], 404);
         }
 
-        // Fetch all events for this visit, ordered by oldest first
+        // Pagination: limit by 5 strictly from query execution at the back-end
+        $perPage = 5;
+        $page    = max(1, $request->int('page', 1));
+
+        $totalCount = (int) $db->selectValue(
+            'SELECT COUNT(*) FROM tracking_events WHERE visit_id = ?',
+            [$id]
+        );
+
+        $totalPages = max(1, (int) ceil($totalCount / $perPage));
+        if ($page > $totalPages && $totalPages > 0) {
+            $page = $totalPages;
+        }
+        $offset = ($page - 1) * $perPage;
+
+        // Fetch limited events for this visit, ordered chronologically
         $events = $db->select(
             'SELECT id, event_name, event_data, occurred_at
              FROM tracking_events
              WHERE visit_id = ?
-             ORDER BY occurred_at ASC',
-            [$id]
+             ORDER BY occurred_at ASC, id ASC
+             LIMIT ? OFFSET ?',
+            [$id, $perPage, $offset]
         );
 
         // Decode JSON event_data so the front-end doesn't have to
@@ -369,6 +391,15 @@ final class AnalyticsController extends Controller
         }
         unset($event);
 
-        return Response::json(['ok' => true, 'events' => $events]);
+        return Response::json([
+            'ok'          => true,
+            'events'      => $events,
+            'page'        => $page,
+            'per_page'    => $perPage,
+            'total'       => $totalCount,
+            'total_pages' => $totalPages,
+            'has_next'    => $page < $totalPages,
+            'has_prev'    => $page > 1,
+        ]);
     }
 }
