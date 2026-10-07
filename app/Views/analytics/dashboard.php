@@ -12,15 +12,16 @@
  * @var list<array>   $eventsOverTime
  * @var list<array>   $visitsOverTime
  * @var list<array>   $utmSources
- * @var list<array>   $recentEvents
+ * @var list<array>   $recentVisitors
  */
 $this->extend('analytics.layout');
 $this->start('title'); echo 'Dashboard'; $this->end();
 
 /**
- * Format a datetime string using "F j, Y" format, e.g. "October 7, 2026 · 3:15 PM"
+ * Format a datetime string using "F j, Y · g:i A" format, e.g. "October 7, 2026 · 3:15 PM"
+ * Consistent with visitors.php.
  */
-function formatDashboardDateTime(string $datetime): string {
+function formatVisitorDate(string $datetime): string {
     if ($datetime === '' || $datetime === '—') return '—';
     try {
         $dt = new DateTimeImmutable($datetime);
@@ -96,137 +97,24 @@ function visitorIdentifier(array $v): array {
 }
 
 /**
- * Map raw event name and parameters into human-understandable labels & explanations.
- * Tailored for non-developer and non-technical business users.
+ * Map raw event name into friendly labels tailored for non-developer business users.
  */
-function humanizeEvent(string $name, array|string $eventData = []): array {
-    $data = is_array($eventData) ? $eventData : (json_decode((string) $eventData, true) ?: []);
-
-    $val = function(string $key) use ($data): ?string {
-        $v = $data[$key] ?? null;
-        return ($v !== null && $v !== '') ? trim((string) $v) : null;
+function humanizeEventName(string $name): array {
+    return match ($name) {
+        'PageView'         => ['badge' => 'Page View',      'class' => 'analytics__badge--lead',   'title' => 'Visited Landing Page'],
+        'ViewContent'      => ['badge' => 'View Content',   'class' => 'analytics__badge--lead',   'title' => 'Explored Services'],
+        'Lead'             => ['badge' => 'Quote Form',     'class' => 'analytics__badge--lead',   'title' => 'Quote Form Submitted'],
+        'Contact'          => ['badge' => 'Contact Info',   'class' => 'analytics__badge--lead',   'title' => 'Contact Details Sent'],
+        'form_start'       => ['badge' => 'Form Start',     'class' => 'analytics__badge--form',   'title' => 'Started Filling Form'],
+        'form_field_focus' => ['badge' => 'Form Activity',  'class' => 'analytics__badge--form',   'title' => 'Interacting with Form'],
+        'cta_click'        => ['badge' => 'Button Click',   'class' => 'analytics__badge--cta',    'title' => 'Clicked Call-to-Action'],
+        'scrolldepth'      => ['badge' => 'Page Scroll',    'class' => 'analytics__badge--scroll', 'title' => 'Browsed Down Page'],
+        'video_25'         => ['badge' => 'Video 25%',      'class' => 'analytics__badge--video',  'title' => 'Watched Video (25%)'],
+        'video_50'         => ['badge' => 'Video 50%',      'class' => 'analytics__badge--video',  'title' => 'Watched Video (50%)'],
+        'video_75'         => ['badge' => 'Video 75%',      'class' => 'analytics__badge--video',  'title' => 'Watched Video (75%)'],
+        'Video_Complete'   => ['badge' => 'Video 100%',     'class' => 'analytics__badge--video',  'title' => 'Watched Full Video'],
+        default            => ['badge' => ucfirst($name),    'class' => 'analytics__badge--other',  'title' => ucfirst(str_replace(['_', '-'], ' ', $name))],
     };
-
-    switch ($name) {
-        case 'PageView':
-            return [
-                'badge'       => 'Page View',
-                'badgeClass'  => 'analytics__badge--lead',
-                'title'       => 'Visited Landing Page',
-                'description' => 'Visitor arrived and loaded the website',
-            ];
-
-        case 'ViewContent':
-            $content = $val('content_name') ?? 'Services Section';
-            return [
-                'badge'       => 'View Content',
-                'badgeClass'  => 'analytics__badge--lead',
-                'title'       => 'Explored Services',
-                'description' => 'Viewed ' . $content,
-            ];
-
-        case 'Lead':
-            $ref = $val('reference');
-            return [
-                'badge'       => 'Quote Form',
-                'badgeClass'  => 'analytics__badge--lead',
-                'title'       => 'Quote Request Submitted',
-                'description' => $ref ? 'Submitted inquiry #' . $ref : 'Completed and sent the quote request form',
-            ];
-
-        case 'Contact':
-            $ref = $val('reference');
-            return [
-                'badge'       => 'Contact Info',
-                'badgeClass'  => 'analytics__badge--lead',
-                'title'       => 'Contact Details Provided',
-                'description' => $ref ? 'Sent contact info for inquiry #' . $ref : 'Provided contact information for callback',
-            ];
-
-        case 'form_start':
-            return [
-                'badge'       => 'Form Start',
-                'badgeClass'  => 'analytics__badge--form',
-                'title'       => 'Started Filling Form',
-                'description' => 'Began typing into the quote request form',
-            ];
-
-        case 'form_field_focus':
-            $field = $val('field_name');
-            $fieldName = match($field) {
-                'name'    => 'Name',
-                'email'   => 'Email Address',
-                'phone'   => 'Phone Number',
-                'details' => 'Event Details',
-                'service' => 'Service Option',
-                default   => $field ? ucfirst($field) : 'form',
-            };
-            return [
-                'badge'       => 'Form Activity',
-                'badgeClass'  => 'analytics__badge--form',
-                'title'       => 'Active on Form',
-                'description' => 'Interacting with ' . $fieldName . ' field',
-            ];
-
-        case 'cta_click':
-            $btnText = $val('cta_text') ?? $val('text') ?? $val('label') ?? 'Get a Quote';
-            return [
-                'badge'       => 'Button Click',
-                'badgeClass'  => 'analytics__badge--cta',
-                'title'       => 'Clicked Action Button',
-                'description' => 'Clicked “' . $btnText . '” button',
-            ];
-
-        case 'scrolldepth':
-            $pct = $val('percent') ?? $val('depth') ?? '50';
-            return [
-                'badge'       => 'Page Scroll',
-                'badgeClass'  => 'analytics__badge--scroll',
-                'title'       => 'Scrolled ' . $pct . '% of Page',
-                'description' => 'Browsed through ' . $pct . '% of the page content',
-            ];
-
-        case 'video_25':
-            return [
-                'badge'       => 'Video 25%',
-                'badgeClass'  => 'analytics__badge--video',
-                'title'       => 'Watched Video (25%)',
-                'description' => 'Watched initial 25% of the showreel preview',
-            ];
-
-        case 'video_50':
-            return [
-                'badge'       => 'Video 50%',
-                'badgeClass'  => 'analytics__badge--video',
-                'title'       => 'Watched Video (50%)',
-                'description' => 'Watched half (50%) of the showreel preview',
-            ];
-
-        case 'video_75':
-            return [
-                'badge'       => 'Video 75%',
-                'badgeClass'  => 'analytics__badge--video',
-                'title'       => 'Watched Video (75%)',
-                'description' => 'Watched 75% of the showreel preview',
-            ];
-
-        case 'Video_Complete':
-            return [
-                'badge'       => 'Video 100%',
-                'badgeClass'  => 'analytics__badge--video',
-                'title'       => 'Completed Video',
-                'description' => 'Finished watching the full showreel to the end',
-            ];
-
-        default:
-            $friendly = ucfirst(str_replace(['_', '-'], ' ', $name));
-            return [
-                'badge'       => $friendly,
-                'badgeClass'  => 'analytics__badge--other',
-                'title'       => $friendly,
-                'description' => 'Tracked user action',
-            ];
-    }
 }
 
 // Fill 14-day gaps
@@ -241,7 +129,12 @@ foreach ($visitsOverTime as $r) { $visitsChart[$r['day']] = (int) $r['total']; }
 $maxEvt = max(1, max($eventsChart));
 $maxVis = max(1, max($visitsChart));
 $etMax  = max(1, (int) ($eventsByType[0]['total'] ?? 1));
+$etSum  = max(1, (int) array_sum(array_column($eventsByType, 'total')));
 $utmMax = max(1, (int) ($utmSources[0]['total']   ?? 1));
+$utmSum = max(1, (int) array_sum(array_column($utmSources, 'total')));
+
+$totalChartEvt = array_sum($eventsChart);
+$totalChartVis = array_sum($visitsChart);
 
 $this->start('content');
 ?>
@@ -251,43 +144,102 @@ $this->start('content');
     <!-- Page heading -->
     <div class="analytics-page__heading">
       <div>
-        <p class="analytics-kicker">3AM Digital Media / Website Tracking</p>
+        <p class="analytics-kicker">
+          <span class="pulse-dot"></span>
+          3AM Digital Media &bull; Website Tracking
+        </p>
         <h1>Analytics Dashboard</h1>
+        <p class="analytics-page__desc">Live activity tracking, visitor sessions, and marketing campaign attribution.</p>
       </div>
-      <p>Overview of all tracked visitor actions and website sessions.</p>
+      <div class="analytics-page__header-actions">
+        <div class="analytics-status-chip">
+          <span class="pulse-dot"></span>
+          <span>Live Tracking Active</span>
+        </div>
+        <a href="<?= e_attr(url('analytics/visitors')) ?>" class="analytics-btn analytics-btn--ghost">
+          View All Visitors &rarr;
+        </a>
+      </div>
     </div>
 
     <!-- Stat cards -->
     <div class="analytics__metrics">
-      <div class="analytics__metric">
-        <p>Total Actions Tracked</p>
-        <strong><?= number_format($totalEvents) ?></strong>
-        <small>All time &mdash; every click, view &amp; interaction</small>
+      <!-- Card 1: Total Actions -->
+      <div class="analytics__metric analytics__metric--tally">
+        <div class="analytics__metric-header">
+          <span class="analytics__metric-kicker">Total Actions Tracked</span>
+          <span class="analytics__metric-chip">All Time</span>
+        </div>
+        <div class="analytics__metric-body">
+          <strong><?= number_format($totalEvents) ?></strong>
+        </div>
+        <div class="analytics__metric-footer">
+          <span class="analytics__metric-dot analytics__metric-dot--tally"></span>
+          <span>Every click, view &amp; interaction</span>
+        </div>
       </div>
-      <div class="analytics__metric">
-        <p>Total Visitors</p>
-        <strong><?= number_format($totalVisits) ?></strong>
-        <small>Unique browsing sessions recorded</small>
+
+      <!-- Card 2: Total Visitors -->
+      <div class="analytics__metric analytics__metric--signal">
+        <div class="analytics__metric-header">
+          <span class="analytics__metric-kicker">Total Visitors</span>
+          <span class="analytics__metric-chip">All Time</span>
+        </div>
+        <div class="analytics__metric-body">
+          <strong><?= number_format($totalVisits) ?></strong>
+        </div>
+        <div class="analytics__metric-footer">
+          <span class="analytics__metric-dot analytics__metric-dot--signal"></span>
+          <span>Unique browsing sessions</span>
+        </div>
       </div>
-      <div class="analytics__metric analytics__metric--feature">
-        <p>Actions Today</p>
-        <strong><?= number_format($todayEvents) ?></strong>
-        <small>Since midnight &mdash; Manila time</small>
+
+      <!-- Card 3: Actions Today -->
+      <div class="analytics__metric analytics__metric--emerald">
+        <div class="analytics__metric-header">
+          <span class="analytics__metric-kicker">Actions Today</span>
+          <span class="analytics__metric-chip analytics__metric-chip--active">Today</span>
+        </div>
+        <div class="analytics__metric-body">
+          <strong><?= number_format($todayEvents) ?></strong>
+        </div>
+        <div class="analytics__metric-footer">
+          <span class="analytics__metric-dot analytics__metric-dot--emerald"></span>
+          <span>Since midnight (Manila time)</span>
+        </div>
       </div>
-      <div class="analytics__metric">
-        <p>Visitors Today</p>
-        <strong><?= number_format($todayVisits) ?></strong>
-        <small>New sessions started today</small>
+
+      <!-- Card 4: Visitors Today -->
+      <div class="analytics__metric analytics__metric--royal">
+        <div class="analytics__metric-header">
+          <span class="analytics__metric-kicker">Visitors Today</span>
+          <span class="analytics__metric-chip analytics__metric-chip--active">Today</span>
+        </div>
+        <div class="analytics__metric-body">
+          <strong><?= number_format($todayVisits) ?></strong>
+        </div>
+        <div class="analytics__metric-footer">
+          <span class="analytics__metric-dot analytics__metric-dot--royal"></span>
+          <span>New sessions started today</span>
+        </div>
       </div>
     </div>
 
-    <!-- 14-day charts row -->
-    <div class="analytics__two">
-      <!-- Events over 14 days -->
-      <div class="analytics__panel">
+    <!-- 14-day performance trends: 2 equal-height charts side-by-side -->
+    <div class="analytics__charts-grid">
+
+      <!-- Chart 1: Actions Tracked -->
+      <div class="analytics__panel" style="border-top:3px solid var(--c-tally)">
         <div class="analytics__panel-heading">
-          <p class="analytics-kicker" style="margin:0">Actions Tracked</p>
-          <h2>Last 14 Days</h2>
+          <div>
+            <span class="analytics-kicker" style="margin:0 0 .25rem">Interaction Volume</span>
+            <h2>Actions Tracked (14 Days)</h2>
+            <p class="analytics__panel-sub">Daily tracked clicks, scrolls, video views &amp; form events</p>
+          </div>
+          <div class="analytics__chart-badge">
+            <strong><?= number_format($totalChartEvt) ?></strong>
+            <span>14-day actions</span>
+          </div>
         </div>
         <div class="analytics__chart-bars" role="img" aria-label="Tracked actions bar chart, last 14 days">
           <?php foreach ($eventsChart as $day => $count): ?>
@@ -297,14 +249,21 @@ $this->start('content');
           </div>
           <?php endforeach ?>
         </div>
-        <p class="analytics__chart-caption">Each bar represents one day. Hover for exact date and count.</p>
+        <p class="analytics__chart-caption">Each bar represents one day. Hover for exact date and action count.</p>
       </div>
 
-      <!-- Sessions over 14 days -->
-      <div class="analytics__panel">
+      <!-- Chart 2: Visitor Sessions -->
+      <div class="analytics__panel" style="border-top:3px solid #00b4d8">
         <div class="analytics__panel-heading">
-          <p class="analytics-kicker" style="margin:0">Visitor Sessions</p>
-          <h2>Last 14 Days</h2>
+          <div>
+            <span class="analytics-kicker" style="margin:0 0 .25rem">Traffic Volume</span>
+            <h2>Visitor Sessions (14 Days)</h2>
+            <p class="analytics__panel-sub">Daily unique browsing sessions arriving at the website</p>
+          </div>
+          <div class="analytics__chart-badge analytics__chart-badge--signal">
+            <strong><?= number_format($totalChartVis) ?></strong>
+            <span>14-day sessions</span>
+          </div>
         </div>
         <div class="analytics__chart-bars" role="img" aria-label="Visitor sessions bar chart, last 14 days">
           <?php foreach ($visitsChart as $day => $count): ?>
@@ -314,165 +273,172 @@ $this->start('content');
           </div>
           <?php endforeach ?>
         </div>
-        <p class="analytics__chart-caption">Each bar represents one day. Hover for exact date and count.</p>
+        <p class="analytics__chart-caption">Each bar represents one day. Hover for exact date and visitor count.</p>
       </div>
+
     </div>
 
-    <!-- Events by type + Traffic sources -->
-    <div class="analytics__two" style="margin-top:1rem">
-      <!-- Events by type -->
-      <div class="analytics__panel">
-        <div class="analytics__panel-heading">
-          <h2>Actions by Type</h2>
-          <p class="analytics__panel-sub">Breakdown of interactions recorded on the website.</p>
-        </div>
-        <?php if (empty($eventsByType)): ?>
-          <p class="analytics__empty">No events recorded yet.</p>
-        <?php else: ?>
-          <div class="analytics__rank-bars">
-            <?php foreach ($eventsByType as $et): ?>
-            <?php
-              $h = humanizeEvent((string) $et['event_name']);
-            ?>
-            <div>
-              <span class="analytics__badge <?= e($h['badgeClass']) ?>" title="Raw: <?= e_attr($et['event_name']) ?>">
-                <?= e($h['title']) ?>
-              </span>
-              <div><i style="width:<?= round(((int)$et['total'] / $etMax) * 100) ?>%"></i></div>
-              <strong><?= number_format((int)$et['total']) ?></strong>
-            </div>
-            <?php endforeach ?>
-          </div>
-        <?php endif ?>
-      </div>
+    <!-- Main Content Grid: Activity Table (Left) + Breakdowns (Right) -->
+    <div class="analytics__content-grid">
 
-      <!-- Traffic source breakdown -->
-      <div class="analytics__panel">
+      <!-- Left Column: Recent Activity (Visitor Sessions) -->
+      <div class="analytics__panel analytics__activity-panel" style="border-top:3px solid var(--c-ink)">
         <div class="analytics__panel-heading">
-          <h2>Traffic Sources</h2>
-          <p class="analytics__panel-sub">Where visitors are arriving from.</p>
-        </div>
-        <?php if (empty($utmSources)): ?>
-          <p class="analytics__empty">No traffic source data recorded yet.</p>
-        <?php else: ?>
-          <div class="analytics__rank-bars">
-            <?php foreach ($utmSources as $utm): ?>
-            <div>
-              <span style="font-size:.84rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
-                <?= e((string)($utm['source'] ?? '—')) ?>
-              </span>
-              <div><i style="width:<?= round(((int)$utm['total'] / $utmMax) * 100) ?>%;background:var(--c-signal)"></i></div>
-              <strong><?= number_format((int)$utm['total']) ?></strong>
-            </div>
-            <?php endforeach ?>
+          <div>
+            <span class="analytics-kicker" style="margin:0 0 .25rem">Live Feed</span>
+            <h2>Recent Activity</h2>
+            <p class="analytics__panel-sub">Latest visitor sessions recorded on the website. Inquiries display contact names.</p>
           </div>
-        <?php endif ?>
-      </div>
-    </div>
-
-    <!-- Recent activity -->
-    <div class="analytics__panel" style="margin-top:1rem">
-      <div class="analytics__panel-heading">
-        <div>
-          <h2>Recent Activity</h2>
-          <p class="analytics__panel-sub">The 10 most recent actions recorded on the website.</p>
+          <a href="<?= e_attr(url('analytics/visitors')) ?>" class="analytics-btn analytics-btn--ghost" style="padding:.45rem .8rem;font-size:.65rem;flex-shrink:0">
+            View All Visitors &rarr;
+          </a>
         </div>
-        <a href="<?= e_attr(url('analytics/events')) ?>">View all events &rarr;</a>
-      </div>
-      <?php if (empty($recentEvents)): ?>
-        <p class="analytics__empty">No events recorded yet.</p>
-      <?php else: ?>
-        <div class="analytics__table-wrap">
-          <table class="analytics__table">
-            <thead>
-              <tr>
-                <th title="Visitor identifier matching the Visitors page">Visitor ID</th>
-                <th>Action / Event</th>
-                <th>Traffic Source</th>
-                <th>Campaign</th>
-                <th>Triggered From</th>
-                <th>Date &amp; Time</th>
-              </tr>
-            </thead>
-            <tbody>
-              <?php foreach ($recentEvents as $ev): ?>
-              <?php
-                $rawName       = (string)($ev['event_name'] ?? '');
-                $rawSource     = (string)($ev['event_source'] ?? 'browser');
-                $ident         = visitorIdentifier($ev);
-                $h             = humanizeEvent($rawName, $ev['event_data'] ?? []);
-                $trafficSource = \App\Controllers\Analytics\AnalyticsController::classifyTrafficSource(
-                    $ev['fbc'] ?? null,
-                    $ev['utm_source'] ?? null,
-                    $ev['referrer'] ?? null
-                );
-                $campaign = trim((string)($ev['utm_campaign'] ?? ''));
-                if (str_contains($campaign, '{{') || $campaign === '') {
-                    $campaign = '—';
-                }
-                $srcLbl = match(strtolower($rawSource)) {
-                  'browser' => 'Website',
-                  'server'  => 'Server',
-                  'pixel'   => 'Meta Pixel',
-                  default   => ucfirst($rawSource),
-                };
-              ?>
-              <tr>
-                <!-- Visitor identifier cell matching visitors.php -->
-                <td>
-                  <div class="visitor-id">
-                    <span class="mono visitor-id__value"
-                          <?= $ident['title'] !== '' ? 'title="' . e_attr($ident['title']) . '"' : '' ?>>
-                      <?= e($ident['value']) ?>
-                    </span>
-                    <?php if ($ident['type'] !== 'anon'): ?>
-                      <span class="visitor-id__label visitor-id__label--<?= e_attr($ident['type']) ?>">
-                        <?= e($ident['label']) ?>
+
+        <?php if (empty($recentVisitors)): ?>
+          <p class="analytics__empty">No visitor sessions recorded yet.</p>
+
+        <?php else: ?>
+          <div class="analytics__table-wrap">
+            <table class="analytics__table visitors-table--dashboard">
+              <thead>
+                <tr>
+                  <th title="Best available identifier for this visitor">Visitor ID</th>
+                  <th>Name</th>
+                  <th title="Latest recorded session for this visitor">Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                <?php foreach ($recentVisitors as $v):
+                  $ident = visitorIdentifier($v);
+                  $name  = trim((string) ($v['inq_name'] ?? ''));
+                ?>
+                <tr>
+
+                  <!-- Visitor identifier cell -->
+                  <td>
+                    <div class="visitor-id">
+                      <span class="mono visitor-id__value"
+                            <?= $ident['title'] !== '' ? 'title="' . e_attr($ident['title']) . '"' : '' ?>>
+                        <?= e($ident['value']) ?>
                       </span>
+                      <?php if ($ident['type'] !== 'anon'): ?>
+                        <span class="visitor-id__label visitor-id__label--<?= e_attr($ident['type']) ?>">
+                          <?= e($ident['label']) ?>
+                        </span>
+                      <?php endif ?>
+                    </div>
+                    <div class="visitor-id__meta mono">#<?= (int) $v['id'] ?></div>
+                  </td>
+
+                  <!-- Name from inquiry -->
+                  <td>
+                    <?php if ($name !== ''): ?>
+                      <span class="visitor-name"><?= e($name) ?></span>
+                    <?php else: ?>
+                      <span class="analytics__empty-cell">&mdash;</span>
                     <?php endif ?>
-                  </div>
-                  <div class="visitor-id__meta mono">#<?= (int) ($ev['visit_id'] ?? 0) ?></div>
-                  <?php if (!empty($ev['inq_name'])): ?>
-                    <div class="visitor-name" style="font-size:.78rem;color:var(--c-text-muted);margin-top:2px"><?= e($ev['inq_name']) ?></div>
-                  <?php endif ?>
-                </td>
+                  </td>
 
-                <!-- Friendly Action / Activity description -->
-                <td>
-                  <div style="display:flex;align-items:center;gap:.45rem;flex-wrap:wrap">
-                    <span class="analytics__badge <?= e($h['badgeClass']) ?>" title="Raw: <?= e_attr($rawName) ?>">
-                      <?= e($h['badge']) ?>
-                    </span>
-                    <strong style="font-size:.84rem;color:var(--c-text)"><?= e($h['title']) ?></strong>
-                  </div>
-                  <p style="margin:.25rem 0 0;font-size:.78rem;color:var(--c-text-muted)"><?= e($h['description']) ?></p>
-                </td>
+                  <!-- Date (Last Visit) -->
+                  <td class="visitor-date">
+                    <?= formatVisitorDate((string) ($v['last_seen_at'] ?? '')) ?>
+                  </td>
 
-                <!-- Traffic Source -->
-                <td>
-                  <span style="font-weight:600;font-size:.82rem"><?= e($trafficSource) ?></span>
-                </td>
+                </tr>
+                <?php endforeach ?>
+              </tbody>
+            </table>
+          </div>
+        <?php endif ?>
+      </div>
 
-                <!-- Campaign -->
-                <td>
-                  <?= e($campaign) ?>
-                </td>
+      <!-- Right Column: Attribution & Event Breakdown -->
+      <div class="analytics__breakdowns-col">
 
-                <!-- Triggered From -->
-                <td><?= e($srcLbl) ?></td>
+        <!-- Traffic Sources -->
+        <div class="analytics__panel" style="border-top:3px solid #00b4d8">
+          <div class="analytics__panel-heading">
+            <div>
+              <span class="analytics-kicker" style="margin:0 0 .25rem">Attribution</span>
+              <h2>Traffic Sources</h2>
+              <p class="analytics__panel-sub">Where visitors are arriving from</p>
+            </div>
+            <span class="analytics__panel-stat"><?= number_format($totalVisits) ?> total</span>
+          </div>
 
-                <!-- Date & Time formatted as F j, Y · g:i A -->
-                <td style="white-space:nowrap;font-size:.82rem">
-                  <?= e(formatDashboardDateTime((string)($ev['occurred_at'] ?? '—'))) ?>
-                </td>
-              </tr>
+          <?php if (empty($utmSources)): ?>
+            <p class="analytics__empty">No traffic source data recorded yet.</p>
+          <?php else: ?>
+            <div class="analytics__rank-list">
+              <?php foreach ($utmSources as $utm):
+                $srcTotal = (int) $utm['total'];
+                $srcPct   = round(($srcTotal / $utmSum) * 100);
+                $srcName  = (string) ($utm['source'] ?? 'Direct Visit');
+                $isMeta   = str_contains(strtolower($srcName), 'meta') || str_contains(strtolower($srcName), 'facebook');
+              ?>
+              <div class="analytics__rank-item">
+                <div class="analytics__rank-label">
+                  <span class="analytics__source-dot <?= $isMeta ? 'analytics__source-dot--meta' : 'analytics__source-dot--direct' ?>"></span>
+                  <span class="analytics__rank-name" title="<?= e_attr($srcName) ?>"><?= e($srcName) ?></span>
+                </div>
+                <div class="analytics__rank-track">
+                  <i style="width:<?= $srcPct ?>%;background:var(--c-signal)"></i>
+                </div>
+                <div class="analytics__rank-val">
+                  <strong><?= number_format($srcTotal) ?></strong>
+                  <small><?= $srcPct ?>%</small>
+                </div>
+              </div>
               <?php endforeach ?>
-            </tbody>
-          </table>
+            </div>
+          <?php endif ?>
         </div>
-      <?php endif ?>
+
+        <!-- Actions by Type -->
+        <div class="analytics__panel" style="border-top:3px solid var(--c-tally)">
+          <div class="analytics__panel-heading">
+            <div>
+              <span class="analytics-kicker" style="margin:0 0 .25rem">Interactions</span>
+              <h2>Actions by Type</h2>
+              <p class="analytics__panel-sub">Breakdown of recorded interactions</p>
+            </div>
+            <span class="analytics__panel-stat"><?= number_format($totalEvents) ?> total</span>
+          </div>
+
+          <?php if (empty($eventsByType)): ?>
+            <p class="analytics__empty">No events recorded yet.</p>
+          <?php else: ?>
+            <div class="analytics__rank-list">
+              <?php foreach ($eventsByType as $et):
+                $evtTotal = (int) $et['total'];
+                $evtPct   = round(($evtTotal / $etSum) * 100);
+                $h        = humanizeEventName((string) $et['event_name']);
+              ?>
+              <div class="analytics__rank-item">
+                <div class="analytics__rank-label">
+                  <span class="analytics__badge <?= e($h['class']) ?>" title="Raw event: <?= e_attr($et['event_name']) ?>">
+                    <?= e($h['title']) ?>
+                  </span>
+                </div>
+                <div class="analytics__rank-track">
+                  <i style="width:<?= round(($evtTotal / $etMax) * 100) ?>%"></i>
+                </div>
+                <div class="analytics__rank-val">
+                  <strong><?= number_format($evtTotal) ?></strong>
+                  <small><?= $evtPct ?>%</small>
+                </div>
+              </div>
+              <?php endforeach ?>
+            </div>
+          <?php endif ?>
+        </div>
+
+      </div>
+
     </div>
 
   </div>
 </section>
+
+<?= $this->partial('analytics.partials.events_modal', ['nonce' => $nonce ?? '']) ?>
 <?php $this->end() ?>
