@@ -1,140 +1,53 @@
-<?php $this->extend('rentals.layouts.base'); ?>
-<?php $this->start('title') ?>Rental Equipment — 3AM<?php $this->end() ?>
-<?php $this->start('canonical') ?><?= e_attr(absolute_url('rentals/items')) ?><?php $this->end() ?>
-<?php $this->start('description') ?>Browse production equipment available through 3AM Rentals.<?php $this->end() ?>
-<?php $this->start('content') ?>
 <?php
-$itemsList = is_array($items ?? null) ? $items : [];
-$categoriesList = is_array($categories ?? null) ? $categories : [];
-$groups = [];
-foreach ($categoriesList as $categoryRecord) {
-    $categoryId = (string) ($categoryRecord['id'] ?? '');
-    if ($categoryId === '') { continue; }
-    $groupItems = array_values(array_filter($itemsList, static fn (array $item): bool => (string) ($item['category'] ?? '') === $categoryId));
-    if ($groupItems !== []) {
-        $groups[] = ['name' => (string) $categoryRecord['name'], 'items' => $groupItems];
+$isServiceCatalogue=(bool)($isServiceCatalogue??false);
+$itemsList=array_values(array_filter(is_array($items??null)?$items:[],static fn(array $item):bool=>(int)($item['is_service']??0)===0));
+$servicesList=array_values(array_filter(is_array($services??null)?$services:[],static fn(array $item):bool=>(int)($item['is_service']??0)===1));
+$activeRecords=$isServiceCatalogue?$servicesList:$itemsList;
+$categoriesList=is_array($categories??null)?$categories:[];
+if($isServiceCatalogue) {
+    // Service-only categories must not depend on equipment category visibility.
+    $serviceCategories=[];
+    foreach($servicesList as $service) {
+        $key=(string)($service['category']??'');
+        if($key!=='') { $serviceCategories[$key]=['id'=>$key,'name'=>(string)($service['category_name']??'Services')]; }
     }
+    $categoriesList=array_values($serviceCategories);
 }
-$groupedIds = [];
-foreach ($groups as $group) { foreach ($group['items'] as $item) { $groupedIds[(string) ($item['id'] ?? '')] = true; } }
-$uncategorized = array_values(array_filter($itemsList, static fn (array $item): bool => !isset($groupedIds[(string) ($item['id'] ?? '')])));
-if ($uncategorized !== []) { $groups[] = ['name' => 'Equipment', 'items' => $uncategorized]; }
-$notice = $_SESSION['rentals_notice'] ?? null;
-unset($_SESSION['rentals_notice']);
+$notice=$_SESSION['rentals_notice']??null;unset($_SESSION['rentals_notice']);
+$this->extend('rentals.layouts.base');
 ?>
-<section class="rentals-page-hero">
-  <div class="rentals-shell rentals-page-hero__inner">
-    <div><p class="rentals-kicker">Rental inventory</p><h1>Equipment for the work.</h1></div>
-    <p>Explore the tools behind 3AM productions. Open an item to choose dates and quantity before adding it to Cart.</p>
-  </div>
-</section>
-<section class="rentals-section rentals-section--catalogue">
+<?php $this->start('title') ?><?= $isServiceCatalogue?'Production Services':'Rental Equipment' ?> — 3AM<?php $this->end() ?>
+<?php $this->start('canonical') ?><?= e_attr(absolute_url('rentals/items').($isServiceCatalogue?'?type=services':'')) ?><?php $this->end() ?>
+<?php $this->start('description') ?><?= $isServiceCatalogue?'Event, crew and production support services through 3AM Rentals.':'Browse production equipment available through 3AM Rentals.' ?><?php $this->end() ?>
+<?php $this->start('content') ?>
+<section class="rentals-section rentals-section--catalogue" aria-labelledby="rentals-catalogue-title">
   <div class="rentals-shell">
-    <?php if (is_string($notice)): ?><p class="rentals-support-panel" role="alert"><?= e($notice) ?></p><?php endif ?>
-    <div class="rentals-toolbar" aria-label="Equipment catalogue controls">
-      <label class="rentals-toolbar__search"><span class="sr-only">Search equipment</span><input type="search" placeholder="Search equipment…" data-rentals-search></label>
-      <div class="rentals-toolbar__filters" aria-label="Filter by category">
-        <button class="rentals-filter is-active" type="button" data-rentals-filter="all" aria-pressed="true">All</button>
-        <?php foreach ($categoriesList as $category): ?>
-          <?php if (($category['id'] ?? '') !== '' && ($category['name'] ?? '') !== ''): ?>
-            <button class="rentals-filter" type="button" data-rentals-filter="<?= e_attr((string) $category['id']) ?>" aria-pressed="false"><?= e((string) $category['name']) ?></button>
-          <?php endif ?>
-        <?php endforeach ?>
+    <h1 class="sr-only" id="rentals-catalogue-title">Equipment &amp; Services — <?= $isServiceCatalogue?'Services':'Equipment' ?></h1>
+    <?php if(is_string($notice)): ?><p class="rentals-support-panel" role="alert"><?= e($notice) ?></p><?php endif ?>
+    <div class="rentals-toolbar" aria-label="<?= $isServiceCatalogue?'Services':'Equipment' ?> catalogue controls">
+      <div class="rentals-catalogue-search">
+        <label class="rentals-toolbar__search">
+          <span class="sr-only">Search <?= $isServiceCatalogue?'services':'equipment' ?></span>
+          <svg class="rentals-catalogue-search__icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true" focusable="false"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4.5 4.5"/></svg>
+          <input type="search" placeholder="Search <?= $isServiceCatalogue?'services':'equipment' ?>…" data-rentals-search>
+        </label>
+        <nav class="rentals-catalogue-choice" aria-label="Browse rental type">
+          <a href="<?= e_attr(url('rentals/items')) ?>"<?= !$isServiceCatalogue?' aria-current="page"':'' ?>>Equipment <span aria-label="<?= count($itemsList) ?> listed"><?= count($itemsList) ?></span></a>
+          <a href="<?= e_attr(url('rentals/items').'?type=services') ?>"<?= $isServiceCatalogue?' aria-current="page"':'' ?>>Services <span aria-label="<?= count($servicesList) ?> listed"><?= count($servicesList) ?></span></a>
+        </nav>
       </div>
     </div>
-    <?php if ($itemsList !== []): ?>
-      <p class="rentals-results" data-rentals-results role="status" aria-live="polite"></p>
-      <?php foreach ($groups as $group): ?>
-      <section class="rentals-category-group rentals-carousel" data-rentals-category-group data-rentals-carousel aria-label="<?= e_attr($group['name']) ?> equipment">
-        <div class="rentals-carousel__heading"><h2><?= e($group['name']) ?></h2><div class="rentals-carousel__controls">
-          <button type="button" data-carousel-prev aria-label="Previous <?= e_attr($group['name']) ?> equipment">←</button>
-          <button type="button" data-carousel-next aria-label="Next <?= e_attr($group['name']) ?> equipment">→</button>
-        </div></div>
-        <div class="rentals-catalog-grid rentals-carousel__track" data-rentals-scroll tabindex="0" aria-label="Scroll <?= e_attr($group['name']) ?> equipment">
-        <?php foreach ($group['items'] as $item): ?>
-          <?php
-          $itemId = (string) ($item['id'] ?? '');
-          $name = (string) ($item['name'] ?? 'Rental item');
-          $category = (string) ($item['category'] ?? 'production');
-          $categoryName = (string) ($item['category_name'] ?? ucwords(str_replace(['-', '_'], ' ', $category)));
-          $description = trim((string) ($item['description'] ?? ''));
-          $ideal = trim((string) ($item['ideal_for'] ?? ''));
-          $path = (string) ($item['image_path'] ?? '');
-          $image = \App\Models\RentalCatalog::imagePath($path);
-          $sample = ($item['is_sample'] ?? false) === true;
-          $available = (int) ($item['available_quantity'] ?? 0);
-          $status = trim((string) ($item['availability_status'] ?? ''));
-          $rate = (float) ($item['rental_rate'] ?? 0);
-          $unit = trim((string) ($item['rental_unit'] ?? ''));
-          $deposit = (float) ($item['security_deposit'] ?? 0);
-          $canRent = !$sample && $available > 0 && strtolower($status) === 'available';
-          $detail = [
-              'id' => $itemId, 'name' => $name, 'category' => $categoryName,
-              'description' => $description, 'ideal' => $ideal,
-              'image' => $image !== null ? \App\Models\RentalCatalog::imageUrl($image) : '',
-              'hasImageReference' => trim($path) !== '',
-              'status' => $sample ? 'Preview only — inventory not confirmed' : ($status !== '' ? $status : 'Ask for availability'),
-              'available' => $available, 'rate' => $rate > 0 ? '₱' . number_format($rate, 2) . ($unit !== '' ? ' / ' . $unit : '') : 'Rate on request',
-              'deposit' => $deposit > 0 ? '₱' . number_format($deposit, 2) : 'None listed',
-              'canRent' => $canRent, 'isSample' => $sample,
-          ];
-          ?>
-          <article id="rental-item-<?= e_attr($itemId) ?>" class="rentals-item-card" data-rentals-item data-category="<?= e_attr($category) ?>">
-            <div class="rentals-item-card__image">
-              <?= $this->partial('rentals.partials.image', ['image_path' => $path, 'name' => $name]) ?>
-              <?php if ($sample): ?><span class="rentals-item-card__preview">Preview item</span><?php endif ?>
-            </div>
-            <div class="rentals-item-card__body">
-              <span class="rentals-card__meta"><?= e($categoryName) ?></span>
-              <h3><?= e($name) ?></h3>
-              <?php if ($description !== ''): ?><p class="rentals-item-card__description"><?= e($description) ?></p><?php endif ?>
-              <div class="rentals-item-card__meta-row"><span><?= e($sample ? 'Preview only' : ($available > 0 ? 'Available to request' : 'Currently unavailable')) ?></span><strong><?= e($rate > 0 ? '₱' . number_format($rate, 2) . ($unit !== '' ? ' / ' . $unit : '') : 'Rate on request') ?></strong></div>
-              <button class="rentals-btn rentals-btn--dark rentals-item-card__detail" type="button" data-rentals-detail='<?= e_attr(json_encode($detail, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT | JSON_THROW_ON_ERROR)) ?>'>View details <span aria-hidden="true">↗</span></button>
-            </div>
-          </article>
-        <?php endforeach ?>
-        </div>
-      </section>
-      <?php endforeach ?>
-    <?php else: ?>
-      <div class="rentals-support-panel"><p class="rentals-card__meta">Rental inventory</p><h3>Equipment information is being updated.</h3><p>Contact the 3AM team for current availability.</p><a class="rentals-btn rentals-btn--dark" href="<?= e_attr(url('rentals/support')) ?>">Contact Rental Support</a></div>
-    <?php endif ?>
-  </div>
-</section>
-<dialog class="rentals-detail" data-rentals-dialog aria-labelledby="rentals-detail-title">
-  <button class="rentals-detail__close" type="button" data-rentals-close aria-label="Close equipment details">×</button>
-  <div class="rentals-detail__success" data-detail-success hidden><p class="rentals-card__meta">Rental cart</p><h2>Added to cart</h2><p>Your equipment is saved for the selected dates.</p><button class="rentals-btn rentals-btn--primary" type="button" data-detail-continue>Continue browsing</button></div>
-  <div class="rentals-detail__grid" data-detail-content>
-    <div class="rentals-detail__visual"><img data-detail-image data-rentals-image data-rentals-fallback="<?= e_attr(site_media('media/rentals-equipment-placeholder.svg')) ?>" alt=""><span class="rentals-image-status" data-rentals-image-status hidden>Image temporarily unavailable</span></div>
-    <div class="rentals-detail__body">
-      <p class="rentals-card__meta" data-detail-category></p>
-      <h2 id="rentals-detail-title" data-detail-name></h2>
-      <p data-detail-description></p>
-      <dl class="rentals-detail__facts">
-        <div><dt>Ideal use</dt><dd data-detail-ideal></dd></div>
-        <div><dt>Listed rate</dt><dd data-detail-rate></dd></div>
-        <div><dt>Security deposit</dt><dd data-detail-deposit></dd></div>
-        <div><dt>Availability</dt><dd data-detail-status></dd></div>
-        <div><dt>Stock quantity</dt><dd data-detail-quantity></dd></div>
-      </dl>
-      <form method="post" action="<?= e_attr(url('rentals/cart/add')) ?>" data-detail-form data-availability-url="<?= e_attr(url('rentals/availability')) ?>">
-        <?= csrf_field() ?><input type="hidden" name="id" data-detail-id>
-        <div class="rentals-detail__dates">
-          <input type="hidden" name="rental_start_date"><input type="hidden" name="rental_end_date">
-          <div class="rentals-detail__date-choice"><span>Rental dates</span><button type="button" data-date-trigger aria-expanded="false" aria-controls="rental-date-picker">Select rental dates</button></div>
-          <label>Quantity<input type="number" name="quantity" min="1" max="1" value="1" required><small data-detail-quantity-available role="status"></small></label>
-        </div>
-        <div class="rentals-availability" id="rental-date-picker" data-availability-calendar aria-label="Choose rental dates" hidden>
-          <div class="rentals-availability__head"><button type="button" data-month-prev aria-label="Previous month">←</button><strong data-month-label></strong><button type="button" data-month-next aria-label="Next month">→</button></div>
-          <div class="rentals-availability__weekdays" aria-hidden="true"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div>
-          <div class="rentals-availability__days" data-calendar-days></div>
-          <button class="rentals-availability__clear" type="button" data-date-clear>Clear dates</button>
-          <p class="rentals-availability__legend"><span>● Available</span><span class="is-blocked">● Blocked</span><span class="is-reserved">● Customer reserved</span><span class="is-past">● Past / unavailable</span></p>
-        </div>
-        <button class="rentals-btn rentals-btn--primary" type="submit" data-detail-add>Add to Cart</button>
-      </form>
-      <p class="rentals-detail__message" data-detail-message role="status" aria-live="polite">Select available rental dates.</p>
+    <div class="rentals-catalogue-layout">
+      <?= $this->partial('rentals.partials.catalogue-categories',['categories'=>$categoriesList]) ?>
+      <div class="rentals-catalogue-layout__content">
+        <?php if($activeRecords!==[]): ?><p class="rentals-results" data-rentals-results data-rentals-result-noun="<?= $isServiceCatalogue?'service':'item' ?>" role="status" aria-live="polite"></p><?php endif ?>
+        <?php if($isServiceCatalogue): ?>
+          <?= $this->partial('rentals.partials.service-catalogue',['services'=>$servicesList]) ?>
+        <?php else: ?>
+          <?= $this->partial('rentals.partials.equipment-catalogue',['items'=>$itemsList,'categories'=>$categoriesList]) ?>
+        <?php endif ?>
+      </div>
     </div>
   </div>
-</dialog>
+</section>
 <?php $this->end() ?>

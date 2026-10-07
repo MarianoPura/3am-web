@@ -79,7 +79,7 @@ try {
     $assert($code === 419, 'Admin review bypassed CSRF.');
     $reviewPost = ['_token' => $field($review, '_token'), 'decision' => 'approved', 'customer_message' => 'We can coordinate the requested crew.'];
     [$code, $reviewed] = $http('/rentals/admin/service-requests/' . $record['id'] . '/review', $reviewPost);
-    $assert($code === 200 && str_contains($reviewed, 'Approved') && !str_contains($reviewed, 'name="decision"'), 'Admin review does not persist/remove review controls.');
+    $assert($code === 200 && str_contains($reviewed, 'Approved') && !str_contains($reviewed, '>Approve request</button>') && !str_contains($reviewed, '>Reject request</button>'), 'Admin review does not persist/remove review controls.');
     $http('/rentals/admin/service-requests/' . $record['id'] . '/review', array_replace($reviewPost, ['decision' => 'rejected']));
     $assert($store->find((int) $record['id'])['status'] === 'approved', 'Conflicting HTTP repeated review changed final status.');
     $logout(); $login(0);
@@ -93,7 +93,7 @@ try {
     }
     echo "PASS: actual HTTP Services CTA/login/form; POST/review CSRF; field errors; replay/redirect; owner-only history; Admin pending queue/approval; repeated review; customer-visible updates; Superadmin; existing Home/Information/Equipment/Services.\n";
 } finally {
-    foreach ($users as $id) { $db->delete('DELETE FROM rental_service_requests WHERE user_id=?', [$id]); }
+    foreach ($users as $id) { $db->delete('DELETE FROM rental_notification_deliveries WHERE service_request_id IN (SELECT id FROM rental_service_requests WHERE user_id=?)',[$id]); $db->delete('DELETE FROM rental_service_requests WHERE user_id=?', [$id]); }
     if ($service) { $db->delete('DELETE FROM rental_items WHERE id=?', [$service]); }
     if ($category) { $db->delete('DELETE FROM rental_categories WHERE id=?', [$category]); }
     foreach ($users as $id) { $db->delete('DELETE FROM users WHERE id=?', [$id]); }

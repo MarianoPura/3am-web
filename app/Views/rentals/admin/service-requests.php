@@ -1,5 +1,6 @@
 <?php $this->extend('rentals.layouts.admin'); ?>
-<?php $this->start('title') ?>Service Requests — Rentals Admin<?php $this->end() ?>
+<?php $this->start('title') ?>Service Requests — Rentals Admin<?= $this->partial('rentals.partials.pagination',['pagination'=>$pagination??null,'pagePath'=>'rentals/admin/service-requests']) ?>
+<?php $this->end() ?>
 <?php $this->start('content') ?>
 <section class="rentals-admin-page"><div class="rentals-shell">
   <div class="rentals-admin-page__heading"><div><p class="rentals-kicker">3AM Rentals / Administration</p><h1>Service requests</h1></div><p>Review event scope, crew and technical requirements. Quotations are separate from equipment/payment orders.</p></div>
@@ -17,8 +18,9 @@
           <td><a href="<?= e_attr(url('rentals/admin/service-requests/' . (int) $record['id'])) ?>"><?= $record['status'] === 'pending' ? 'Review request' : 'View request' ?> →</a></td>
         </tr><?php endforeach ?>
       </tbody></table></div>
-      <?php if ($rows === []): ?><p class="rentals-admin__empty">No service requests match this view.</p><?php elseif (count($rows) === 200): ?><p>Showing the latest 200 matching requests.</p><?php endif ?>
+      <?php if ($rows === []): ?><p class="rentals-admin__empty">No service requests match this view.</p><?php endif ?>
     </div>
   <?php endif ?>
 </div></section>
+<?= $this->partial('rentals.partials.pagination',['pagination'=>$pagination??null,'pagePath'=>'rentals/admin/service-requests']) ?>
 <?php $this->end() ?>

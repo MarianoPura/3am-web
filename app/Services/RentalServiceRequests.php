@@ -9,7 +9,7 @@ use RuntimeException;
 /** Service enquiries/quotations; never equipment stock or payment orders. */
 final class RentalServiceRequests
 {
-    public const STATUSES = ['pending' => 'Pending', 'approved' => 'Approved', 'rejected' => 'Rejected'];
+    public const STATUSES = ['pending' => 'Pending', 'approved' => 'Approved', 'rejected' => 'Rejected', 'completed'=>'Completed', 'cancelled'=>'Cancelled'];
 
     public function __construct(private readonly Database $db) {}
 
@@ -55,7 +55,9 @@ final class RentalServiceRequests
 
     public function find(int $id): ?array
     {
-        return $this->db->selectOne('SELECT * FROM rental_service_requests WHERE id = ?', [$id]);
+        $row=$this->db->selectOne('SELECT * FROM rental_service_requests WHERE id = ?', [$id]);
+        if($row && !empty($row['payment_method_id'])) { $row['payment_method_name']=$this->db->selectValue('SELECT name FROM payment_methods WHERE id=?',[$row['payment_method_id']]); }
+        return $row;
     }
 
     /** Validation errors never discard the visitor's entered requirements. */
@@ -145,4 +147,104 @@ final class RentalServiceRequests
                 [$decision, trim($message) !== '' ? trim($message) : null, $adminId, $id]) === 1;
         });
     }
+    public function workflowReady(): bool
+    {
+        $schema=new RentalSchema($this->db);
+        foreach(['quote_amount','quote_notes','quote_version','payment_method_id','payment_reference','payment_proof_path','payment_status','payment_reviewed_by','payment_reviewed_at','payment_message','completed_at','cancelled_at'] as $field) {
+            if(!$schema->hasColumn('rental_service_requests',$field)) { return false; }
+        }
+        return true;
+    }
+
+    public function historyPage(int $userId,string $status,int $page): array
+    {
+        return RentalPagination::fetch($this->db,"SELECT * FROM rental_service_requests WHERE user_id=? AND (?='all' OR status=?) ORDER BY created_at DESC,id DESC",[$userId,$status,$status],$page);
+    }
+
+    public function adminPage(string $status,string $term,int $page): array
+    {
+        $term=mb_substr(trim($term),0,100);
+        return RentalPagination::fetch($this->db,"SELECT * FROM rental_service_requests WHERE (?='all' OR status=?) AND (?='' OR reference LIKE ? OR customer_name LIKE ? OR service_name LIKE ?) ORDER BY created_at DESC,id DESC",[$status,$status,$term,'%'.$term.'%','%'.$term.'%','%'.$term.'%'],$page);
+    }
+
+    private function assertAdmin(int $adminId): void
+    {
+        $role=$this->db->selectValue('SELECT role FROM users WHERE id=?',[$adminId]);
+        if(!in_array(strtolower((string)$role),['admin','superadmin'],true)) { throw new RuntimeException('Administrator access is required.'); }
+    }
+
+    public function quote(int $id,int $adminId,string $amount,string $notes): bool
+    {
+        if(!$this->workflowReady()) { throw new RuntimeException('The Services deployment update is required.'); }
+        if(!preg_match('/^[0-9]{1,10}(?:\.[0-9]{1,2})?$/D',$amount) || mb_strlen($notes)>2000) { throw new RuntimeException('Enter a valid quotation amount and notes within 2,000 characters.'); }
+        return $this->db->transaction(function(Database $db) use($id,$adminId,$amount,$notes):bool {
+            $this->assertAdmin($adminId);
+            $row=$db->selectOne('SELECT * FROM rental_service_requests WHERE id=? FOR UPDATE',[$id]);
+            if(!$row || $row['status']!=='approved' || $row['payment_status']!=='unpaid' || $row['payment_proof_path']) { throw new RuntimeException('Only an approved service without a submitted payment can receive a quotation.'); }
+            if($row['quote_amount']!==null && self::amount($row['quote_amount'])===self::amount($amount) && (string)$row['quote_notes']===trim($notes)) { return false; }
+            $db->update('UPDATE rental_service_requests SET quote_amount=?,quote_notes=?,quote_version=quote_version+1 WHERE id=?',[$amount,trim($notes)?:null,$id]);
+            return true;
+        });
+    }
+
+    public function submitPayment(int $id,int $userId,int $method,string $reference,?array $upload,?int $quoteVersion=null): bool
+    {
+        if(!$this->workflowReady()) { throw new RuntimeException('Service payments are unavailable until the deployment update is applied.'); }
+        if(mb_strlen($reference)>190) { throw new RuntimeException('Payment reference must be at most 190 characters.'); }
+        $saved=null; $old=null;
+        try {
+            $changed=$this->db->transaction(function(Database $db) use($id,$userId,$method,$reference,$upload,$quoteVersion,&$saved,&$old):bool {
+                $row=$db->selectOne('SELECT * FROM rental_service_requests WHERE id=? AND user_id=? FOR UPDATE',[$id,$userId]);
+                if(!$row || $row['status']!=='approved' || $row['quote_amount']===null || (float)$row['quote_amount']<=0) { throw new RuntimeException('Payment is accepted only for your approved, quoted service request.'); }
+                // A replay while proof is pending/approved never saves another file or sends another email.
+                if(in_array($row['payment_status'],['pending','approved'],true)) { return false; }
+                // Compare under the quotation's row lock, before creating any proof file.
+                if($quoteVersion===null || $quoteVersion<0 || $quoteVersion!==(int)$row['quote_version']) {
+                    throw new RuntimeException('The quotation has changed or this payment page has expired. Review the latest quotation before submitting proof. If you already paid a different amount, contact the team before paying again.');
+                }
+                $payment=$db->selectOne("SELECT id FROM payment_methods WHERE id=? AND is_active=1 AND type='manual' AND NULLIF(TRIM(account_name),'') IS NOT NULL AND NULLIF(TRIM(account_number),'') IS NOT NULL",[$method]);
+                if(!$payment) { throw new RuntimeException('Choose an available payment method.'); }
+                $old=$row['payment_proof_path'];
+                $saved=RentalPaymentProof::store($upload);
+                if($saved===null) { throw new RuntimeException('Upload your payment proof.'); }
+                $db->update("UPDATE rental_service_requests SET payment_method_id=?,payment_reference=?,payment_proof_path=?,payment_status='pending',payment_reviewed_by=NULL,payment_reviewed_at=NULL,payment_message=NULL WHERE id=?",[$method,trim($reference)?:null,$saved,$id]);
+                return true;
+            });
+            try { if($changed && $old && $this->db->selectValue('SELECT id FROM order_header WHERE payment_proof_path=? LIMIT 1',[$old])===null && $this->db->selectValue('SELECT id FROM rental_service_requests WHERE payment_proof_path=? LIMIT 1',[$old])===null) { RentalPaymentProof::remove($old); } } catch(\Throwable $e) { error_log('Rentals replaced service proof cleanup unavailable'); }
+            return $changed;
+        } catch(\Throwable $e) { RentalPaymentProof::remove($saved); throw $e; }
+    }
+
+    public function reviewPayment(int $id,int $adminId,string $decision,string $message): bool
+    {
+        if(!in_array($decision,['approved','rejected'],true) || mb_strlen($message)>1000) { throw new RuntimeException('Choose a payment decision and use at most 1,000 characters.'); }
+        return $this->db->transaction(function(Database $db) use($id,$adminId,$decision,$message):bool {
+            $this->assertAdmin($adminId);
+            $row=$db->selectOne('SELECT * FROM rental_service_requests WHERE id=? FOR UPDATE',[$id]);
+            if(!$row || $row['status']!=='approved' || $row['payment_status']!=='pending' || !$row['payment_proof_path']) { return false; }
+            return $db->update('UPDATE rental_service_requests SET payment_status=?,payment_reviewed_by=?,payment_reviewed_at=CURRENT_TIMESTAMP,payment_message=? WHERE id=?',[$decision,$adminId,trim($message)?:null,$id])===1;
+        });
+    }
+
+    public function close(int $id,int $adminId,string $decision,string $message): bool
+    {
+        if(!in_array($decision,['completed','cancelled'],true) || mb_strlen($message)>1000) { throw new RuntimeException('Choose Completed or Cancelled and use at most 1,000 characters.'); }
+        return $this->db->transaction(function(Database $db) use($id,$adminId,$decision,$message):bool {
+            $this->assertAdmin($adminId);
+            $row=$db->selectOne('SELECT * FROM rental_service_requests WHERE id=? FOR UPDATE',[$id]);
+            if(!$row || !in_array($row['status'],['pending','approved'],true)) { return false; }
+            if($decision==='completed' && ($row['status']!=='approved' || $row['quote_amount']===null || ((float)$row['quote_amount']>0 && $row['payment_status']!=='approved') || $row['event_end_date']>date('Y-m-d'))) {
+                throw new RuntimeException('Complete the service after its end date and payment approval (or a zero-amount quote).');
+            }
+            $field=$decision==='completed'?'completed_at':'cancelled_at';
+            return $db->update("UPDATE rental_service_requests SET status=?,customer_message=?,$field=CURRENT_TIMESTAMP WHERE id=?",[$decision,trim($message)?:null,$id])===1;
+        });
+    }
+
+    private static function amount(string $value): string
+    {
+        $parts=explode('.',$value,2);
+        return (ltrim($parts[0],'0')?:'0').'.'.str_pad($parts[1]??'',2,'0');
+    }
+
 }

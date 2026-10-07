@@ -23,7 +23,7 @@ foreach (['PRIMARY', 'uq_service_request_reference', 'uq_service_request_submiss
     $assert(in_array($index, $indexes, true), 'Missing service index: ' . $index);
 }
 $assert((int) $db->selectValue("SELECT COUNT(*) FROM information_schema.key_column_usage
-    WHERE table_schema = DATABASE() AND table_name = 'rental_service_requests' AND referenced_table_name IS NOT NULL") === 3,
+    WHERE table_schema = DATABASE() AND table_name = 'rental_service_requests' AND referenced_table_name IS NOT NULL") === ($store->workflowReady() ? 5 : 3),
     'Services ownership/item/reviewer foreign keys are missing.');
 $request = static function (array $fields = [], bool $post = false): App\Core\Request {
     $_SERVER['REQUEST_METHOD'] = $post ? 'POST' : 'GET';
@@ -125,7 +125,7 @@ try {
     if ($service) { $db->delete('DELETE FROM rental_items WHERE id=?', [$service]); }
     if ($equipment) { $db->delete('DELETE FROM rental_items WHERE id=?', [$equipment]); }
     if ($category) { $db->delete('DELETE FROM rental_categories WHERE id=?', [$category]); }
-    foreach ($users as $id) { $db->delete('DELETE FROM users WHERE id=?', [$id]); }
+    foreach ($users as $id) { $db->delete('DELETE FROM rental_notification_deliveries WHERE service_request_id IN (SELECT id FROM rental_service_requests WHERE user_id=?)',[$id]); $db->delete('DELETE FROM users WHERE id=?', [$id]); }
     if (is_file($dir . '/inquiries.jsonl')) { unlink($dir . '/inquiries.jsonl'); }
     if (is_dir($dir)) { rmdir($dir); }
 }

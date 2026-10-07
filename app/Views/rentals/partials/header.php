@@ -2,8 +2,7 @@
 $currentPath = rtrim((string) parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH), '/');
 $links = [
     ['label' => 'Home', 'path' => url('rentals')],
-    ['label' => 'Equipment', 'path' => url('rentals/items')],
-    ['label' => 'Services', 'path' => url('rentals/services')],
+    ['label' => 'Equipment & Services', 'path' => url('rentals/items'), 'catalogue'=>true],
     ['label' => 'How to Rent', 'path' => url('rentals/how-to-rent')],
     ['label' => 'Support', 'path' => url('rentals/support')],
 ];
@@ -43,7 +42,7 @@ if (preg_match('/\p{L}/u', trim((string) ($navCustomer['name'] ?? '')), $firstLe
     <nav class="rentals-nav" id="rentals-primary-nav" aria-label="Rentals navigation">
       <?php foreach ($links as $link):
           $href = $link['path'];
-          $active = rtrim($href, '/') === $currentPath;
+          $active = rtrim($href, '/') === $currentPath || (!empty($link['catalogue']) && ($currentPath===url('rentals/services') || str_starts_with($currentPath,url('rentals/services').'/')));
       ?>
         <a href="<?= e_attr($href) ?>"<?= $active ? ' aria-current="page"' : '' ?>><?= e($link['label']) ?></a>
       <?php endforeach ?>

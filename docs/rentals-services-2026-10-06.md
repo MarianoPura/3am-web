@@ -1,3 +1,5 @@
+> Update — 7 October 2026: the authorized completion pass now implements galleries and the separate Services quotation/payment lifecycle locally. See [the current completion and deployment report](rentals-completion-2026-10-07.md). This document records the earlier state; no live deployment has been performed.
+
 # Services request/history pass — 6 October 2026
 
 ## Scope and confirmed cause

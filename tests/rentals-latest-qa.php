@@ -138,7 +138,7 @@ try {
     $assert((float)$sales['totals']['approved_sales']===150.5 && (float)$payment['totals']['rental_amount']===150.5,'Chart/report revenue definitions differ.');
     $view=$container->get(App\Core\View::class);
     $html=$view->partial('rentals.partials.admin-analytics',['insights'=>$report]);
-    $assert(str_contains($html,'Highest day '.$from.': ₱150.00') && str_contains($html,'preserveAspectRatio="none"'),'Highest day or chart stretching incorrect.');
+    $assert(str_contains($html,'Highest day '.$from.': ₱150.00') && str_contains($html,'viewBox="0 0 600 232"') && str_contains($html,'data-chart-period'),'Highest day or responsive date axis incorrect.');
     $small=$insights->analytics($request(['period'=>'custom','from'=>$to,'to'=>$to],true));
     $assert(str_contains($view->partial('rentals.partials.admin-analytics',['insights'=>$small]),'₱0.50'),'Highest revenue artificially rounded up to ₱1.00.');
     $empty=$insights->analytics($request(['period'=>'custom','from'=>$year.'-03-01','to'=>$year.'-03-02'],true));

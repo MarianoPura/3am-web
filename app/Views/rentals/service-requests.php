@@ -1,5 +1,6 @@
 <?php $this->extend('rentals.layouts.base'); ?>
-<?php $this->start('title') ?>My Service Requests — 3AM Rentals<?php $this->end() ?>
+<?php $this->start('title') ?>My Service Requests — 3AM Rentals<?= $this->partial('rentals.partials.pagination',['pagination'=>$pagination??null,'pagePath'=>'rentals/service-requests']) ?>
+<?php $this->end() ?>
 <?php $this->start('content') ?>
 <?php $notice = $_SESSION['rentals_service_notice'] ?? null; unset($_SESSION['rentals_service_notice']); ?>
 <section class="rentals-page-hero"><div class="rentals-shell rentals-page-hero__inner"><div><p class="rentals-kicker">Customer account</p><h1>Service requests.</h1></div><p>Your service enquiries, event requirements and team updates in one place.</p></div></section>
@@ -13,9 +14,10 @@
       <a class="rentals-btn" href="<?= e_attr(url('rentals/services')) ?>">Browse services</a>
     </form>
     <?php if ($rows === []): ?><div class="rentals-support-panel"><h2>No <?= $statusFilter === 'all' ? '' : e($statusFilter) . ' ' ?>service requests yet.</h2><p>Submit a service enquiry to track its review here.</p></div><?php else: ?>
-      <div class="rentals-orders"><?php foreach ($rows as $record): ?><article class="rentals-order rentals-service-request-card"><?= $this->partial('rentals.partials.service-request-details', ['record' => $record]) ?></article><?php endforeach ?></div>
-      <?php if (count($rows) === 200): ?><p>Showing your latest 200 matching requests.</p><?php endif ?>
+      <div class="rentals-orders"><?php foreach ($rows as $record): ?><article class="rentals-order rentals-service-request-card"><?= $this->partial('rentals.partials.service-request-details', ['record' => $record]) ?><a class="rentals-btn rentals-btn--dark" href="<?= e_attr(url('rentals/service-requests/'.(int)$record['id'])) ?>">View quotation / payment →</a></article><?php endforeach ?></div>
+
     <?php endif ?>
   <?php endif ?>
 </div></section>
+<?= $this->partial('rentals.partials.pagination',['pagination'=>$pagination??null,'pagePath'=>'rentals/service-requests']) ?>
 <?php $this->end() ?>

@@ -362,17 +362,9 @@ final class RentalCart
 
     private function userId(): ?int
     {
-        $userId = (int) ($_SESSION['user_id'] ?? 0);
-        if ($userId < 1) {
-            return null;
-        }
-
-        if ($this->db()->selectOne('SELECT id FROM users WHERE id = ?', [$userId]) === null) {
-            unset($_SESSION['user_id']);
-            return null;
-        }
-
-        return $userId;
+        // current() validates password/reset stamps without accessing the cart.
+        $user = (new RentalAccount($this->db(), $this))->current();
+        return $user === null ? null : (int) $user['id'];
     }
 
     private function db(): Database

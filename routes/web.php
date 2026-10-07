@@ -162,3 +162,14 @@ $router->get('/analytics/visitors/{visitId:int}/events', [AnalyticsController::c
  *       ...
  *   });
  */
+
+// Rentals account recovery uses existing SMTP configuration; private links have no CC.
+$router->get('/rentals/account/forgot', [\App\Controllers\Rentals\RentalPasswordController::class, 'forgot']);
+$router->post('/rentals/account/forgot', [\App\Controllers\Rentals\RentalPasswordController::class, 'forgot']);
+$router->get('/rentals/account/reset/{token:slug}', [\App\Controllers\Rentals\RentalPasswordController::class, 'reset']);
+$router->post('/rentals/account/reset/{token:slug}', [\App\Controllers\Rentals\RentalPasswordController::class, 'reset']);
+
+$router->get('/rentals/service-requests/{id:int}', [\App\Controllers\Rentals\RentalServiceRequestController::class, 'customerView']);
+$router->post('/rentals/service-requests/{id:int}/payment', [\App\Controllers\Rentals\RentalServiceRequestController::class, 'payment']);
+$router->get('/rentals/service-requests/{id:int}/proof', [\App\Controllers\Rentals\RentalServiceRequestController::class, 'proof']);
+$router->post('/rentals/admin/service-requests/{id:int}/manage', [\App\Controllers\Rentals\RentalServiceRequestController::class, 'manage']);

@@ -68,6 +68,7 @@ $submittedEmail = (string) ($submittedEmail ?? '');
           </div>
           <button class="rentals-btn rentals-btn--primary" type="submit"><?= $activeAction === 'login' ? 'Sign in' : 'Create account' ?></button>
         </form>
+        <?php if ($activeAction === 'login'): ?><p><a href="<?= e_attr(url('rentals/account/forgot')) ?>">Forgot password?</a></p><?php endif ?>
       </div>
     </div>
   </div>

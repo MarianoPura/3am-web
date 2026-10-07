@@ -52,16 +52,6 @@ $draft = $draft ?? [];
           <label><span data-product-label data-equipment-text="Name" data-service-text="Service name">Name</span>
             <input name="name" data-product-placeholder data-equipment-placeholder="e.g. Sony A7 III Camera" data-service-placeholder="e.g. Event coverage with camera crew" maxlength="190" required placeholder="e.g. Sony A7 III Camera" value="<?= e_attr((string) ($draft['name'] ?? '')) ?>">
           </label>
-          <div class="rentals-admin__two">
-            <label>Slug (optional)
-              <input name="slug" data-product-placeholder data-equipment-placeholder="e.g. sony-a7-iii" data-service-placeholder="e.g. event-production-coverage" maxlength="190" placeholder="e.g. sony-a7-iii" value="<?= e_attr((string) ($draft['slug'] ?? '')) ?>">
-              <small><span data-product-label data-equipment-text="Used in product URL. Leave blank to generate automatically." data-service-text="Used in the service URL. Leave blank to generate automatically.">Used in product URL. Leave blank to generate automatically.</span></small>
-            </label>
-            <label><span data-product-label data-equipment-text="SKU (optional)" data-service-text="Service code (optional)">SKU (optional)</span>
-              <input name="sku" data-product-placeholder data-equipment-placeholder="e.g. CAM-001" data-service-placeholder="e.g. SRV-001" maxlength="80" placeholder="e.g. CAM-001" value="<?= e_attr((string) ($draft['sku'] ?? '')) ?>">
-              <small><span data-product-label data-equipment-text="Unique inventory code." data-service-text="Optional reference for this service.">Unique inventory code.</span></small>
-            </label>
-          </div>
         </fieldset>
         <fieldset>
           <legend><span data-product-label data-equipment-text="Product details" data-service-text="Service scope">Product details</span></legend>
@@ -71,11 +61,8 @@ $draft = $draft ?? [];
           <label><span data-product-label data-equipment-text="Ideal use" data-service-text="Event / project types">Ideal use</span>
             <input name="ideal_use" data-product-placeholder data-equipment-placeholder="e.g. Weddings, corporate videos, studio shoots" data-service-placeholder="e.g. Corporate events, weddings, livestream productions" maxlength="500" placeholder="e.g. Weddings, corporate videos, studio shoots" value="<?= e_attr((string) ($draft['ideal_use'] ?? '')) ?>">
           </label>
-          <label><span data-product-label data-equipment-text="Product image (optional)" data-service-text="Service image (optional)">Product image (optional)</span>
-            <input type="file" name="product_image" accept="image/jpeg,image/png,image/webp">
-            <small>JPG, PNG or WebP file.</small>
-          </label>
         </fieldset>
+        <?= $this->partial('rentals.partials.admin-gallery', ['galleryItem'=>$draft, 'galleryReady'=>$galleryReady??false]) ?>
         <fieldset>
           <legend><span data-product-label data-equipment-text="Rental settings" data-service-text="Service pricing">Rental settings</span></legend>
           <div class="rentals-admin__two">

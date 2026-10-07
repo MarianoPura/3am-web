@@ -1,6 +1,8 @@
 <?php $this->extend('rentals.layouts.base'); ?>
-<?php $this->start('title') ?>Rental Orders — 3AM<?php $this->end() ?>
-<?php $this->start('canonical') ?><?= e_attr(absolute_url('rentals/orders')) ?><?php $this->end() ?>
+<?php $this->start('title') ?>Rental Orders — 3AM<?= $this->partial('rentals.partials.pagination',['pagination'=>$pagination??null,'pagePath'=>'rentals/orders']) ?>
+<?php $this->end() ?>
+<?php $this->start('canonical') ?><?= e_attr(absolute_url('rentals/orders')) ?><?= $this->partial('rentals.partials.pagination',['pagination'=>$pagination??null,'pagePath'=>'rentals/orders']) ?>
+<?php $this->end() ?>
 <?php $this->start('content') ?>
 <?php
 $orders = is_array($orders ?? null) ? $orders : [];
@@ -53,4 +55,5 @@ unset($_SESSION['rentals_notice']);
     </div>
   <?php endif ?>
 </div></section>
+<?= $this->partial('rentals.partials.pagination',['pagination'=>$pagination??null,'pagePath'=>'rentals/orders']) ?>
 <?php $this->end() ?>

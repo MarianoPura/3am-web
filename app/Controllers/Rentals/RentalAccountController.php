@@ -37,6 +37,9 @@ final class RentalAccountController extends Controller
         $user = null;
 
         try {
+            if (!(new \App\Services\RentalAuthThrottle())->attempt($action === 'register' ? 'register' : 'login', $request->ip(), $request->string('email'))) {
+                return $this->render('rentals.account', ['user'=>null, 'error'=>'Too many attempts. Please try again in 15 minutes.', 'action'=>$action, 'submittedEmail'=>$request->string('email')],429)->noCache()->withHeader('Retry-After','900');
+            }
             if ($action === 'register') {
                 $user = $account->register(
                     $request->string('name'),
@@ -58,7 +61,7 @@ final class RentalAccountController extends Controller
             unset($_SESSION['rentals_after_auth']);
             // Only server-issued Rentals token routes may override the usual destination.
             if (is_string($returnTo)
-                && preg_match('/^(?:(?:order-status|confirmation)\/[a-f0-9]{64}|services\/[1-9][0-9]*\/request)$/D', $returnTo) === 1) {
+                && preg_match('/^(?:(?:order-status|confirmation)\/[a-f0-9]{64}|services\/[1-9][0-9]*\/request|service-requests\/[1-9][0-9]*)$/D', $returnTo) === 1) {
                 return $this->redirect(url('rentals/' . $returnTo))->noCache();
             }
             if (in_array(strtolower((string) ($user['role'] ?? '')), ['admin', 'superadmin'], true)) {
@@ -153,7 +156,7 @@ final class RentalAccountController extends Controller
             return $this->redirect(url('rentals/account'));
         }
 
-        $orders = $this->db()->select(
+        $pagination = \App\Services\RentalPagination::fetch($this->db(),
             'SELECT h.id, h.order_number, h.customer_name, h.customer_email, h.payment_status,
                     h.payment_reference, h.payment_proof_path, h.status_token,
                     h.subtotal, h.security_deposit, h.total_amount, h.created_at,
@@ -161,8 +164,9 @@ final class RentalAccountController extends Controller
              FROM order_header h LEFT JOIN payment_methods p ON p.id = h.payment_method_id
              WHERE h.user_id = ?
              ORDER BY h.created_at DESC, h.id DESC',
-            [$userId]
+            [$userId],$request->int('page',1)
         );
+        $orders=$pagination['rows'];
         foreach ($orders as &$order) {
             $order['details'] = $this->db()->select(
                 'SELECT item_name, quantity, rental_start_date, rental_end_date, unit_rate, line_total
@@ -172,7 +176,7 @@ final class RentalAccountController extends Controller
         }
         unset($order);
 
-        return $this->render('rentals.orders', ['orders' => $orders])->noCache();
+        return $this->render('rentals.orders', ['orders' => $orders,'pagination'=>$pagination])->noCache();
     }
 
     public function uploadProof(Request $request, string $id): Response

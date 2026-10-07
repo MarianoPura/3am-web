@@ -2,7 +2,6 @@
 $activeSection = (string) ($section ?? 'dashboard');
 $links = [
     ['key' => 'dashboard', 'label' => 'Dashboard', 'href' => url('rentals/admin')],
-    ['key' => 'analytics', 'label' => 'Analytics', 'href' => url('rentals/admin/analytics')],
     ['key' => 'orders', 'label' => 'Orders', 'href' => url('rentals/admin/orders')],
     ['key' => 'service-requests', 'label' => 'Service Requests', 'href' => url('rentals/admin/service-requests')],
     ['key' => 'items', 'label' => 'Products', 'href' => url('rentals/admin/items')],

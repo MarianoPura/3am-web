@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 // Transactional service/controller checks; all rows created here roll back.
+$_ENV['MAIL_ENABLED']='false';
 session_start();
 $container = require dirname(__DIR__) . '/bootstrap.php';
 $db = $container->get(App\Core\Database::class);
@@ -136,9 +137,10 @@ try {
     $assert($admin->reviewProof($request(['decision'=>'rejected']), (string) $orderId)->status() === 403, 'Customer could reject an order.');
     $adminId = $db->insert('INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)',
         ['[TEST] Admin', 'completion-admin-' . $key . '@example.test', password_hash(bin2hex(random_bytes(16)), PASSWORD_DEFAULT), 'admin']);
-    $_SESSION['user_id'] = $adminId;
+    // Switch the disposable test session using the same clean authentication state as login.
+    $_SESSION = ['user_id' => $adminId];
     $assert($admin->index($request([], 'GET'))->status() === 200, 'Admin dashboard failed.');
-    $assert($admin->section($request([], 'GET'), 'analytics')->status() === 200, 'Analytics page failed.');
+    $assert($admin->section($request([], 'GET'), 'analytics')->status() === 302, 'Legacy Analytics must redirect to Dashboard.');
     foreach (['sales-report', 'payment-report', 'orders', 'items', 'categories', 'payments'] as $section) {
         $assert($admin->section($request([], 'GET'), $section)->status() === 200, 'Admin section failed: ' . $section);
     }

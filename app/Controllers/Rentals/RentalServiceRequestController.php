@@ -96,7 +96,7 @@ final class RentalServiceRequestController extends Controller
         $status = $request->string('status', 'all');
         $status = isset(RentalServiceRequests::STATUSES[$status]) ? $status : 'all';
         return $this->render('rentals.service-requests', [
-            'rows' => $store->history((int) $user['id'], $status), 'statusFilter' => $status,
+            'rows' => ($page=$store->historyPage((int)$user['id'],$status,$request->int('page',1)))['rows'], 'pagination'=>$page, 'statusFilter' => $status,
         ])->noCache();
     }
 
@@ -116,7 +116,7 @@ final class RentalServiceRequestController extends Controller
         $status = isset(RentalServiceRequests::STATUSES[$status]) ? $status : 'all';
         $term = mb_substr($request->string('q'), 0, 100);
         return $this->render('rentals.admin.service-requests', [
-            'rows' => $store->adminList($status, $term), 'statusFilter' => $status, 'term' => $term,
+            'rows' => ($page=$store->adminPage($status,$term,$request->int('page',1)))['rows'], 'pagination'=>$page, 'statusFilter' => $status, 'term' => $term,
             'section' => 'service-requests', 'adminUser' => $admin,
         ])->noCache();
     }
@@ -130,7 +130,7 @@ final class RentalServiceRequestController extends Controller
         $record = $store->find((int) $id);
         if (!$record) { return Response::notFound()->noCache(); }
         return $this->render('rentals.admin.service-request', [
-            'record' => $record, 'section' => 'service-requests', 'adminUser' => $admin,
+            'record' => $record, 'workflowReady'=>$store->workflowReady(), 'section' => 'service-requests', 'adminUser' => $admin,
         ])->noCache();
     }
 
@@ -143,10 +143,83 @@ final class RentalServiceRequestController extends Controller
         if (!$store->find((int) $id)) { return Response::notFound()->noCache(); }
         try {
             $changed = $store->review((int) $id, (int) $admin['id'], $request->string('decision'), $request->string('customer_message'));
+            if ($changed) { $this->container->get(\App\Services\RentalNotification::class)->serviceUpdated((int)$id,$request->string('decision')); }
             $_SESSION['rentals_service_notice'] = $changed ? 'Service request reviewed.' : 'This request was already reviewed. Its decision is unchanged.';
         } catch (\RuntimeException $e) {
             $_SESSION['rentals_service_notice'] = 'Choose Approve or Reject and keep the customer message within 1,000 characters.';
         }
         return $this->redirect('rentals/admin/service-requests/' . (int) $id, 303)->noCache();
     }
+    public function customerView(Request $request,string $id): Response
+    {
+        $user=$this->user();
+        if(!$user) { return $this->signIn('service-requests/'.(int)$id); }
+        $store=$this->store();
+        if(!$store->ready()) { return $this->unavailable(); }
+        $record=$store->find((int)$id);
+        if(!$record) { return Response::notFound()->noCache(); }
+        if(in_array(strtolower($user['role']),['admin','superadmin'],true)) { return $this->redirect('rentals/admin/service-requests/'.(int)$id)->noCache(); }
+        if((int)$record['user_id']!==(int)$user['id']) { return Response::forbidden()->noCache(); }
+        $methods=$store->workflowReady()?(new \App\Services\RentalCheckout($this->db(),new RentalCart()))->activePaymentMethods():[];
+        $methods=array_values(array_filter($methods,static fn($m)=>$m['type']==='manual'));
+        return $this->render('rentals.service-request-view',['record'=>$record,'methods'=>$methods,'workflowReady'=>$store->workflowReady()])->noCache();
+    }
+
+    public function payment(Request $request,string $id): Response
+    {
+        $user=$this->user();
+        if(!$user) { return $this->signIn('service-requests/'.(int)$id); }
+        $store=$this->store();
+        if(!$store->ready()) { return $this->unavailable(); }
+        $record=$store->find((int)$id);
+        if(!$record) { return Response::notFound()->noCache(); }
+        if((int)$record['user_id']!==(int)$user['id']) { return Response::forbidden()->noCache(); }
+        try {
+            $quoteVersion=filter_var($request->input('quote_version'),FILTER_VALIDATE_INT,['options'=>['min_range'=>0]]);
+            $changed=$store->submitPayment((int)$id,(int)$user['id'],$request->int('payment_method_id'),$request->string('payment_reference'),$request->file('payment_proof'),$quoteVersion===false?null:$quoteVersion);
+            if($changed) { $this->container->get(\App\Services\RentalNotification::class)->serviceUpdated((int)$id,'payment_received'); }
+            $_SESSION['rentals_service_notice']=$changed?'Payment proof submitted for review.':'Your proof is already under review or approved. No duplicate was submitted.';
+        } catch(\RuntimeException $e) { $_SESSION['rentals_service_notice']=$e->getMessage(); }
+        catch(\Throwable $e) { error_log('Rentals service payment unavailable'); $_SESSION['rentals_service_notice']='Payment proof could not be saved. Please try again later.'; }
+        return $this->redirect('rentals/service-requests/'.(int)$id,303)->noCache();
+    }
+
+    public function proof(Request $request,string $id): Response
+    {
+        $user=$this->user();
+        if(!$user) { return $this->signIn('service-requests/'.(int)$id); }
+        $store=$this->store();
+        if(!$store->ready()) { return Response::notFound()->noCache(); }
+        $record=$store->find((int)$id);
+        if(!$record) { return Response::notFound()->noCache(); }
+        if((int)$record['user_id']!==(int)$user['id'] && !in_array(strtolower($user['role']),['admin','superadmin'],true)) { return Response::forbidden()->noCache(); }
+        return \App\Services\RentalPaymentProof::response($record['payment_proof_path']??null);
+    }
+
+    public function manage(Request $request,string $id): Response
+    {
+        $admin=$this->admin();
+        if(!$admin) { return Response::forbidden()->noCache(); }
+        $store=$this->store();
+        if(!$store->ready()) { return $this->unavailable(true,$admin); }
+        if(!$store->find((int)$id)) { return Response::notFound()->noCache(); }
+        try {
+            if(!$store->workflowReady()) { throw new \RuntimeException('Apply the Services deployment update first.'); }
+            $action=$request->string('action');
+            $changed=match($action) {
+                'quote'=>$store->quote((int)$id,(int)$admin['id'],$request->string('quote_amount'),$request->string('quote_notes')),
+                'payment'=>$store->reviewPayment((int)$id,(int)$admin['id'],$request->string('decision'),$request->string('payment_message')),
+                'close'=>$store->close((int)$id,(int)$admin['id'],$request->string('decision'),$request->string('customer_message')),
+                default=>throw new \RuntimeException('Choose a valid service action.'),
+            };
+            if($changed) {
+                $event=match($action){'quote'=>'quoted','payment'=>'payment_'.$request->string('decision'),default=>$request->string('decision')};
+                $this->container->get(\App\Services\RentalNotification::class)->serviceUpdated((int)$id,$event);
+            }
+            $_SESSION['rentals_service_notice']=$changed?'Service request updated.':'No change was needed. The previous decision is preserved.';
+        } catch(\RuntimeException $e) { $_SESSION['rentals_service_notice']=$e->getMessage(); }
+        catch(\Throwable $e) { error_log('Rentals service management unavailable'); $_SESSION['rentals_service_notice']='The service could not be updated. Please try again later.'; }
+        return $this->redirect('rentals/admin/service-requests/'.(int)$id,303)->noCache();
+    }
+
 }

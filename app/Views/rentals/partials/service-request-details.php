@@ -8,4 +8,10 @@
 </dl>
 <details class="rentals-order__details"<?= !empty($expanded) ? ' open' : '' ?>><summary>Service requirements</summary><p class="rentals-service-request-text"><?= nl2br(e($record['details'])) ?></p></details>
 <?php if (trim((string) ($record['customer_message'] ?? '')) !== ''): ?><div class="rentals-service-request-message"><strong>Message from the team</strong><p><?= nl2br(e($record['customer_message'])) ?></p></div><?php endif ?>
-<p class="rentals-service-request-note"><?= $record['status'] === 'approved' ? 'Your service enquiry is approved for coordination. Final scope, quotation and payment are arranged with the team.' : ($record['status'] === 'rejected' ? 'The team cannot proceed with this request. Contact support to discuss alternatives.' : 'The team is reviewing your service requirements. No payment is requested here.') ?></p>
+<p class="rentals-service-request-note"><?= e(match($record['status']) {
+    'approved'=>'Your enquiry is approved. View quotation/payment details for the next step.',
+    'rejected'=>'The team cannot proceed with this request. Contact support to discuss alternatives.',
+    'completed'=>'This service has been completed. Thank you for working with 3AM.',
+    'cancelled'=>'This service was cancelled. Contact the team about any payment/refund arrangements.',
+    default=>'The team is reviewing your service requirements. No payment is requested yet.',
+}) ?></p>

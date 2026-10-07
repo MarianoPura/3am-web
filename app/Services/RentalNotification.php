@@ -35,6 +35,52 @@ final class RentalNotification
         }
     }
 
+
+    /** Services use the same fixed transport, configured CC and durable delivery ledger. */
+    public function serviceUpdated(int $id,string $event): void
+    {
+        $events=[
+            'approved'=>['Service request approved','Your service enquiry is approved for coordination. A quotation will appear in your request details.'],
+            'rejected'=>['Service request rejected','The team could not accommodate this service request.'],
+            'quoted'=>['Service quotation ready','Your service quotation is ready. Sign in to view the scope, amount and payment instructions.'],
+            'payment_received'=>['Service payment proof received','Your service payment proof is awaiting verification.'],
+            'payment_approved'=>['Service payment approved','Your service payment proof has been approved.'],
+            'payment_rejected'=>['Service payment needs attention','Your service payment proof was rejected. Sign in to view the team message and submit a replacement if needed.'],
+            'completed'=>['Service completed','The team marked your service as completed. Thank you for working with 3AM.'],
+            'cancelled'=>['Service cancelled','Your service request was cancelled. If you already paid, contact the team to arrange any applicable refund.'],
+        ];
+        if(!isset($events[$event])) { return; }
+        try {
+            if($this->db->inTransaction()) { throw new \LogicException('Mail must run after commit.'); }
+            if (!(new RentalServiceRequests($this->db))->workflowReady() || !(new RentalSchema($this->db))->hasColumn('rental_notification_deliveries','service_request_id')) { return; }
+            $r=$this->db->selectOne('SELECT * FROM rental_service_requests WHERE id=?',[$id]);
+            if(!$r) { return; }
+            $matches=match($event) {
+                'quoted'=>$r['status']==='approved' && $r['quote_amount']!==null,
+                'payment_received'=>$r['status']==='approved' && $r['payment_status']==='pending',
+                'payment_approved','payment_rejected'=>$r['status']==='approved' && $r['payment_status']===substr($event,8),
+                default=>$r['status']===$event,
+            };
+            if(!$matches) { return; }
+            $version=hash('sha256',$event==='quoted'?(string)$r['quote_version']:(str_starts_with($event,'payment_')?(string)$r['payment_proof_path']:'initial'));
+            $key=hash('sha256','service|'.$id.'|'.$event.'|'.$version.'|'.strtolower($r['customer_email']));
+            $eventKey='service_'.$event;
+            $this->db->statement("INSERT INTO rental_notification_deliveries (dedup_key,event_key,event_version,service_request_id,audience,recipient_email,status) VALUES (?,?,?,?,'customer',?,'pending') ON DUPLICATE KEY UPDATE id=id",[$key,$eventKey,$version,$id,$r['customer_email']]);
+            $delivery=$this->db->selectOne('SELECT * FROM rental_notification_deliveries WHERE dedup_key=?',[$key]);
+            if(!$delivery || !$this->claim((int)$delivery['id'])) { return; }
+            $amount=$r['quote_amount']!==null?'₱'.number_format((float)$r['quote_amount'],2):'Awaiting quotation';
+            $values=['customer_name'=>$r['customer_name'],'customer_email'=>$r['customer_email'],'order_number'=>$r['reference'],
+                'order_status'=>RentalServiceRequests::STATUSES[$r['status']]??$r['status'], 'payment_status'=>ucfirst($r['payment_status']??'unpaid'),
+                'rental_start_date'=>$r['event_start_date'],'rental_end_date'=>$r['event_end_date'],
+                'subtotal'=>$amount,'security_deposit'=>'Not applicable','total_amount'=>$amount,'payment_method'=>'See service request',
+                'company_name'=>(string)config('app.name'),'support_email'=>(string)config('app.contact_email'),
+                'order_items'=>$r['service_name'],'rejection_reason'=>'','proof_receipt_text'=>'',
+                'order_status_url'=>absolute_url('rentals/service-requests/'.$id), 'admin_order_url'=>absolute_url('rentals/admin/service-requests/'.$id)];
+            [$subject,$body]=$events[$event];
+            $this->deliver($delivery,(array)config('rentals-mail.cc',[]),$values,['subject'=>$subject.' — {{order_number}}','body'=>$body]);
+        } catch(\Throwable $e) { $this->log('service_'.$event,$id,'system','notification_unavailable'); }
+    }
+
     private function notify(string $event, int $orderId): void
     {
         try {
@@ -80,7 +126,7 @@ final class RentalNotification
             WHERE id=? AND status=\'pending\' AND attempts=0', [$id]) === 1;
     }
 
-    private function deliver(array $delivery, array $cc, array $values): void
+    private function deliver(array $delivery, array $cc, array $values, ?array $templateOverride = null): void
     {
         $category = 'invalid_destination';
         try {
@@ -97,7 +143,7 @@ final class RentalNotification
             $category = 'smtp_not_configured';
             if (!$this->transport->isConfigured()) { throw new \RuntimeException(); }
             $category = 'template_rendering_failed';
-            $template = RentalMailEvents::defaults($delivery['event_key'], $delivery['audience']);
+            $template = $templateOverride ?? RentalMailEvents::defaults($delivery['event_key'], $delivery['audience']);
             $allowed = RentalMailEvents::placeholders($delivery['audience']);
             $replace = static fn (string $text): string => preg_replace_callback('/\{\{\s*([a-z_]+)\s*\}\}/',
                 static fn ($m) => in_array($m[1], $allowed, true) ? (string) ($values[$m[1]] ?? '') : '', $text) ?? '';

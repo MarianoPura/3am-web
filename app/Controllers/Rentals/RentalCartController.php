@@ -97,7 +97,7 @@ final class RentalCartController extends Controller
             return $this->addFailure($request, 'Select your rental dates before adding this item.');
         }
         if (!$this->validDateRange($start, $end) || $quantity < 1 || $quantity > 999) {
-            return $this->addFailure($request, 'Choose current or future dates and a valid quantity.');
+            return $this->addFailure($request, 'Choose current or future dates spanning at most ' . \App\Services\RentalDateRange::MAX_DAYS . ' days and a valid quantity.');
         }
         $cart = new RentalCart();
         if (!$this->canAddToCart($item, $cart, $quantity, $start, $end)) {
@@ -139,7 +139,7 @@ final class RentalCartController extends Controller
         $cart = new RentalCart();
         if ($item === null || !$this->validDateRange($start, $end)
             || !$this->canAddToCart($item, $cart, $quantity, $start, $end, $lineId)) {
-            $_SESSION['rentals_notice'] = 'Choose valid dates and an available quantity before updating your cart.';
+            $_SESSION['rentals_notice'] = 'Choose valid dates spanning at most ' . \App\Services\RentalDateRange::MAX_DAYS . ' days and an available quantity before updating your cart.';
             return $this->redirect(url('rentals/cart'));
         }
 
@@ -221,23 +221,7 @@ final class RentalCartController extends Controller
 
     private function validDateRange(string $start, string $end): bool
     {
-        if ($start === '' && $end === '') {
-            return false;
-        }
-
-        if ($start === '' || $end === '') {
-            return false;
-        }
-
-        $startDate = \DateTimeImmutable::createFromFormat('!Y-m-d', $start);
-        $endDate = \DateTimeImmutable::createFromFormat('!Y-m-d', $end);
-
-        return $startDate !== false
-            && $endDate !== false
-            && $startDate->format('Y-m-d') === $start
-            && $endDate->format('Y-m-d') === $end
-            && $startDate >= new \DateTimeImmutable('today')
-            && $endDate >= $startDate;
+        return \App\Services\RentalDateRange::isBookable($start, $end);
     }
 
 }

@@ -36,6 +36,7 @@ final class RentalCatalog
             $rows = $this->db->select(
                 "
                 SELECT
+                    i.*,
                     i.id AS db_id,
                     COALESCE(NULLIF(i.slug, ''), CONCAT('item-', i.id)) AS id,
                     i.name,
@@ -224,12 +225,9 @@ final class RentalCatalog
     /** Stock and its causes, without customer identities, for both calendars. */
     public function availabilityByDate(array $item, string $startDate, string $endDate): array
     {
-        $start = \DateTimeImmutable::createFromFormat('!Y-m-d', $startDate);
-        $end = \DateTimeImmutable::createFromFormat('!Y-m-d', $endDate);
-        if ($start === false || $end === false || $start > $end
-            || $start->format('Y-m-d') !== $startDate || $end->format('Y-m-d') !== $endDate) {
-            return [];
-        }
+        $range = \App\Services\RentalDateRange::parse($startDate, $endDate);
+        if ($range === null) { return []; }
+        [$start, $end] = $range;
         $events = [];
         $rows = $this->db->select(
             'SELECT d.quantity, d.rental_start_date, d.rental_end_date FROM order_details d

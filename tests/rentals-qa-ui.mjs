@@ -34,7 +34,7 @@ for(const initial of ['0','1']){
  const form={querySelector:()=>type,closest:()=>({querySelector:()=>heading}),querySelectorAll:selector=>({
   '[data-equipment-field]':groups,'[data-product-label]':labels,'[data-product-placeholder]':placeholders,'[data-service-field]':[guidance]
  }[selector]??[])};
- vm.runInNewContext(formInit,{document:{querySelectorAll:()=>[form]}});
+ vm.runInNewContext(formInit,{document:{querySelectorAll:selector=>selector==='[data-rental-product-form]'?[form]:[]}});
  assert.equal(listeners.length,1);assert.equal(listeners[0].event,'change');
  for(const selected of [initial,'1','0','1']){
   type.value=selected;listeners[0].fn();

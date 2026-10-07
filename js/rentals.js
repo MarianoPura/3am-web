@@ -56,30 +56,78 @@ const initRentalsCatalogue = () => {
       carousel.dispatchEvent(new Event('rentals:refresh'));
     });
     const status = document.querySelector('[data-rentals-results]');
-    if (status) status.textContent = visible ? `${visible} item${visible === 1 ? '' : 's'} found` : 'No matching equipment. Try another search or category.';
+    if (status) {
+      const noun = status.dataset.rentalsResultNoun === 'service' ? 'service' : 'item';
+      status.textContent = visible ? `${visible} ${noun}${visible === 1 ? '' : 's'} found` : `No matching ${noun === 'service' ? 'services' : 'equipment'}. Try another search or category.`;
+    }
   };
 
   if (searchInput) {
     searchInput.addEventListener('input', applyFilters);
   }
 
+  const revealSelectedCategory = () => {
+    document.querySelectorAll('[data-rentals-category-more]').forEach(more => {
+      if (more.querySelector('[data-rentals-filter].is-active')) more.open = true;
+    });
+  };
   filterButtons.forEach((button) => {
     button.addEventListener('click', () => {
-      filterButtons.forEach((el) => { el.classList.toggle('is-active', el === button); el.setAttribute('aria-pressed', String(el === button)); });
+      filterButtons.forEach((el) => {
+        const active = el.dataset.rentalsFilter === button.dataset.rentalsFilter;
+        el.classList.toggle('is-active', active);
+        el.setAttribute('aria-pressed', String(active));
+      });
+      revealSelectedCategory();
       applyFilters();
     });
   });
   const requested = new URLSearchParams(window.location.search).get('category');
-  const chosen = [...filterButtons].find(button => button.dataset.rentalsFilter === requested);
+  const createRentalGallery = (dialog) => {
+  const visual = dialog.querySelector('.rentals-detail__visual');
+  const picture = dialog.querySelector('[data-detail-image]');
+  const controls = dialog.querySelector('[data-gallery-controls]');
+  const count = dialog.querySelector('[data-gallery-count]');
+  const status = dialog.querySelector('[data-rentals-image-status]');
+  let images = [], index = 0, name = '', assigned = false, touch = null;
+  const render = () => {
+    picture.removeAttribute('data-fallback-applied');
+    picture.src = images[index] || picture.dataset.rentalsFallback;
+    picture.alt = images.length ? `${name} · image ${index + 1} of ${images.length}` : '3AM Rentals equipment image coming soon';
+    status.hidden = images.length > 0 || !assigned;
+    controls.hidden = images.length < 2;
+    count.textContent = images.length ? `${index + 1} / ${images.length}` : '';
+  };
+  const step = (direction) => { if (images.length < 2) return; index = (index + direction + images.length) % images.length; render(); };
+  dialog.querySelector('[data-gallery-prev]').addEventListener('click', () => step(-1));
+  dialog.querySelector('[data-gallery-next]').addEventListener('click', () => step(1));
+  visual.addEventListener('keydown', event => {
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') { event.preventDefault(); step(event.key === 'ArrowLeft' ? -1 : 1); }
+  });
+  picture.tabIndex = 0;
+  picture.draggable = false;
+  visual.addEventListener('pointerdown', event => { if (event.target === picture) { touch = {x:event.clientX,y:event.clientY,id:event.pointerId}; picture.setPointerCapture?.(event.pointerId); } });
+  visual.addEventListener('pointerup', event => {
+    if (!touch || touch.id !== event.pointerId) return;
+    const dx=event.clientX-touch.x, dy=event.clientY-touch.y; touch=null;
+    if (Math.abs(dx)>40 && Math.abs(dx)>Math.abs(dy)) step(dx<0?1:-1);
+  });
+  visual.addEventListener('pointercancel', () => { touch=null; });
+  return {open(detail) { images=Array.isArray(detail.images)?detail.images.filter(url=>typeof url==='string'&&url):[detail.image].filter(Boolean); index=0; name=detail.name||'Rental equipment'; assigned=Boolean(detail.hasImageReference); render(); }};
+};
+
+const chosen = [...filterButtons].find(button => button.dataset.rentalsFilter === requested);
   filterButtons.forEach(button => {
-    if (chosen) button.classList.toggle('is-active', button === chosen);
+    if (chosen) button.classList.toggle('is-active', button.dataset.rentalsFilter === chosen.dataset.rentalsFilter);
     button.setAttribute('aria-pressed', String(button.classList.contains('is-active')));
   });
+  revealSelectedCategory();
   applyFilters();
 
   const dialog = document.querySelector('[data-rentals-dialog]');
   const detailButtons = document.querySelectorAll('[data-rentals-detail]');
   if (!dialog || typeof dialog.showModal !== 'function') return;
+  const gallery = createRentalGallery(dialog);
 
   const setText = (selector, value) => {
     const target = dialog.querySelector(selector);
@@ -307,19 +355,13 @@ const initRentalsCatalogue = () => {
     setText('[data-detail-deposit]', detail.deposit);
     setText('[data-detail-status]', detail.status);
     updateQuantityLimit(detail.canRent ? detail.available : 0, false);
-    const picture = dialog.querySelector('[data-detail-image]');
-    picture.src = detail.image || picture.dataset.rentalsFallback;
-    const imageUnavailable = Boolean(detail.hasImageReference && !detail.image);
-    picture.alt = detail.image ? (detail.name || 'Rental equipment') : (imageUnavailable ? 'Equipment image temporarily unavailable' : '3AM Rentals equipment image coming soon');
-    dialog.querySelector('[data-rentals-image-status]').hidden = !imageUnavailable;
+    gallery.open(detail);
     dialog.querySelector('[data-detail-id]').value = detail.id || '';
     addButton.disabled = !detail.canRent || quantityInput.disabled;
     addButton.textContent = detail.canRent ? 'Add to Cart' : (detail.isSample ? 'Preview only' : 'Currently unavailable');
     message.textContent = 'Select available rental dates.';
     dialog.showModal();
     if (detail.canRent) {
-      calendar.hidden = false;
-      dateTrigger.setAttribute('aria-expanded', 'true');
       refreshCalendar();
     }
   }));
@@ -614,7 +656,20 @@ const initRentalServiceRequest = () => {
   });
 };
 
-const initRentals = () => { initRentalImages(); initRentalHeader(); initRentalCarousels(); initRentalsCatalogue(); initRentalCart(); initRentalCheckout(); initRentalServiceRequest(); };
+
+const initServicePayment = () => {
+  const form = document.querySelector('[data-service-payment]');
+  if (form) {
+    const method = form.querySelector('[name="payment_method_id"]');
+    const update = () => form.querySelectorAll('[data-service-pay-method]').forEach(panel => { panel.hidden = panel.dataset.servicePayMethod !== method.value; });
+    method.addEventListener('change', update); update();
+    form.querySelectorAll('[data-service-pay-qr]').forEach(image => image.addEventListener('error', () => { image.hidden = true; image.parentElement.querySelector('[data-service-pay-qr-error]').hidden = false; }));
+  }
+  document.querySelectorAll('[data-service-proof-image]').forEach(image => image.addEventListener('error', () => { image.hidden = true; image.parentElement.querySelector('[data-service-proof-error]').hidden = false; }));
+};
+
+const initRentals = () => { initRentalImages(); initRentalHeader(); initRentalCarousels(); initRentalsCatalogue(); initRentalCart(); initRentalCheckout(); initRentalServiceRequest();
+    initServicePayment(); };
 
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', initRentals, { once: true });

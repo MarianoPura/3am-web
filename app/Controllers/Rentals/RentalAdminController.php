@@ -34,6 +34,8 @@ final class RentalAdminController extends Controller
         return $this->render('rentals.admin.dashboard', [
             'section'         => 'dashboard',
             'metrics'         => $dashboard['metrics'],
+            'insights' => $insights->analytics($request),
+            'serviceSummary' => $dashboard['serviceSummary'],
             'recentOrders'    => $dashboard['recentOrders'],
             'upcomingRentals' => $dashboard['upcomingRentals'],
             'notice'          => $notice,
@@ -44,11 +46,8 @@ final class RentalAdminController extends Controller
     public function analytics(Request $request): Response
     {
         if ($denial = $this->deny()) { return $denial; }
-        return $this->render('rentals.admin.analytics', [
-            'section'   => 'analytics',
-            'insights'  => (new RentalAdminInsights($this->db()))->analytics($request),
-            'adminUser' => $this->adminUser,
-        ])->noCache();
+        $query = http_build_query(array_filter($_GET,'is_scalar'));
+        return $this->redirect(url('rentals/admin').($query!==''?'?'.$query:'').'#rental-analytics');
     }
 
     public function salesReport(Request $request): Response
@@ -96,15 +95,17 @@ final class RentalAdminController extends Controller
         $type       = in_array($request->string('type'), ['equipment', 'service'], true) ? $request->string('type') : 'all';
         $typeValue  = $type === 'equipment' ? 0 : ($type === 'service' ? 1 : -1);
         $categories = $db->select('SELECT id, name, is_active FROM rental_categories ORDER BY name, id');
-        $rows       = $db->select(
+        $pagination = \App\Services\RentalPagination::fetch($db,
             'SELECT i.*, c.name AS category_name FROM rental_items i JOIN rental_categories c ON c.id = i.category_id
              WHERE (? = 0 OR i.category_id = ?) AND (? = \'\' OR i.name LIKE ? OR i.sku LIKE ?)
                AND (? = -1 OR i.is_service = ?)
-             ORDER BY i.updated_at DESC, i.id DESC LIMIT 200',
+             ORDER BY i.updated_at DESC, i.id DESC',
             [$categoryId, $categoryId, $term, '%' . $term . '%', '%' . $term . '%', $typeValue, $typeValue]
-        );
+        , $request->int('page',1));
+        $rows = $pagination['rows'];
 
         return $this->render('rentals.admin.items', [
+            'pagination'=>$pagination,
             'section'        => 'items',
             'rows'           => $rows,
             'categories'     => $categories,
@@ -128,6 +129,7 @@ final class RentalAdminController extends Controller
         $db = $this->db();
         return $this->render('rentals.admin.items-create', [
             'section'       => 'items',
+            'galleryReady' => (new \App\Services\RentalSchema($this->db()))->hasColumn('rental_items','additional_image_paths'),
             'categories'    => $db->select('SELECT id, name, is_active FROM rental_categories ORDER BY name, id'),
             'images'        => $this->localImages(),
             'draft'         => $draft,
@@ -159,6 +161,7 @@ final class RentalAdminController extends Controller
 
         return $this->render('rentals.admin.items-edit', [
             'section'       => 'items',
+            'galleryReady' => (new \App\Services\RentalSchema($this->db()))->hasColumn('rental_items','additional_image_paths'),
             'itemId'        => $itemId,
             'item'          => $item,
             'record'        => $item,
@@ -238,15 +241,17 @@ final class RentalAdminController extends Controller
         $term   = substr($request->string('q'), 0, 100);
         $status = $request->string('status');
         $status = in_array($status, ['0', '1', '2'], true) ? $status : 'all';
-        $rows   = $db->select(
+        $pagination = \App\Services\RentalPagination::fetch($db,
             'SELECT h.*, p.name AS payment_method FROM order_header h LEFT JOIN payment_methods p ON p.id = h.payment_method_id
              WHERE (? = \'\' OR h.order_number LIKE ? OR h.customer_name LIKE ? OR h.customer_email LIKE ?)
                AND (? = \'all\' OR h.payment_status = ?)
-             ORDER BY (h.payment_status = 0) DESC, h.created_at DESC, h.id DESC LIMIT 200',
+             ORDER BY (h.payment_status = 0) DESC, h.created_at DESC, h.id DESC',
             [$term, '%' . $term . '%', '%' . $term . '%', '%' . $term . '%', $status, $status]
-        );
+        , $request->int('page',1));
+        $rows = $pagination['rows'];
 
         return $this->render('rentals.admin.orders', [
+            'pagination'=>$pagination,
             'section'       => 'orders',
             'rows'          => $rows,
             'term'          => $term,
@@ -335,8 +340,10 @@ final class RentalAdminController extends Controller
     public function customers(Request $request): Response
     {
         if ($denial = $this->deny()) { return $denial; }
-        $rows = $this->db()->select('SELECT id, name, email, role, last_login FROM users ORDER BY created_at DESC, id DESC LIMIT 200');
+        $pagination = \App\Services\RentalPagination::fetch($this->db(),'SELECT id, name, email, role, last_login FROM users ORDER BY created_at DESC, id DESC', [], $request->int('page',1));
+        $rows = $pagination['rows'];
         return $this->render('rentals.admin.customers', [
+            'pagination'=>$pagination,
             'section'       => 'customers',
             'rows'          => $rows,
             'notice'        => $this->popNotice(),
@@ -759,7 +766,7 @@ final class RentalAdminController extends Controller
             throw new \InvalidArgumentException('Name: use valid text with 190 characters or fewer.');
         }
 
-        $existing = $id > 0 ? $this->db()->selectOne('SELECT id, slug, image_path, is_active, is_service, availability_status, available_quantity, security_deposit FROM rental_items WHERE id = ?', [$id]) : null;
+        $existing = $id > 0 ? $this->db()->selectOne('SELECT * FROM rental_items WHERE id = ?', [$id]) : null;
         if ($id > 0 && $existing === null) {
             throw new \InvalidArgumentException('That product no longer exists.');
         }
@@ -854,8 +861,26 @@ final class RentalAdminController extends Controller
             $isActive = $id > 0 ? (int) ($existing['is_active'] ?? 1) : 1;
         }
 
-        $uploaded = RentalManagedImage::store($request->file('product_image'), 'product');
-        $imagePath = $uploaded ?? ($existing['image_path'] ?? null);
+        $galleryReady = (new \App\Services\RentalSchema($this->db()))->hasColumn('rental_items','additional_image_paths');
+        $oldGallery = \App\Services\RentalGallery::paths($existing['additional_image_paths'] ?? null);
+        $remove = array_map('strval', $request->array('remove_gallery'));
+        $gallery = array_values(array_filter($oldGallery,static fn($path,$key)=>!in_array((string)$key,$remove,true),ARRAY_FILTER_USE_BOTH));
+        $uploaded = null; $added = [];
+        try {
+            $uploaded = RentalManagedImage::store($request->file('product_image'), 'product');
+            $additional = $request->file('additional_images');
+            if (!$galleryReady && $additional && array_filter((array)($additional['error'] ?? []), static fn($error)=>(int)$error !== UPLOAD_ERR_NO_FILE)) {
+                throw new \InvalidArgumentException('Additional images require the reviewed gallery deployment update.');
+            }
+            if ($galleryReady) { $added = \App\Services\RentalGallery::uploads($additional); }
+            if (count($gallery)+count($added)>\App\Services\RentalGallery::MAX_ADDITIONAL) { throw new \InvalidArgumentException('Gallery: remove an existing image before adding more than five additional images.'); }
+        } catch (Throwable $e) {
+            RentalManagedImage::remove($uploaded,'product');
+            foreach($added as $path) { RentalManagedImage::remove($path,'product'); }
+            throw $e;
+        }
+        $gallery = [...$gallery,...$added];
+        $imagePath = $uploaded ?? ($request->string('remove_primary_image')==='1' ? null : ($existing['image_path'] ?? null));
 
         $params = [
             $categoryId,
@@ -875,6 +900,7 @@ final class RentalAdminController extends Controller
         ];
 
         try {
+            $this->db()->transaction(function() use (&$id,$params,$galleryReady,$gallery): void {
             if ($id > 0) {
                 $this->db()->update(
                     'UPDATE rental_items SET
@@ -896,7 +922,7 @@ final class RentalAdminController extends Controller
                     [...$params, $id]
                 );
             } else {
-                $this->db()->insert(
+                $id = $this->db()->insert(
                     'INSERT INTO rental_items (
                         category_id,
                         name,
@@ -916,14 +942,20 @@ final class RentalAdminController extends Controller
                     $params
                 );
             }
+            if ($galleryReady) { $this->db()->update('UPDATE rental_items SET additional_image_paths=? WHERE id=?',[json_encode($gallery,JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR),$id]); }
+            });
         } catch (Throwable $e) {
             RentalManagedImage::remove($uploaded, 'product');
+            foreach($added as $path) { RentalManagedImage::remove($path,'product'); }
             throw $e;
         }
 
-        if ($uploaded !== null && !empty($existing['image_path'])) {
-            RentalManagedImage::remove($existing['image_path'], 'product');
-        }
+        // A cleanup outage must not report a committed product as unsaved.
+        try {
+            foreach (array_unique([(string)($existing['image_path']??''),...$oldGallery]) as $oldPath) {
+                if ($oldPath!==$imagePath && !in_array($oldPath,$gallery,true)) { \App\Services\RentalGallery::removeUnreferenced($this->db(),$oldPath); }
+            }
+        } catch (Throwable $e) { error_log('Rentals unused product image cleanup unavailable'); }
     }
 
     private function normalizeSlug(string $source): string

@@ -173,3 +173,14 @@ document.querySelectorAll('[data-rental-product-form]').forEach(form => {
   type.addEventListener('change', updateType);
   updateType();
 });
+
+document.querySelectorAll('[data-service-proof-image]').forEach(image => image.addEventListener('error', () => { image.hidden = true; image.parentElement.querySelector('[data-service-proof-error]').hidden = false; }));
+
+// Exact calendar labels are server-rendered; no JS date/timezone conversion.
+document.querySelectorAll('[data-rental-time-chart]').forEach(chart => {
+  const select = chart.querySelector('[data-chart-period]');
+  const output = chart.querySelector('[data-chart-value]');
+  if (select && output) select.addEventListener('change', () => {
+    output.textContent = select.selectedOptions[0]?.dataset.summary || '';
+  });
+});

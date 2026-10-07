@@ -8,8 +8,7 @@
       <p class="rentals-kicker">Explore</p>
       <nav class="rentals-footer__links" aria-label="Rentals footer navigation">
         <a href="<?= e_attr(url('rentals/categories')) ?>">Categories</a>
-        <a href="<?= e_attr(url('rentals/items')) ?>">Rental items</a>
-        <a href="<?= e_attr(url('rentals/services')) ?>">Services</a>
+        <a href="<?= e_attr(url('rentals/items')) ?>">Equipment &amp; Services</a>
       </nav>
     </div>
     <div class="rentals-footer__item">

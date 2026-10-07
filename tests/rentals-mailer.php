@@ -3,6 +3,8 @@ declare(strict_types=1);
 // Local integration QA. Only an in-memory transport is used; no real mail.
 $_ENV['MAIL_ENABLED'] = 'false';
 $_ENV['APP_ENV'] = 'testing';
+$_ENV['MAIL_RENTALS_TO'] = 'qa-owner@example.test';
+$_ENV['MAIL_RENTALS_CC'] = 'QA-OWNER@example.test,qa-cc@example.test,QA-CC@example.test,invalid';
 $_ENV['RENTALS_STORAGE_ROOT'] = sys_get_temp_dir() . '/rentals-fixed-mail-qa-' . bin2hex(random_bytes(6));
 $container = require dirname(__DIR__) . '/bootstrap.php';
 if (!in_array(config('app.env'), ['local', 'testing'], true)) { throw new RuntimeException('Local/testing only.'); }
@@ -62,6 +64,7 @@ try {
     $cc = config('rentals-mail.cc');
     $assert(is_string($owner) && ($owner === '' || filter_var($owner, FILTER_VALIDATE_EMAIL) !== false), 'Owner must be empty or a valid email.');
     $assert(is_array($cc), 'CC must be an array.');
+    $assert($cc === ['qa-owner@example.test', 'qa-cc@example.test'], 'Configured Owner/CC must be copied once, case-insensitively.');
     foreach ($cc as $address) { $assert(filter_var($address, FILTER_VALIDATE_EMAIL) !== false, 'CC must use valid emails.'); }
     $first = $newOrder();
     // Guards must stop mail before the transaction commits.
@@ -143,10 +146,16 @@ try {
         $assert($message['destination'] === $email, 'Destination must be customer email.');
         $assert($message['cc'] === config('rentals-mail.cc'), 'Customer CC must match .env config.');
     }
+    // A customer whose saved email is the Owner must receive one To, never a second CC copy.
+    $ownerOrder = $newOrder();
+    $db->update('UPDATE order_header SET customer_email=? WHERE id=?', [$owner, $ownerOrder]);
+    $mailer->rentalSubmitted($ownerOrder);
+    $ownerMessage = $fake->messages[array_key_last($fake->messages)];
+    $assert($ownerMessage['destination'] === $owner && $ownerMessage['cc'] === ['qa-cc@example.test'], 'Owner/customer overlap duplicated a mailbox.');
     $assert(!method_exists($mailer, 'sendTest') && !method_exists($mailer, 'retry')
         && !class_exists(App\Controllers\Rentals\RentalEmailController::class)
         && !class_exists(App\Models\RentalMailSettings::class), 'Editable mailer remains.');
-    echo "PASS: dynamic customer recipient with .env CC, combined Pending/Approved/Rejected, post-commit flow, escaped snapshots, real review transitions, duplicate and legacy delivery protection, SMTP failure safety, proof replacement, no editable mailer.\n";
+    echo "PASS: dynamic saved customer + configured Owner/CC, case-insensitive dedup and Owner/customer overlap; combined Pending/Approved/Rejected; post-commit flow; escaped snapshots; review transitions; duplicate/legacy delivery protection; SMTP failure safety; proof replacement; no editable mailer.\n";
 } finally {
     foreach ($orders as $id) { $db->delete('DELETE FROM rental_notification_deliveries WHERE order_id=?', [$id]); $db->delete('DELETE FROM order_header WHERE id=?', [$id]); }
     if ($item) { $db->delete('DELETE FROM rental_items WHERE id=?', [$item]); }
