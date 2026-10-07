@@ -182,21 +182,26 @@ final class AnalyticsController extends Controller
             $utmSources[] = ['source' => $source, 'total' => $total];
         }
 
-        // Recent 10 events with visitor identity to match the visitors page
-        $recentEvents = $db->select(
-            'SELECT te.id, te.event_name, te.event_source, te.event_data, te.occurred_at,
-                    lpv.id AS visit_id, lpv.fbc, lpv.fbp,
-                    lpv.email AS lpv_email, lpv.contact AS lpv_contact,
-                    lpv.utm_source, lpv.utm_campaign, lpv.referrer,
-                    MIN(inq.name)  AS inq_name,
-                    MIN(inq.email) AS inq_email,
-                    MIN(inq.phone) AS inq_phone
-             FROM tracking_events te
-             JOIN landing_page_visits lpv ON lpv.id = te.visit_id
+        // Recent 10 visitor sessions matching the visitors page
+        $recentVisitors = $db->select(
+            "SELECT lpv.id,
+                    lpv.fbc,
+                    lpv.fbp,
+                    lpv.email          AS lpv_email,
+                    lpv.contact        AS lpv_contact,
+                    lpv.first_seen_at,
+                    lpv.last_seen_at,
+                    lpv.visit_count,
+                    MIN(inq.name)      AS inq_name,
+                    MIN(inq.email)     AS inq_email,
+                    MIN(inq.phone)     AS inq_phone,
+                    COUNT(te.id)       AS event_count
+             FROM landing_page_visits lpv
              LEFT JOIN inquiries     inq ON inq.visit_id = lpv.id
-             GROUP BY te.id
-             ORDER BY te.occurred_at DESC, te.id DESC
-             LIMIT 10'
+             LEFT JOIN tracking_events te ON te.visit_id = lpv.id
+             GROUP BY lpv.id
+             ORDER BY COALESCE(lpv.last_seen_at, lpv.first_seen_at) DESC, lpv.id DESC
+             LIMIT 10"
         );
 
         return $this->render('analytics.dashboard', [
@@ -209,7 +214,8 @@ final class AnalyticsController extends Controller
             'eventsOverTime' => $eventsOverTime,
             'visitsOverTime' => $visitsOverTime,
             'utmSources'     => $utmSources,
-            'recentEvents'   => $recentEvents,
+            'recentVisitors' => $recentVisitors,
+            'visitors'       => $recentVisitors,
         ])->noCache();
     }
 
