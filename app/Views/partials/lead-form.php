@@ -12,7 +12,7 @@
  * @var array $errors Validation error messages
  */
 
-$val = static fn (string $k): string => (string) ($old[$k] ?? '');
+$val = static fn (string $k): string => (string) ($old[$k] ?? $_GET[$k] ?? '');
 $err = static fn (string $k): ?string => $errors[$k] ?? null;
 
 $limits = (array) config('forms.limits', [

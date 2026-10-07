@@ -52,9 +52,11 @@ final class TrackingService
         $fbp = $this->cleanStr($_COOKIE['_fbp'] ?? $extra['fbp'] ?? null, 255);
         $fbc = $this->cleanStr($_COOKIE['_fbc'] ?? $extra['fbc'] ?? null, 255);
 
-        // Synthesize fbc if fbclid is present and _fbc cookie isn't yet set
-        if ($fbc === null && $fbclid !== null) {
+        // Synthesize fbc if fbclid is present
+        if ($fbclid !== null) {
             $fbc = 'fb.1.' . time() . '.' . $fbclid;
+        } elseif ($fbc === null) {
+            $fbc = $this->cleanStr($_COOKIE['_fbc'] ?? $extra['fbc'] ?? null, 255);
         }
 
         $now = date('Y-m-d H:i:s');
@@ -62,14 +64,19 @@ final class TrackingService
 
         try {
             if ($existingVisitId !== null && $existingVisitId > 0) {
-                // Update existing visit
+                // Update existing visit (preserving or updating campaign parameters and FB IDs)
                 $this->db->update(
                     'UPDATE landing_page_visits
                      SET last_seen_at = ?,
                          fbp = COALESCE(?, fbp),
-                         fbc = COALESCE(?, fbc)
+                         fbc = COALESCE(?, fbc),
+                         utm_source = COALESCE(?, utm_source),
+                         utm_medium = COALESCE(?, utm_medium),
+                         utm_campaign = COALESCE(?, utm_campaign),
+                         utm_content = COALESCE(?, utm_content),
+                         utm_term = COALESCE(?, utm_term)
                      WHERE id = ?',
-                    [$now, $fbp, $fbc, $existingVisitId]
+                    [$now, $fbp, $fbc, $utmSource, $utmMedium, $utmCampaign, $utmContent, $utmTerm, $existingVisitId]
                 );
 
                 return $existingVisitId;

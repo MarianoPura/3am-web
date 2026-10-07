@@ -58,12 +58,6 @@
   async function trackServerEvent(eventName, eventId, eventData = {}, eventSource = 'browser') {
     if (!TRACK_URL) return;
 
-    // Movement events (PageView, ViewContent, form_start, form_field_focus, scrolldepth, cta_click, video_*)
-    // must NOT be tracked for manual visitors without an FB ID.
-    const isConversion = eventName === 'Lead' || eventName === 'Contact';
-    if (!checkHasFbId() && !isConversion) {
-      return;
-    }
 
     try {
       const payload = new URLSearchParams({
@@ -123,7 +117,6 @@
    */
   function initPixel() {
     if (!PIXEL_ID) return;
-    if (!checkHasFbId()) return;
 
     ensurePixelLoaded();
 
@@ -140,9 +133,6 @@
    * @param {string} [eventId]  Unique event deduplication ID.
    */
   function trackPixel(eventName, params = {}, eventId = null) {
-    const isConversion = eventName === 'Lead' || eventName === 'Contact';
-    if (!checkHasFbId() && !isConversion) return;
-
     if (typeof fbq !== 'function') return;
     if (eventId) {
       fbq('track', eventName, params, { eventID: eventId });
@@ -153,8 +143,6 @@
 
   // Fire ViewContent once when the visitor scrolls into page content.
   function setupViewContent() {
-    if (!checkHasFbId()) return;
-
     const section = document.getElementById('services');
     if (!section) return;
 
@@ -349,8 +337,6 @@
 
   // ── Form Engagement Tracking (form_start, form_field_focus) ─────────────
   function setupFormTracking() {
-    if (!checkHasFbId()) return;
-
     let formStarted = false;
     const focusedFields = new Set();
     const forms = document.querySelectorAll('.lp-form, #quote-form');
@@ -406,8 +392,6 @@
 
   // ── Scroll Depth Tracking (scrolldepth) ─────────────────────────────────
   function setupScrollDepthTracking() {
-    if (!checkHasFbId()) return;
-
     const milestones = [25, 50, 75, 100];
     const firedDepths = new Set();
     let ticking = false;
@@ -457,8 +441,6 @@
 
   // ── CTA Click Tracking (cta_click) ──────────────────────────────────────
   function setupCTAClickTracking() {
-    if (!checkHasFbId()) return;
-
     document.addEventListener('click', (e) => {
       const cta = e.target.closest('[data-lp-cta], [data-lp-modal-trigger], [data-lp-submit], a[href="#lead-form"], button.lp-form__submit, #submit-btn');
       if (!cta) return;
@@ -844,9 +826,6 @@
     }
 
     // Video milestones: video_25, video_50, video_75, Video_Complete
-    // Do not track movements if user has no FB ID
-    if (!checkHasFbId()) return;
-
     const firedVideoEvents = new Set();
     let lastTime = 0;
 
