@@ -66,17 +66,18 @@ final class TrackingService
 
         try {
             if ($existingVisitId !== null && $existingVisitId > 0) {
-                // Update existing visit (preserving or updating campaign parameters and FB IDs)
+                // Update existing visit and increment the visit counter by 1
                 $this->db->update(
                     'UPDATE landing_page_visits
-                     SET last_seen_at = ?,
-                         fbp = COALESCE(?, fbp),
-                         fbc = COALESCE(?, fbc),
-                         utm_source = COALESCE(?, utm_source),
-                         utm_medium = COALESCE(?, utm_medium),
-                         utm_campaign = COALESCE(?, utm_campaign),
-                         utm_content = COALESCE(?, utm_content),
-                         utm_term = COALESCE(?, utm_term)
+                     SET last_seen_at  = ?,
+                         visit_count   = visit_count + 1,
+                         fbp           = COALESCE(?, fbp),
+                         fbc           = COALESCE(?, fbc),
+                         utm_source    = COALESCE(?, utm_source),
+                         utm_medium    = COALESCE(?, utm_medium),
+                         utm_campaign  = COALESCE(?, utm_campaign),
+                         utm_content   = COALESCE(?, utm_content),
+                         utm_term      = COALESCE(?, utm_term)
                      WHERE id = ?',
                     [$now, $fbp, $fbc, $utmSource, $utmMedium, $utmCampaign, $utmContent, $utmTerm, $existingVisitId]
                 );

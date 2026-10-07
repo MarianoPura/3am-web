@@ -12,7 +12,7 @@
  *
  * @var App\Core\View $this
  * @var array         $user
- * @var list<array>   $visitors     Each row has: id, fbc, fbp, lpv_email, lpv_contact, inq_name, inq_email, inq_phone, event_count, first_seen_at, last_seen_at
+ * @var list<array>   $visitors     Each row has: id, fbc, fbp, lpv_email, lpv_contact, inq_name, inq_email, inq_phone, event_count, visit_count, first_seen_at, last_seen_at
  * @var int           $page
  * @var int           $totalPages
  * @var int           $totalCount
@@ -98,7 +98,7 @@ function visitorIdentifier(array $v): array {
         return ['label' => 'Phone', 'value' => $phone, 'title' => $phone, 'type' => 'phone'];
     }
 
-    return ['label' => '', 'value' => 'Anonymous #' . (int) ($v['id'] ?? 0), 'title' => '', 'type' => 'anon'];
+    return ['label' => 'Direct Visit', 'value' => 'Visitor #' . (int) ($v['id'] ?? 0), 'title' => 'This visitor did not arrive from a Facebook ad', 'type' => 'direct'];
 }
 
 $this->start('content');
@@ -124,6 +124,7 @@ $this->start('content');
 
       <?php if (empty($visitors)): ?>
         <p class="analytics__empty">No visitor sessions recorded yet.</p>
+
       <?php else: ?>
         <div class="analytics__table-wrap">
           <table class="analytics__table visitors-table">

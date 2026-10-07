@@ -306,10 +306,10 @@ final class AnalyticsController extends Controller
         $perPage = 15;
         $offset  = ($page - 1) * $perPage;
 
-        // Display only visitors from Facebook (identified by Facebook Click ID)
-        $whereFb = "WHERE lpv.fbc IS NOT NULL AND TRIM(lpv.fbc) != ''";
+        // Show all recorded visitors; the view distinguishes FB vs direct via fbc field
+        $whereFb = '';
 
-        $totalCount = (int) $db->selectValue("SELECT COUNT(*) FROM landing_page_visits lpv {$whereFb}");
+        $totalCount = (int) $db->selectValue("SELECT COUNT(*) FROM landing_page_visits lpv");
 
         // Join inquiries once to get the visitor's identity (name, email, phone).
         // If a visitor submitted the form, those fields will be populated.
@@ -322,14 +322,11 @@ final class AnalyticsController extends Controller
                     lpv.contact        AS lpv_contact,
                     lpv.first_seen_at,
                     lpv.last_seen_at,
+                    lpv.visit_count,
                     MIN(inq.name)      AS inq_name,
                     MIN(inq.email)     AS inq_email,
                     MIN(inq.phone)     AS inq_phone,
-                    COUNT(te.id)       AS event_count,
-                    (SELECT COUNT(*) FROM landing_page_visits v2 
-                     WHERE v2.fbc IS NOT NULL AND TRIM(v2.fbc) != '' 
-                       AND (v2.fbc = lpv.fbc OR SUBSTRING_INDEX(v2.fbc, '.', -1) = SUBSTRING_INDEX(lpv.fbc, '.', -1))
-                    ) AS visit_count
+                    COUNT(te.id)       AS event_count
              FROM landing_page_visits lpv
              LEFT JOIN inquiries     inq ON inq.visit_id = lpv.id
              LEFT JOIN tracking_events te ON te.visit_id = lpv.id
