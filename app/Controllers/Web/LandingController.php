@@ -34,16 +34,10 @@ final class LandingController extends Controller
         $tracking = $this->container->get(\App\Services\TrackingService::class);
         $isFromFb = $tracking->isFromFacebook($request);
 
-        // Record the visit session ONLY when arriving from Facebook (with fbclid / Meta ad attribution)
-        $visitId = null;
-        if ($isFromFb) {
-            $visitId = $tracking->recordVisit($request, [
-                'landing_page' => $request->path(),
-            ]);
-        } else {
-            // Unset previous visit session so manual/direct visits are never attributed to a previous Facebook click
-            unset($_SESSION['_visit_id']);
-        }
+        // Record or resume the visit session for every visitor (Facebook or Direct)
+        $visitId = $tracking->recordVisit($request, [
+            'landing_page' => $request->path(),
+        ]);
 
         return $this->render('pages.landing', [
             'landing'      => $landingConfig,
