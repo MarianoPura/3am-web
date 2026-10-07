@@ -582,9 +582,10 @@
   white-space: nowrap;
 }
 
-.visitor-id__label--fb    { background: #dbeafe; color: #1d4ed8; }
-.visitor-id__label--email { background: #d1fae5; color: #065f46; }
-.visitor-id__label--phone { background: #fef3c7; color: #92400e; }
+.visitor-id__label--fb     { background: #dbeafe; color: #1d4ed8; }
+.visitor-id__label--email  { background: #d1fae5; color: #065f46; }
+.visitor-id__label--phone  { background: #fef3c7; color: #92400e; }
+.visitor-id__label--direct { background: #f1f5f9; color: #64748b; }
 
 /* Visitor name */
 .visitor-name {
