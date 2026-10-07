@@ -52,11 +52,13 @@ final class TrackingService
         $fbp = $this->cleanStr($_COOKIE['_fbp'] ?? $extra['fbp'] ?? null, 255);
         $fbc = $this->cleanStr($_COOKIE['_fbc'] ?? $extra['fbc'] ?? null, 255);
 
-        // Synthesize fbc if fbclid is present
+        // Synthesize fbc ONLY if arriving from Facebook (with fbclid or verified Facebook referrer/UTM)
         if ($fbclid !== null) {
             $fbc = 'fb.1.' . time() . '.' . $fbclid;
-        } elseif ($fbc === null) {
+        } elseif ($this->isFromFacebook($request, $extra)) {
             $fbc = $this->cleanStr($_COOKIE['_fbc'] ?? $extra['fbc'] ?? null, 255);
+        } else {
+            $fbc = null;
         }
 
         $now = date('Y-m-d H:i:s');
@@ -166,15 +168,38 @@ final class TrackingService
     }
 
     /**
-     * Determine if the request contains any Facebook identifiers (fbclid, _fbc, _fbp).
+     * Check whether the current request is an arrival from Facebook / Meta Ads.
+     * Checks for fbclid query parameter, Facebook UTM source, or Facebook/Instagram referrer.
+     */
+    public function isFromFacebook(Request $request, array $extra = []): bool
+    {
+        // 1. Explicit fbclid parameter
+        $fbclid = $this->cleanStr($request->input('fbclid') ?? $extra['fbclid'] ?? null, 255);
+        if ($fbclid !== null) {
+            return true;
+        }
+
+        // 2. UTM source from Facebook / Meta
+        $utmSource = strtolower(trim((string) ($request->input('utm_source') ?? $extra['utm_source'] ?? '')));
+        if (in_array($utmSource, ['facebook', 'fb', 'meta', 'instagram', 'an'], true)) {
+            return true;
+        }
+
+        // 3. Referrer from Facebook or Instagram
+        $referrer = strtolower(trim((string) ($extra['referrer'] ?? $request->header('referer') ?? '')));
+        if (str_contains($referrer, 'facebook.com') || str_contains($referrer, 'instagram.com')) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Determine if the visitor has a valid Facebook tracking identifier (not standalone generic browser cookies).
      */
     public function hasFbId(Request $request, array $extra = []): bool
     {
-        $fbclid = $this->cleanStr($request->input('fbclid') ?? $extra['fbclid'] ?? null, 255);
-        $fbc    = $this->cleanStr($_COOKIE['_fbc'] ?? $request->input('fbc') ?? $extra['fbc'] ?? null, 255);
-        $fbp    = $this->cleanStr($_COOKIE['_fbp'] ?? $request->input('fbp') ?? $extra['fbp'] ?? null, 255);
-
-        return $fbclid !== null || $fbc !== null || $fbp !== null;
+        return $this->isFromFacebook($request, $extra);
     }
 
     /**

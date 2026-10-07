@@ -28,10 +28,8 @@
    */
   function checkHasFbId() {
     if (config?.dataset.hasFbId === '1') return true;
-    if (VISIT_ID && VISIT_ID !== '0') return true;
     const params = new URLSearchParams(window.location.search);
-    if (params.get('fbclid') || params.get('fbc') || params.get('fbp')) return true;
-    if (getCookie('_fbc') || getCookie('_fbp')) return true;
+    if (params.get('fbclid') || params.get('fbc')) return true;
     return false;
   }
 
@@ -56,7 +54,7 @@
    * Safe, non-blocking, and never interrupts UX.
    */
   async function trackServerEvent(eventName, eventId, eventData = {}, eventSource = 'browser') {
-    if (!TRACK_URL) return;
+    if (!TRACK_URL || !checkHasFbId()) return;
 
 
     try {

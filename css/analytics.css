@@ -533,11 +533,15 @@
   white-space: nowrap;
 }
 
+.analytics__count-badge--visits {
+  border-top-color: #3b82f6;
+}
+
 /* ── Visitors table — identifier cell ─────────────────────── */
 
 /* Overrride min-width for the cleaner visitors table */
 .visitors-table {
-  min-width: 820px;
+  min-width: 900px;
 }
 
 /* Primary identifier line inside the ID cell */
@@ -545,7 +549,7 @@
   display: flex;
   align-items: center;
   gap: .4rem;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 .visitor-id__value {
@@ -553,6 +557,11 @@
   font-size: .78rem;
   color: var(--c-ink);
   white-space: nowrap;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: inline-block;
+  vertical-align: middle;
 }
 
 /* Small "#N" secondary line */

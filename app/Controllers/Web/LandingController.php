@@ -32,12 +32,18 @@ final class LandingController extends Controller
 
         /** @var \App\Services\TrackingService $tracking */
         $tracking = $this->container->get(\App\Services\TrackingService::class);
-        $hasFbId  = $tracking->hasFbId($request);
+        $isFromFb = $tracking->isFromFacebook($request);
 
-        // Record the visit session unconditionally (no restriction on insertion)
-        $visitId = $tracking->recordVisit($request, [
-            'landing_page' => $request->path(),
-        ]);
+        // Record the visit session ONLY when arriving from Facebook (with fbclid / Meta ad attribution)
+        $visitId = null;
+        if ($isFromFb) {
+            $visitId = $tracking->recordVisit($request, [
+                'landing_page' => $request->path(),
+            ]);
+        } else {
+            // Unset previous visit session so manual/direct visits are never attributed to a previous Facebook click
+            unset($_SESSION['_visit_id']);
+        }
 
         return $this->render('pages.landing', [
             'landing'      => $landingConfig,
@@ -49,7 +55,7 @@ final class LandingController extends Controller
             'proof'        => config('app.proof'),
             'video'        => $this->resolveVideo((string) ($landingConfig['video_url'] ?? '')),
             'visit_id'     => $visitId,
-            'has_fb_id'    => $hasFbId,
+            'has_fb_id'    => $isFromFb,
         ])->noCache();
     }
 
