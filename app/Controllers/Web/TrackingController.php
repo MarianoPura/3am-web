@@ -19,11 +19,23 @@ final class TrackingController extends Controller
         /** @var TrackingService $tracking */
         $tracking = $this->container->get(TrackingService::class);
 
-        $visitId = (int) ($request->input('visit_id') ?: ($tracking->currentVisitId() ?? 0));
-        $eventName = trim((string) $request->input('event_name', ''));
-        $eventId = trim((string) $request->input('event_id', ''));
+        // 1. Prefer the visit_id sent explicitly by the browser JS
+        $visitId = (int) ($request->input('visit_id') ?? 0);
+
+        // 2. If missing, fall back to the active session (same browser, same FB visit)
+        if ($visitId <= 0) {
+            $visitId = $tracking->currentVisitId() ?? 0;
+        }
+
+        // 3. Still nothing? Create a new visit so events are always attributed to a session
+        if ($visitId <= 0) {
+            $visitId = $tracking->recordVisit($request) ?? 0;
+        }
+
+        $eventName   = trim((string) $request->input('event_name', ''));
+        $eventId     = trim((string) $request->input('event_id', ''));
         $eventSource = trim((string) $request->input('event_source', 'browser'));
-        $eventData = $request->array('event_data');
+        $eventData   = $request->array('event_data');
         if ($eventData === []) {
             $raw = $request->input('event_data');
             if (is_string($raw) && $raw !== '') {
@@ -31,12 +43,6 @@ final class TrackingController extends Controller
                 if (is_array($decoded)) {
                     $eventData = $decoded;
                 }
-            }
-        }
-
-        if ($visitId <= 0) {
-            if ($tracking->isFromFacebook($request)) {
-                $visitId = $tracking->recordVisit($request) ?? 0;
             }
         }
 
@@ -56,6 +62,7 @@ final class TrackingController extends Controller
             'ok'       => true,
             'event_id' => $eventId,
             'id'       => $id,
+            'visit_id' => $visitId,
         ]);
     }
 }

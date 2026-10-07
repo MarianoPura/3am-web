@@ -54,8 +54,7 @@
    * Safe, non-blocking, and never interrupts UX.
    */
   async function trackServerEvent(eventName, eventId, eventData = {}, eventSource = 'browser') {
-    if (!TRACK_URL || !checkHasFbId()) return;
-
+    if (!TRACK_URL) return;
 
     try {
       const payload = new URLSearchParams({
@@ -80,7 +79,14 @@
         },
         body: payload.toString(),
         keepalive: true,
-      }).catch(() => {});
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.visit_id && !VISIT_ID) {
+          VISIT_ID = String(data.visit_id);
+        }
+      })
+      .catch(() => {});
     } catch {
       // Ignore network failures for tracking beacons
     }
@@ -114,12 +120,13 @@
    * Initialise the Meta Pixel (Facebook). Only runs when PIXEL_ID is set and visitor has FB ID.
    */
   function initPixel() {
-    if (!PIXEL_ID) return;
-
-    ensurePixelLoaded();
-
     const pvEventId = generateEventId('pv');
-    fbq('track', 'PageView', {}, { eventID: pvEventId });
+
+    if (PIXEL_ID) {
+      ensurePixelLoaded();
+      fbq('track', 'PageView', {}, { eventID: pvEventId });
+    }
+
     trackServerEvent('PageView', pvEventId, { path: window.location.pathname, title: document.title });
   }
 
