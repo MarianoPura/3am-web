@@ -1,5 +1,6 @@
 <?php $this->extend('rentals.layouts.admin'); ?>
-<?php $this->start('title') ?>Customers — Rentals Admin<?php $this->end() ?>
+<?php $this->start('title') ?>Customers — Rentals Admin<?= $this->partial('rentals.partials.pagination',['pagination'=>$pagination??null,'pagePath'=>'rentals/admin/customers']) ?>
+<?php $this->end() ?>
 <?php $this->start('content') ?>
 <section class="rentals-admin-page">
   <div class="rentals-shell">
@@ -22,8 +23,9 @@
           <td><?= e((string) ($row['last_login'] ?? 'Never')) ?></td>
         </tr><?php endforeach ?>
       </tbody></table></div>
-      <?php if ($rows === []): ?><p class="rentals-admin__empty">No records match this view.</p><?php elseif (count($rows) === 200): ?><p class="rentals-admin__limit">Showing the latest 200 records.</p><?php endif ?>
+      <?php if ($rows === []): ?><p class="rentals-admin__empty">No records match this view.</p><?php endif ?>
     </div>
   </div>
 </section>
+<?= $this->partial('rentals.partials.pagination',['pagination'=>$pagination??null,'pagePath'=>'rentals/admin/customers']) ?>
 <?php $this->end() ?>

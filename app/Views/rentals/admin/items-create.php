@@ -18,12 +18,12 @@ $draft = $draft ?? [];
     <div class="rentals-admin__editor">
       <div class="rentals-admin__editor-head">
         <p class="rentals-card__meta">New record</p>
-        <h2>Add product</h2>
+        <h2 data-create-product-heading>Add equipment</h2>
       </div>
       <form method="post" action="<?= e_attr(url('rentals/admin/items')) ?>" class="rentals-admin__form" data-rental-product-form enctype="multipart/form-data">
         <?= csrf_field() ?>
         <fieldset>
-          <legend>Rental type and capacity</legend>
+          <legend><span data-product-label data-equipment-text="Rental type and capacity" data-service-text="Service type">Rental type and capacity</span></legend>
           <div class="rentals-admin__two">
             <label>Rental type
               <select name="is_service" data-rental-type>
@@ -38,6 +38,7 @@ $draft = $draft ?? [];
             </label>
           </div>
         </fieldset>
+        <p class="rentals-admin__notice" data-service-field hidden>Services describe work performed by 3AM, such as event coverage with cameras and crew, live production or technical support. Describe what is included below. Customer requests are discussed and confirmed with the team; services do not use equipment stock or Add to Cart.</p>
         <fieldset>
           <legend>Basic information</legend>
           <label>Category
@@ -48,35 +49,22 @@ $draft = $draft ?? [];
               <?php endforeach ?>
             </select>
           </label>
-          <label>Name
-            <input name="name" maxlength="190" required placeholder="e.g. Sony A7 III Camera" value="<?= e_attr((string) ($draft['name'] ?? '')) ?>">
-          </label>
-          <div class="rentals-admin__two">
-            <label>Slug (optional)
-              <input name="slug" maxlength="190" placeholder="e.g. sony-a7-iii" value="<?= e_attr((string) ($draft['slug'] ?? '')) ?>">
-              <small>Used in product URL. Leave blank to generate automatically.</small>
-            </label>
-            <label>SKU (optional)
-              <input name="sku" maxlength="80" placeholder="e.g. CAM-001" value="<?= e_attr((string) ($draft['sku'] ?? '')) ?>">
-              <small>Unique inventory code.</small>
-            </label>
-          </div>
-        </fieldset>
-        <fieldset>
-          <legend>Product details</legend>
-          <label>Description
-            <textarea name="description" rows="3" maxlength="5000" placeholder="Product features and overview..."><?= e((string) ($draft['description'] ?? '')) ?></textarea>
-          </label>
-          <label>Ideal use
-            <input name="ideal_use" maxlength="500" placeholder="e.g. Weddings, corporate videos, studio shoots" value="<?= e_attr((string) ($draft['ideal_use'] ?? '')) ?>">
-          </label>
-          <label>Product image (optional)
-            <input type="file" name="product_image" accept="image/jpeg,image/png,image/webp">
-            <small>JPG, PNG or WebP file.</small>
+          <label><span data-product-label data-equipment-text="Name" data-service-text="Service name">Name</span>
+            <input name="name" data-product-placeholder data-equipment-placeholder="e.g. Sony A7 III Camera" data-service-placeholder="e.g. Event coverage with camera crew" maxlength="190" required placeholder="e.g. Sony A7 III Camera" value="<?= e_attr((string) ($draft['name'] ?? '')) ?>">
           </label>
         </fieldset>
         <fieldset>
-          <legend>Rental settings</legend>
+          <legend><span data-product-label data-equipment-text="Product details" data-service-text="Service scope">Product details</span></legend>
+          <label><span data-product-label data-equipment-text="Description" data-service-text="Coverage, crew and equipment">Description</span>
+            <textarea name="description" data-product-placeholder data-equipment-placeholder="Product features and overview..." data-service-placeholder="Describe the event coverage, camera operators, lighting/audio support, crew roles, duration and deliverables." rows="3" maxlength="5000" placeholder="Product features and overview..."><?= e((string) ($draft['description'] ?? '')) ?></textarea>
+          </label>
+          <label><span data-product-label data-equipment-text="Ideal use" data-service-text="Event / project types">Ideal use</span>
+            <input name="ideal_use" data-product-placeholder data-equipment-placeholder="e.g. Weddings, corporate videos, studio shoots" data-service-placeholder="e.g. Corporate events, weddings, livestream productions" maxlength="500" placeholder="e.g. Weddings, corporate videos, studio shoots" value="<?= e_attr((string) ($draft['ideal_use'] ?? '')) ?>">
+          </label>
+        </fieldset>
+        <?= $this->partial('rentals.partials.admin-gallery', ['galleryItem'=>$draft, 'galleryReady'=>$galleryReady??false]) ?>
+        <fieldset>
+          <legend><span data-product-label data-equipment-text="Rental settings" data-service-text="Service pricing">Rental settings</span></legend>
           <div class="rentals-admin__two">
 
             <label data-equipment-field>Availability
@@ -88,13 +76,13 @@ $draft = $draft ?? [];
             </label>
           </div>
           <div class="rentals-admin__two">
-            <label>Rental unit
-              <input name="rental_unit" maxlength="30" value="<?= e_attr((string) ($draft['rental_unit'] ?? 'day')) ?>" placeholder="e.g. day, hour, event">
+            <label><span data-product-label data-equipment-text="Rental unit" data-service-text="Pricing basis">Rental unit</span>
+              <input name="rental_unit" data-product-placeholder data-equipment-placeholder="e.g. day, hour, event" data-service-placeholder="e.g. event, project, day" maxlength="30" value="<?= e_attr((string) ($draft['rental_unit'] ?? 'day')) ?>" placeholder="e.g. day, hour, event">
             </label>
 
           </div>
           <div class="rentals-admin__two">
-            <label>Rate (₱)
+            <label><span data-product-label data-equipment-text="Rate (₱)" data-service-text="Starting price (₱)">Rate (₱)</span>
               <input type="number" min="0" max="9999999999.99" step="0.01" name="rental_rate" required placeholder="0.00" value="<?= e_attr((string) ($draft['rental_rate'] ?? '')) ?>">
             </label>
             <label data-equipment-field>Security deposit (₱, optional)
@@ -111,7 +99,7 @@ $draft = $draft ?? [];
             </select>
           </label>
         </fieldset>
-        <button class="rentals-btn rentals-btn--primary" type="submit">Add product</button>
+        <button class="rentals-btn rentals-btn--primary" type="submit" data-product-label data-equipment-text="Add equipment" data-service-text="Add service">Add equipment</button>
       </form>
     </div>
   </div>

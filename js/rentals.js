@@ -1,3 +1,30 @@
+const limitRentalQuantity = (input, available) => {
+  const maximum = Math.max(0, Math.min(999, Math.floor(Number(available) || 0)));
+  input.max = String(maximum);
+  input.disabled = maximum === 0;
+  if (maximum > 0 && Number(input.value) > maximum) input.value = String(maximum);
+  return maximum;
+};
+
+// The lowest remaining capacity across every selected day is the request limit.
+const rentalRangeCapacity = async (start, end, loadMonth) => {
+  if (!start || !end || start > end) return 0;
+  let month = start.slice(0, 7);
+  const lookup = new Map();
+  while (month <= end.slice(0, 7)) {
+    (await loadMonth(month)).forEach(day => lookup.set(day.date, day.available ? Math.max(0, Number(day.remaining) || 0) : 0));
+    const [year, number] = month.split('-').map(Number);
+    const next = new Date(year, number, 1);
+    month = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}`;
+  }
+  let capacity = Infinity;
+  for (let date = new Date(`${start}T12:00:00`); date <= new Date(`${end}T12:00:00`); date.setDate(date.getDate() + 1)) {
+    const value = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    capacity = Math.min(capacity, lookup.get(value) || 0);
+  }
+  return Number.isFinite(capacity) ? capacity : 0;
+};
+
 const initRentalsCatalogue = () => {
   document.documentElement.dataset.rentalsReady = 'true';
   const searchInput = document.querySelector('[data-rentals-search]');
@@ -29,30 +56,78 @@ const initRentalsCatalogue = () => {
       carousel.dispatchEvent(new Event('rentals:refresh'));
     });
     const status = document.querySelector('[data-rentals-results]');
-    if (status) status.textContent = visible ? `${visible} item${visible === 1 ? '' : 's'} found` : 'No matching equipment. Try another search or category.';
+    if (status) {
+      const noun = status.dataset.rentalsResultNoun === 'service' ? 'service' : 'item';
+      status.textContent = visible ? `${visible} ${noun}${visible === 1 ? '' : 's'} found` : `No matching ${noun === 'service' ? 'services' : 'equipment'}. Try another search or category.`;
+    }
   };
 
   if (searchInput) {
     searchInput.addEventListener('input', applyFilters);
   }
 
+  const revealSelectedCategory = () => {
+    document.querySelectorAll('[data-rentals-category-more]').forEach(more => {
+      if (more.querySelector('[data-rentals-filter].is-active')) more.open = true;
+    });
+  };
   filterButtons.forEach((button) => {
     button.addEventListener('click', () => {
-      filterButtons.forEach((el) => { el.classList.toggle('is-active', el === button); el.setAttribute('aria-pressed', String(el === button)); });
+      filterButtons.forEach((el) => {
+        const active = el.dataset.rentalsFilter === button.dataset.rentalsFilter;
+        el.classList.toggle('is-active', active);
+        el.setAttribute('aria-pressed', String(active));
+      });
+      revealSelectedCategory();
       applyFilters();
     });
   });
   const requested = new URLSearchParams(window.location.search).get('category');
-  const chosen = [...filterButtons].find(button => button.dataset.rentalsFilter === requested);
+  const createRentalGallery = (dialog) => {
+  const visual = dialog.querySelector('.rentals-detail__visual');
+  const picture = dialog.querySelector('[data-detail-image]');
+  const controls = dialog.querySelector('[data-gallery-controls]');
+  const count = dialog.querySelector('[data-gallery-count]');
+  const status = dialog.querySelector('[data-rentals-image-status]');
+  let images = [], index = 0, name = '', assigned = false, touch = null;
+  const render = () => {
+    picture.removeAttribute('data-fallback-applied');
+    picture.src = images[index] || picture.dataset.rentalsFallback;
+    picture.alt = images.length ? `${name} · image ${index + 1} of ${images.length}` : '3AM Rentals equipment image coming soon';
+    status.hidden = images.length > 0 || !assigned;
+    controls.hidden = images.length < 2;
+    count.textContent = images.length ? `${index + 1} / ${images.length}` : '';
+  };
+  const step = (direction) => { if (images.length < 2) return; index = (index + direction + images.length) % images.length; render(); };
+  dialog.querySelector('[data-gallery-prev]').addEventListener('click', () => step(-1));
+  dialog.querySelector('[data-gallery-next]').addEventListener('click', () => step(1));
+  visual.addEventListener('keydown', event => {
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') { event.preventDefault(); step(event.key === 'ArrowLeft' ? -1 : 1); }
+  });
+  picture.tabIndex = 0;
+  picture.draggable = false;
+  visual.addEventListener('pointerdown', event => { if (event.target === picture) { touch = {x:event.clientX,y:event.clientY,id:event.pointerId}; picture.setPointerCapture?.(event.pointerId); } });
+  visual.addEventListener('pointerup', event => {
+    if (!touch || touch.id !== event.pointerId) return;
+    const dx=event.clientX-touch.x, dy=event.clientY-touch.y; touch=null;
+    if (Math.abs(dx)>40 && Math.abs(dx)>Math.abs(dy)) step(dx<0?1:-1);
+  });
+  visual.addEventListener('pointercancel', () => { touch=null; });
+  return {open(detail) { images=Array.isArray(detail.images)?detail.images.filter(url=>typeof url==='string'&&url):[detail.image].filter(Boolean); index=0; name=detail.name||'Rental equipment'; assigned=Boolean(detail.hasImageReference); render(); }};
+};
+
+const chosen = [...filterButtons].find(button => button.dataset.rentalsFilter === requested);
   filterButtons.forEach(button => {
-    if (chosen) button.classList.toggle('is-active', button === chosen);
+    if (chosen) button.classList.toggle('is-active', button.dataset.rentalsFilter === chosen.dataset.rentalsFilter);
     button.setAttribute('aria-pressed', String(button.classList.contains('is-active')));
   });
+  revealSelectedCategory();
   applyFilters();
 
   const dialog = document.querySelector('[data-rentals-dialog]');
   const detailButtons = document.querySelectorAll('[data-rentals-detail]');
   if (!dialog || typeof dialog.showModal !== 'function') return;
+  const gallery = createRentalGallery(dialog);
 
   const setText = (selector, value) => {
     const target = dialog.querySelector(selector);
@@ -63,6 +138,7 @@ const initRentalsCatalogue = () => {
   const startInput = form.elements.rental_start_date;
   const endInput = form.elements.rental_end_date;
   const quantityInput = form.elements.quantity;
+  const quantityHelp = dialog.querySelector('[data-detail-quantity-available]');
   const addButton = dialog.querySelector('[data-detail-add]');
   const message = dialog.querySelector('[data-detail-message]');
   const calendar = dialog.querySelector('[data-availability-calendar]');
@@ -97,21 +173,15 @@ const initRentalsCatalogue = () => {
     if (!response.ok || !data.ok) throw new Error(data.message || 'Availability could not be loaded.');
     return data.days;
   };
-  const rangeAvailable = async (start, end) => {
-    let month = start.slice(0, 7);
+  const rangeCapacity = (start, end) => {
     const detail = currentDetail;
-    const quantity = quantityInput.value || '1';
-    const lookup = new Map();
-    while (month <= end.slice(0, 7)) {
-      (await getMonth(month, detail, quantity)).forEach((day) => lookup.set(day.date, day.available && !(day.reserved > 0)));
-      const [year, number] = month.split('-').map(Number);
-      month = monthOf(new Date(year, number, 1));
-    }
-    for (let date = new Date(`${start}T12:00:00`); date <= new Date(`${end}T12:00:00`); date.setDate(date.getDate() + 1)) {
-      const value = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-      if (!lookup.get(value)) return false;
-    }
-    return true;
+    return rentalRangeCapacity(start, end, month => getMonth(month, detail, '1'));
+  };
+  const updateQuantityLimit = (capacity, hasDates = true) => {
+    const maximum = limitRentalQuantity(quantityInput, capacity);
+    quantityHelp.textContent = maximum === 0 ? 'No units available for these dates.'
+      : `${maximum} unit${maximum === 1 ? '' : 's'} available${hasDates ? ' for the selected dates' : '; choose dates to confirm'}.`;
+    addButton.disabled = !currentDetail.canRent || maximum === 0 || !quantityInput.checkValidity();
   };
   const refreshCalendar = async () => {
     if (!currentDetail || !currentDetail.canRent) return;
@@ -128,8 +198,17 @@ const initRentalsCatalogue = () => {
     days.querySelectorAll('button').forEach((cell) => { cell.disabled = true; });
     if (!days.children.length) days.textContent = 'Loading dates…';
     try {
-      const dates = await getMonth(requestedMonth);
+      const dates = await getMonth(requestedMonth, currentDetail, '1');
       if (thisRequest !== calendarRequest) return;
+      if (!startInput.value) updateQuantityLimit(Math.min(currentDetail.available,
+        Math.max(0, ...dates.filter(day => day.available).map(day => day.remaining))), false);
+      else {
+        const selectedStart = startInput.value;
+        const selectedEnd = endInput.value || selectedStart;
+        const capacity = await rangeCapacity(selectedStart, selectedEnd);
+        if (thisRequest !== calendarRequest || startInput.value !== selectedStart || (endInput.value || startInput.value) !== selectedEnd) return;
+        updateQuantityLimit(capacity);
+      }
       days.replaceChildren();
       const offset = (new Date(year, month - 1, 1).getDay() + 6) % 7;
       for (let i = 0; i < offset; i++) days.append(document.createElement('span'));
@@ -139,9 +218,9 @@ const initRentalsCatalogue = () => {
         cell.textContent = String(Number(day.date.slice(-2)));
         cell.dataset.date = day.date;
         const state = day.admin_blocked ? 'blocked' : (day.past ? 'past' : (day.reserved > 0 ? 'reserved' : (day.available ? 'available' : 'unavailable')));
-        const label = day.admin_blocked ? 'Admin blocked' : (day.past ? 'Past date' : (day.reserved > 0 ? 'Customer reserved' : (day.available ? `${day.remaining} available` : 'Unavailable')));
+        const label = day.admin_blocked ? 'Admin blocked' : (day.past ? 'Past date' : (day.reserved > 0 ? (day.remaining > 0 ? `Partially reserved; ${day.remaining} available` : 'Customer reserved') : (day.available ? `${day.remaining} available` : 'Unavailable')));
         cell.className = `is-${state}`;
-        cell.disabled = !day.available || day.reserved > 0;
+        cell.disabled = !day.available || day.remaining < Number(quantityInput.disabled ? '1' : (quantityInput.value || '1'));
         cell.setAttribute('aria-label', `${day.date}: ${label}`);
         cell.title = day.reserved > 0 ? label : `${label} · ${day.remaining} remaining`;
         if (day.date === startInput.value || day.date === endInput.value) cell.classList.add('is-selected');
@@ -151,16 +230,18 @@ const initRentalsCatalogue = () => {
           if (!startInput.value || endInput.value || day.date < startInput.value) {
             startInput.value = day.date;
             endInput.value = '';
+            updateQuantityLimit(day.remaining);
           } else {
             cell.disabled = true;
             try {
-              const available = await rangeAvailable(startInput.value, day.date);
+              const capacity = await rangeCapacity(startInput.value, day.date);
               if (thisSelection !== selectionRequest || !dialog.open) return;
-              if (!available) {
+              if (capacity < Number(quantityInput.value)) {
                 message.textContent = 'That range contains an unavailable date. Choose another end date.';
                 cell.disabled = false;
                 return;
               }
+              updateQuantityLimit(capacity);
             } catch (error) {
               if (thisSelection !== selectionRequest || !dialog.open) return;
               message.textContent = error.message || 'Availability could not be loaded.';
@@ -210,9 +291,11 @@ const initRentalsCatalogue = () => {
   dialog.querySelector('[data-date-clear]').addEventListener('click', () => {
     selectionRequest++;
     startInput.value = ''; endInput.value = ''; updateDateLabel(); refreshCalendar();
+    updateQuantityLimit(currentDetail.available, false);
     message.textContent = 'Select available rental dates.';
   });
   quantityInput.addEventListener('input', async () => {
+    limitRentalQuantity(quantityInput, quantityInput.max);
     const thisQuantity = ++quantityRequest;
     selectionRequest++;
     calendarRequest++;
@@ -227,15 +310,17 @@ const initRentalsCatalogue = () => {
     message.textContent = 'Checking availability for the selected quantity…';
     if (!calendar.hidden) refreshCalendar();
     try {
-      const valid = start ? await rangeAvailable(start, end || start) : false;
+      const capacity = start ? await rangeCapacity(start, end || start) : Number(quantityInput.max);
       if (thisQuantity !== quantityRequest || !dialog.open) return;
       if (startInput.value !== start || endInput.value !== end) return;
-      if (start && !valid) {
+      if (start && capacity === 0) {
         startInput.value = ''; endInput.value = ''; updateDateLabel();
+        updateQuantityLimit(currentDetail.available, false);
         message.textContent = 'These dates are no longer available for the selected quantity. Please choose new dates.';
         if (!calendar.hidden) refreshCalendar();
       } else {
-        message.textContent = valid ? 'Dates remain available for the selected quantity.' : 'Select available rental dates.';
+        updateQuantityLimit(capacity, Boolean(start));
+        message.textContent = start ? 'Dates selected. Add to Cart when ready.' : 'Select available rental dates.';
       }
     } catch (error) {
       if (thisQuantity !== quantityRequest || !dialog.open) return;
@@ -243,7 +328,7 @@ const initRentalsCatalogue = () => {
       startInput.value = ''; endInput.value = ''; updateDateLabel();
       message.textContent = error.message || 'Availability could not be checked. Please choose dates again.';
     } finally {
-      if (thisQuantity === quantityRequest && dialog.open) addButton.disabled = !currentDetail.canRent;
+      if (thisQuantity === quantityRequest && dialog.open) addButton.disabled = !currentDetail.canRent || quantityInput.disabled || !quantityInput.checkValidity();
     }
   });
   detailButtons.forEach((button) => button.addEventListener('click', () => {
@@ -269,19 +354,14 @@ const initRentalsCatalogue = () => {
     setText('[data-detail-rate]', detail.rate);
     setText('[data-detail-deposit]', detail.deposit);
     setText('[data-detail-status]', detail.status);
-    const picture = dialog.querySelector('[data-detail-image]');
-    picture.src = detail.image || picture.dataset.rentalsFallback;
-    const imageUnavailable = Boolean(detail.hasImageReference && !detail.image);
-    picture.alt = detail.image ? (detail.name || 'Rental equipment') : (imageUnavailable ? 'Equipment image temporarily unavailable' : '3AM Rentals equipment image coming soon');
-    dialog.querySelector('[data-rentals-image-status]').hidden = !imageUnavailable;
+    updateQuantityLimit(detail.canRent ? detail.available : 0, false);
+    gallery.open(detail);
     dialog.querySelector('[data-detail-id]').value = detail.id || '';
-    addButton.disabled = !detail.canRent;
+    addButton.disabled = !detail.canRent || quantityInput.disabled;
     addButton.textContent = detail.canRent ? 'Add to Cart' : (detail.isSample ? 'Preview only' : 'Currently unavailable');
     message.textContent = 'Select available rental dates.';
     dialog.showModal();
     if (detail.canRent) {
-      calendar.hidden = false;
-      dateTrigger.setAttribute('aria-expanded', 'true');
       refreshCalendar();
     }
   }));
@@ -322,21 +402,76 @@ const initRentalsCatalogue = () => {
 };
 
 const initRentalCart = () => {
+  const checkout = document.querySelector('[data-cart-checkout]');
+  const changedForms = new Set();
+  checkout?.addEventListener('click', event => { if (changedForms.size) event.preventDefault(); });
   document.querySelectorAll('.rentals-cart-form--update').forEach((form) => {
     const start = form.elements.rental_start_date;
     const end = form.elements.rental_end_date;
+    const quantity = form.elements.quantity;
+    const help = form.querySelector('[data-cart-quantity-available]');
+    const savedQuantity = quantity.value;
+    const savedDates = [start.value, end.value];
+    const updateCheckout = () => {
+      const changed = quantity.value !== savedQuantity || start.value !== savedDates[0] || end.value !== savedDates[1];
+      if (changed) changedForms.add(form); else changedForms.delete(form);
+      checkout?.setAttribute('aria-disabled', String(changedForms.size > 0));
+    };
+    let sequence = 0;
+    let checking = false;
+    let saving = false;
     const save = () => {
-      if (!form.checkValidity() || start.value > end.value) return;
+      if (saving || quantity.disabled || !form.checkValidity() || start.value > end.value) return;
+      saving = true;
       form.querySelectorAll('input:not([type="hidden"])').forEach((input) => { input.readOnly = true; });
       form.requestSubmit();
+    };
+    const checkAndSave = async () => {
+      const request = ++sequence;
+      if (saving) return;
+      if (!start.value || !end.value || start.value > end.value) { checking = false; return; }
+      const from = start.value; const through = end.value;
+      checking = true;
+      help.textContent = 'Checking available units…';
+      try {
+        const capacity = await rentalRangeCapacity(from, through, async month => {
+          const url = new URL(form.dataset.availabilityUrl, location.href);
+          url.searchParams.set('id', form.elements.id.value);
+          url.searchParams.set('line', form.elements.line.value);
+          url.searchParams.set('month', month);
+          url.searchParams.set('quantity', '1');
+          const response = await fetch(url, { credentials: 'same-origin' });
+          const data = await response.json();
+          if (!response.ok || !data.ok) throw new Error('Availability could not be checked. Please try again.');
+          return data.days;
+        });
+        if (request !== sequence || start.value !== from || end.value !== through) return;
+        const maximum = limitRentalQuantity(quantity, capacity);
+        help.textContent = maximum ? `${maximum} unit${maximum === 1 ? '' : 's'} available for these dates.` : 'No units available. Choose other dates or remove this item.';
+        checking = false;
+        if (maximum > 0) save();
+      } catch {
+        if (request === sequence) help.textContent = 'Availability could not be checked. Please try again.';
+      } finally {
+        if (request === sequence) checking = false;
+      }
     };
     start.addEventListener('change', () => {
       end.min = start.value;
       if (end.value && end.value < start.value) end.value = '';
-      save();
+      checkAndSave();
     });
-    end.addEventListener('change', save);
-    form.elements.quantity.addEventListener('change', save);
+    end.addEventListener('change', checkAndSave);
+    quantity.addEventListener('input', () => limitRentalQuantity(quantity, quantity.max));
+    quantity.addEventListener('change', checkAndSave);
+    // Clamping a typed value can suppress the native change event. Persist it on blur too.
+    quantity.addEventListener('blur', () => {
+      if (!checking && !saving && quantity.value !== savedQuantity) checkAndSave();
+    });
+    [quantity, start, end].forEach(input => input.addEventListener('input', updateCheckout));
+    form.addEventListener('submit', event => {
+      if (checking || quantity.disabled || !form.checkValidity()) event.preventDefault();
+    });
   });
 };
 
@@ -492,7 +627,49 @@ const initRentalCarousels = () => {
   });
 };
 
-const initRentals = () => { initRentalImages(); initRentalHeader(); initRentalCarousels(); initRentalsCatalogue(); initRentalCart(); initRentalCheckout(); };
+const initRentalServiceRequest = () => {
+  const form = document.querySelector('[data-service-request-form]');
+  if (!form) return;
+  const button = form.querySelector('[type="submit"]');
+  const label = form.querySelector('[data-service-submit-label]');
+  const spinner = form.querySelector('[data-service-spinner]');
+  if (!button || !label || !spinner) return;
+  const originalLabel = label.textContent;
+  const restore = () => {
+    button.disabled = false;
+    delete button.dataset.submitting;
+    label.textContent = originalLabel;
+    spinner.hidden = true;
+    form.removeAttribute('aria-busy');
+    button.removeAttribute('aria-busy');
+  };
+  window.addEventListener('pageshow', event => { if (event.persisted) restore(); });
+  form.addEventListener('submit', event => {
+    if (button.dataset.submitting === 'true') { event.preventDefault(); return; }
+    if (event.defaultPrevented || !form.checkValidity()) return;
+    button.dataset.submitting = 'true';
+    button.disabled = true;
+    label.textContent = 'SUBMITTING...';
+    spinner.hidden = false;
+    form.setAttribute('aria-busy', 'true');
+    button.setAttribute('aria-busy', 'true');
+  });
+};
+
+
+const initServicePayment = () => {
+  const form = document.querySelector('[data-service-payment]');
+  if (form) {
+    const method = form.querySelector('[name="payment_method_id"]');
+    const update = () => form.querySelectorAll('[data-service-pay-method]').forEach(panel => { panel.hidden = panel.dataset.servicePayMethod !== method.value; });
+    method.addEventListener('change', update); update();
+    form.querySelectorAll('[data-service-pay-qr]').forEach(image => image.addEventListener('error', () => { image.hidden = true; image.parentElement.querySelector('[data-service-pay-qr-error]').hidden = false; }));
+  }
+  document.querySelectorAll('[data-service-proof-image]').forEach(image => image.addEventListener('error', () => { image.hidden = true; image.parentElement.querySelector('[data-service-proof-error]').hidden = false; }));
+};
+
+const initRentals = () => { initRentalImages(); initRentalHeader(); initRentalCarousels(); initRentalsCatalogue(); initRentalCart(); initRentalCheckout(); initRentalServiceRequest();
+    initServicePayment(); };
 
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', initRentals, { once: true });

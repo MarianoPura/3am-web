@@ -179,148 +179,20 @@ try {
         $db->delete('DELETE FROM payment_methods WHERE name = ? AND type = ? AND NOT EXISTS (SELECT 1 FROM order_header WHERE payment_method_id = payment_methods.id)', ['[TEST] Local Payment', 'test']);
         $db->update('UPDATE payment_methods SET is_active = 0 WHERE name = ? AND type = ?', ['[TEST] Local Payment', 'test']);
         $db->delete('DELETE FROM rental_categories WHERE slug = ? AND name = ? AND NOT EXISTS (SELECT 1 FROM rental_items WHERE category_id = rental_categories.id)', ['test-rentals-category', '[TEST] Rental Category']);
-        $db->update('UPDATE rental_categories SET is_active = 0 WHERE slug = ? AND name = ?', ['test-rentals-category', '[TEST] Rental Category']);
+        $db->update('UPDATE rental_categories SET is_active = 0 WHERE slug = ? AND name = ? AND NOT EXISTS (SELECT 1 FROM rental_items WHERE category_id = rental_categories.id AND is_active = 1)', ['test-rentals-category', '[TEST] Rental Category']);
         echo "Temporary [TEST] Rentals records removed.\n";
         exit(0);
     }
 
-    $existing = array_map(static fn ($row) => (string) reset($row), $db->select('SHOW TABLES'));
-    $source = preg_replace('/^--.*$/m', '', file_get_contents(BASE_PATH . '/database/rentals.sql'));
-    preg_match_all('/CREATE TABLE IF NOT EXISTS `([a-z_]+)` \((.*?)\) ENGINE=InnoDB[^;]*;/s', $source, $tables, PREG_SET_ORDER);
-    if (count($tables) !== 10) { throw new RuntimeException('Invalid schema source.'); }
-    if ($command === '--migrate' && in_array('payment_methods', $existing, true)) {
-        $paymentColumns = array_column($db->select('SHOW COLUMNS FROM `payment_methods`'), null, 'Field');
-        if (!isset($paymentColumns['qr_image_path'])) {
-            $db->statement('ALTER TABLE `payment_methods` ADD COLUMN `qr_image_path` varchar(255) DEFAULT NULL');
-            echo "Added payment_methods.qr_image_path\n";
-        }
+    if ($command === '--migrate') {
+        fwrite(STDERR, "Automatic legacy migration is disabled. Review/apply docs/rentals-completion-additive.sql and docs/rentals-service-requests-additive.sql explicitly. No changes made.\n");
+        exit(1);
     }
-    // DDL is explicit and restricted to local/testing. Never silently coerce
-    // an unknown legacy state into an approved or rejected payment.
-    if ($command === '--migrate' && in_array('order_header', $existing, true)) {
-        $orderColumns = array_column($db->select('SHOW COLUMNS FROM `order_header`'), null, 'Field');
-        foreach ([
-            'payment_proof_path' => 'varchar(255) DEFAULT NULL',
-            ...App\Services\RentalPaymentReportSchema::REVIEW_COLUMNS,
-            'status_token' => 'varchar(64) DEFAULT NULL',
-        ] as $field => $definition) {
-            if (!isset($orderColumns[$field])) {
-                $db->statement('ALTER TABLE `order_header` ADD COLUMN `' . $field . '` ' . $definition);
-                echo "Added order_header.$field\n";
-            }
-        }
-        $orderColumns = array_column($db->select('SHOW COLUMNS FROM `order_header`'), null, 'Field');
-        if (!str_contains(strtolower((string) $orderColumns['payment_status']['Type']), 'tinyint')) {
-            $legacy = $db->select('SELECT id, status, payment_status, payment_review_status FROM order_header');
-            $mapped = [];
-            foreach ($legacy as $row) {
-                $status = (string) $row['status'];
-                $payment = (string) $row['payment_status'];
-                $review = (string) $row['payment_review_status'];
-                if (!in_array($status, ['pending', 'approved', 'rejected'], true)
-                    || !in_array($payment, ['pending', 'paid', 'failed'], true)
-                    || !in_array($review, ['none', 'pending', 'approved', 'rejected'], true)) {
-                    throw new RuntimeException('An existing order has an unmappable legacy status. Review it before migration.');
-                }
-                $mapped[(int) $row['id']] = $status === 'rejected' || $review === 'rejected' || $payment === 'failed' ? 2
-                    : ($status === 'approved' || $review === 'approved' || $payment === 'paid' ? 1 : 0);
-            }
-            $db->statement('ALTER TABLE `order_header` ADD COLUMN `payment_status_next` tinyint(3) UNSIGNED DEFAULT NULL');
-            foreach ($mapped as $id => $value) {
-                $db->update('UPDATE order_header SET payment_status_next = ? WHERE id = ?', [$value, $id]);
-            }
-            if ((int) $db->selectValue('SELECT COUNT(*) FROM order_header WHERE payment_status_next IS NULL') !== 0) {
-                throw new RuntimeException('Status copy did not cover every order. Legacy columns remain available.');
-            }
-            $db->statement('ALTER TABLE `order_header`
-                DROP INDEX `order_header_status_date_index`,
-                DROP INDEX `order_header_payment_status_index`,
-                DROP COLUMN `payment_status`, DROP COLUMN `status`, DROP COLUMN `payment_review_status`,
-                CHANGE COLUMN `payment_status_next` `payment_status` tinyint(3) UNSIGNED NOT NULL DEFAULT 0,
-                ADD KEY `order_header_payment_date_index` (`payment_status`, `created_at`),
-                ADD KEY `order_header_payment_status_index` (`payment_status`)');
-            echo "Converted order_header.payment_status to Pending=0, Approved=1, Rejected=2; removed redundant status columns.\n";
-        }
-        $indexes = array_column($db->select('SHOW INDEX FROM `order_header`'), 'Key_name');
-        if (!in_array('order_header_status_token_unique', $indexes, true)) {
-            $db->statement('ALTER TABLE `order_header` ADD UNIQUE KEY `order_header_status_token_unique` (`status_token`)');
-        }
-        foreach ($db->select('SELECT id FROM order_header WHERE status_token IS NULL') as $row) {
-            $db->update('UPDATE order_header SET status_token = ? WHERE id = ? AND status_token IS NULL', [bin2hex(random_bytes(32)), (int) $row['id']]);
-        }
-    }
-    $missing = []; $issues = [];
-    foreach ($tables as $table) {
-        $name = $table[1];
-        if (!in_array($name, $existing, true)) { $missing[$name] = $table[0]; continue; }
-        $identifier = $db->identifier($name, array_column($tables, 1));
-        $columns = array_column($db->select('SHOW COLUMNS FROM ' . $identifier), null, 'Field');
-        preg_match_all('/^\s*`([a-z_]+)` ([^\n]+)/m', $table[2], $definitions, PREG_SET_ORDER);
-        foreach ($definitions as $definition) {
-            $field = $definition[1];
-            if (!isset($columns[$field])) { $issues[] = "$name.$field missing"; continue; }
-            if (str_contains($definition[2], 'AUTO_INCREMENT') && !str_contains($columns[$field]['Extra'], 'auto_increment')) {
-                $issues[] = "$name.$field must auto-increment";
-            }
-            if ($name === 'order_header' && $field === 'payment_status'
-                && !str_contains(strtolower((string) $columns[$field]['Type']), 'tinyint')) {
-                $issues[] = 'order_header.payment_status must be TINYINT';
-            }
-            if (in_array($field, ['slug', 'totp_secret', 'last_login'], true) && $columns[$field]['Null'] !== 'YES') {
-                $issues[] = "$name.$field must allow NULL";
-            }
-        }
-        if ($name === 'order_header') {
-            foreach (['status', 'order_status', 'payment_review_status'] as $redundant) {
-                if (isset($columns[$redundant])) { $issues[] = "order_header.$redundant must be removed after reviewed migration"; }
-            }
-            if (isset($columns['payment_status'])
-                && !str_contains(strtolower((string) $columns['payment_status']['Type']), 'unsigned')) {
-                $issues[] = 'order_header.payment_status must be unsigned';
-            }
-        }
-        if ($name === 'rental_items') {
-            foreach (['sku', 'rental_unit', 'image_path'] as $field) {
-                if (isset($columns[$field]) && $columns[$field]['Null'] !== 'YES') { $issues[] = "$name.$field must allow NULL for optional product fields"; }
-            }
-            foreach (['name' => 190, 'slug' => 190, 'sku' => 80, 'ideal_use' => 500, 'rental_unit' => 30, 'image_path' => 500] as $field => $minimum) {
-                if (isset($columns[$field]) && preg_match('/^(?:var)?char\((\d+)\)/i', (string) $columns[$field]['Type'], $size) && (int) $size[1] < $minimum) {
-                    $issues[] = "$name.$field must support at least $minimum characters";
-                }
-            }
-            foreach (['rental_rate', 'security_deposit'] as $field) {
-                if (isset($columns[$field]) && preg_match('/^decimal\((\d+),(\d+)\)/i', (string) $columns[$field]['Type'], $size)
-                    && ((int) $size[1] - (int) $size[2] < 10 || (int) $size[2] < 2)) {
-                    $issues[] = "$name.$field must support DECIMAL(12,2) amounts";
-                }
-            }
-        }
-        $indexes = $db->select('SHOW INDEX FROM ' . $identifier);
-        if (!in_array('PRIMARY', array_column($indexes, 'Key_name'), true)) { $issues[] = "$name missing primary key"; }
-        preg_match_all('/UNIQUE KEY `[^`]+` \(`([a-z_]+)`\)/', $table[2], $uniqueKeys, PREG_SET_ORDER);
-        foreach ($uniqueKeys as $key) {
-            if (!array_filter($indexes, static fn($index) => (int) $index['Non_unique'] === 0 && $index['Column_name'] === $key[1])) { $issues[] = "$name.$key[1] missing unique index"; }
-        }
-        preg_match_all('/FOREIGN KEY \(`([a-z_]+)`\) REFERENCES `([a-z_]+)` \(`([a-z_]+)`\)/', $table[2], $foreignKeys, PREG_SET_ORDER);
-        foreach ($foreignKeys as $fk) {
-            $found = $db->selectValue('SELECT COUNT(*) FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ? AND REFERENCED_TABLE_NAME = ? AND REFERENCED_COLUMN_NAME = ?', [$name, $fk[1], $fk[2], $fk[3]]);
-            if (!$found) { $issues[] = "$name.$fk[1] missing foreign key"; }
-        }
-        echo "$name: " . $db->selectValue('SELECT COUNT(*) FROM ' . $identifier) . " records\n";
-    }
-    foreach ($issues as $issue) { echo "Review: $issue\n"; }
-    if (array_diff(['order_header', 'payment_methods', 'users', 'order_details'], $existing) === []) {
-        $reportSchema = (new App\Services\RentalPaymentReportSchema($db))->inspect();
-        foreach (array_diff($reportSchema['issues'], $issues) as $issue) { echo "Review: $issue\n"; }
-        $issues = array_unique(array_merge($issues, $reportSchema['issues']));
-    }
-    if ($issues) { fwrite(STDERR, "Existing schema needs a reviewed migration. No changes made.\n"); exit(1); }
-    foreach ($missing as $name => $sql) {
-        if ($command === '--migrate') { $db->statement($sql); echo "Created $name\n"; }
-        else { echo "Missing: $name\n"; }
-    }
-    if ($missing && $command === '--check') { exit(1); }
-    echo "Required Rentals columns and relationships checked. Existing records preserved.\n";
+    $inspection = (new App\Services\RentalSchema($db))->inspect();
+    foreach ($inspection['counts'] as $table => $count) { echo "$table: $count records\n"; }
+    foreach ($inspection['issues'] as $issue) { fwrite(STDERR, "Review: $issue\n"); }
+    if ($inspection['issues'] !== []) { fwrite(STDERR, "Schema mismatch. Review deployment SQL; no changes made.\n"); exit(1); }
+    echo "Required Rentals columns, unique keys and relationships checked. No changes made.\n";
     $uploadRoot = App\Services\RentalStorage::root();
     echo "External Rentals storage: $uploadRoot\n";
     foreach (['rentals/products', 'payment', 'payment/qr'] as $subdirectory) {

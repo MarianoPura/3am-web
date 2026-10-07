@@ -1,5 +1,6 @@
 <?php $this->extend('rentals.layouts.base'); ?>
 <?php $this->start('title') ?>Rental Status — 3AM<?php $this->end() ?>
+<?php $this->start('head') ?><meta name="referrer" content="no-referrer"><meta name="robots" content="noindex, nofollow"><?php $this->end() ?>
 <?php $this->start('content') ?>
 <section class="rentals-page-hero rentals-page-hero--status"><div class="rentals-shell rentals-page-hero__inner"><div><p class="rentals-kicker">3AM Rentals</p><h1>Rental status.</h1></div><p>Check the review status of your rental request.</p></div></section>
 <section class="rentals-section rentals-section--tight"><div class="rentals-shell"><article class="rentals-support-panel rentals-status-card">

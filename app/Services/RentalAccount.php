@@ -24,13 +24,25 @@ final class RentalAccount
         }
 
         $user = $this->db->selectOne(
-            'SELECT id, name, email, role, last_login, created_at FROM users WHERE id = ?',
+            'SELECT id, name, email, password, role, last_login, created_at FROM users WHERE id = ?',
             [$userId]
         );
         if ($user === null) {
             unset($_SESSION['user_id']);
         }
 
+        if ($user !== null) {
+            $stamp = hash('sha256', (string)$user['password']);
+            $known = $_SESSION['rentals_password_stamp'] ?? null;
+            $invalid = is_string($known) && !hash_equals($known,$stamp);
+            if ($known === null && (new RentalSchema($this->db))->hasTable('rental_password_resets')) {
+                $resetAt = $this->db->selectValue('SELECT reset_at FROM rental_password_resets WHERE user_id=?',[$userId]);
+                $invalid = $resetAt !== null && strtotime($resetAt) >= (float)($_SESSION['rentals_authenticated_at'] ?? 0);
+            }
+            if ($invalid) { unset($_SESSION['user_id'],$_SESSION['rentals_password_stamp'],$_SESSION['rentals_authenticated_at']); return null; }
+            $_SESSION['rentals_password_stamp'] = $stamp;
+            unset($user['password']);
+        }
         return $user;
     }
 
@@ -152,6 +164,7 @@ final class RentalAccount
                 'UPDATE users SET name = ?, email = ?, password = ? WHERE id = ?',
                 [$name, $email, $hashedPassword, $userId]
             );
+            $_SESSION['rentals_password_stamp'] = hash('sha256',$hashedPassword);
         } else {
             $this->db->update(
                 'UPDATE users SET name = ?, email = ? WHERE id = ?',
@@ -178,5 +191,7 @@ final class RentalAccount
     {
         session_regenerate_id(true);
         $_SESSION['user_id'] = $userId;
+        $_SESSION['rentals_authenticated_at'] = microtime(true);
+        unset($_SESSION['rentals_password_stamp']);
     }
 }

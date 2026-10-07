@@ -27,6 +27,7 @@ $submittedEmail = (string) ($submittedEmail ?? '');
         <div class="rentals-inline-actions">
           <a class="rentals-btn rentals-btn--primary" href="<?= e_attr(url('rentals/cart')) ?>">View cart</a>
           <a class="rentals-btn rentals-btn--dark" href="<?= e_attr(url('rentals/orders')) ?>">Rental orders</a>
+          <a class="rentals-btn" href="<?= e_attr(url('rentals/service-requests')) ?>">Service requests</a>
           <a class="rentals-btn" href="<?= e_attr(url('rentals/account/settings')) ?>">Account settings</a>
           <form method="post" action="<?= e_attr(url('rentals/logout')) ?>">
             <?= csrf_field() ?>
@@ -67,6 +68,7 @@ $submittedEmail = (string) ($submittedEmail ?? '');
           </div>
           <button class="rentals-btn rentals-btn--primary" type="submit"><?= $activeAction === 'login' ? 'Sign in' : 'Create account' ?></button>
         </form>
+        <?php if ($activeAction === 'login'): ?><p><a href="<?= e_attr(url('rentals/account/forgot')) ?>">Forgot password?</a></p><?php endif ?>
       </div>
     </div>
   </div>

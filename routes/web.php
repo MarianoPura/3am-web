@@ -56,6 +56,12 @@ $router->get('/rentals/orders/{id:int}/proof', [\App\Controllers\Rentals\RentalA
 $router->get('/rentals/categories', [RentalsController::class, 'categories'])->name('rentals.categories');
 $router->get('/rentals/items', [RentalsController::class, 'items'])->name('rentals.items');
 $router->get('/rentals/services', [RentalsController::class, 'services'])->name('rentals.services');
+$router->get('/rentals/services/{id:int}/request', [\App\Controllers\Rentals\RentalServiceRequestController::class, 'show'])->name('rentals.service-request');
+$router->post('/rentals/services/{id:int}/request', [\App\Controllers\Rentals\RentalServiceRequestController::class, 'submit'])->name('rentals.service-request.submit');
+$router->get('/rentals/service-requests', [\App\Controllers\Rentals\RentalServiceRequestController::class, 'history'])->name('rentals.service-requests');
+$router->get('/rentals/admin/service-requests', [\App\Controllers\Rentals\RentalServiceRequestController::class, 'adminList'])->name('rentals.admin.service-requests');
+$router->get('/rentals/admin/service-requests/{id:int}', [\App\Controllers\Rentals\RentalServiceRequestController::class, 'adminView'])->name('rentals.admin.service-request');
+$router->post('/rentals/admin/service-requests/{id:int}/review', [\App\Controllers\Rentals\RentalServiceRequestController::class, 'review'])->name('rentals.admin.service-request.review');
 $router->get('/rentals/how-to-rent', [RentalsController::class, 'howToRent'])->name('rentals.how-to-rent');
 $router->get('/rentals/support', [RentalsController::class, 'support'])->name('rentals.support');
 $router->get('/rentals/admin', [\App\Controllers\Rentals\RentalAdminController::class, 'index'])->name('rentals.admin');
@@ -156,3 +162,14 @@ $router->get('/analytics/visitors/{visitId:int}/events', [AnalyticsController::c
  *       ...
  *   });
  */
+
+// Rentals account recovery uses existing SMTP configuration; private links have no CC.
+$router->get('/rentals/account/forgot', [\App\Controllers\Rentals\RentalPasswordController::class, 'forgot']);
+$router->post('/rentals/account/forgot', [\App\Controllers\Rentals\RentalPasswordController::class, 'forgot']);
+$router->get('/rentals/account/reset/{token:slug}', [\App\Controllers\Rentals\RentalPasswordController::class, 'reset']);
+$router->post('/rentals/account/reset/{token:slug}', [\App\Controllers\Rentals\RentalPasswordController::class, 'reset']);
+
+$router->get('/rentals/service-requests/{id:int}', [\App\Controllers\Rentals\RentalServiceRequestController::class, 'customerView']);
+$router->post('/rentals/service-requests/{id:int}/payment', [\App\Controllers\Rentals\RentalServiceRequestController::class, 'payment']);
+$router->get('/rentals/service-requests/{id:int}/proof', [\App\Controllers\Rentals\RentalServiceRequestController::class, 'proof']);
+$router->post('/rentals/admin/service-requests/{id:int}/manage', [\App\Controllers\Rentals\RentalServiceRequestController::class, 'manage']);

@@ -19,7 +19,10 @@ final class RentalAdminInsights
             SUM(h.payment_status = 0) AS pending,
             COALESCE(SUM(CASE WHEN h.payment_status = 1 THEN h.subtotal ELSE 0 END), 0) AS sales
             FROM order_header h WHERE 1 = 1 ' . $scope);
+        $serviceSummary = (new RentalSchema($this->db))->hasTable('rental_service_requests')
+            ? $this->db->select('SELECT status,COUNT(*) AS total FROM rental_service_requests GROUP BY status') : [];
         return [
+            'serviceSummary' => $serviceSummary,
             'metrics' => [
                 'Total rental sales' => (float) $status['sales'],
                 'Total orders' => (int) $status['orders'],
@@ -54,17 +57,39 @@ final class RentalAdminInsights
         $end = $to->modify('+1 day')->format('Y-m-d 00:00:00');
         $dates = [$start, $end];
         $scope = $this->reportScope('h');
+        $rangeDays = (int) $from->diff($to)->days + 1;
+        // Long custom ranges use calendar buckets rather than an unbounded daily array.
+        [$aggregation, $dateExpression, $step, $cursor] = $rangeDays <= 366
+            ? ['day', 'DATE(h.created_at)', '+1 day', $from]
+            : ($rangeDays <= 3650
+                ? ['month', "DATE_FORMAT(h.created_at, '%Y-%m-01')", '+1 month', $from->modify('first day of this month')]
+                : ['year', "DATE_FORMAT(h.created_at, '%Y-01-01')", '+1 year', $from->modify('first day of January this year')]);
+        $dailyRows = $this->db->select("SELECT $dateExpression AS period, COUNT(*) AS orders,
+            COALESCE(SUM(CASE WHEN h.payment_status = 1 THEN h.subtotal ELSE 0 END), 0) AS sales
+            FROM order_header h WHERE h.created_at >= ? AND h.created_at < ? $scope
+            GROUP BY $dateExpression ORDER BY period", $dates);
+        $byPeriod = array_column($dailyRows, null, 'period');
+        $daily = [];
+        for (; $cursor <= $to; $cursor = $cursor->modify($step)) {
+            $date = $cursor->format('Y-m-d');
+            $daily[] = $byPeriod[$date] ?? ['period' => $date, 'orders' => 0, 'sales' => 0];
+        }
         $kpis = $this->db->selectOne('SELECT COUNT(*) AS orders,
+            COALESCE(SUM(h.payment_status = 1), 0) AS approved_orders,
             COALESCE(SUM(CASE WHEN h.payment_status = 1 THEN h.subtotal ELSE 0 END), 0) AS sales,
             COALESCE(AVG(CASE WHEN h.payment_status = 1 THEN h.subtotal END), 0) AS average_sale
             FROM order_header h WHERE h.created_at >= ? AND h.created_at < ? ' . $scope, $dates);
+        // TIMESTAMP grouping follows this connection's time zone. Report its actual
+        // offset without changing the shared connection or assuming live Linux uses Manila.
+        $offset=(int)$this->db->selectValue('SELECT TIMESTAMPDIFF(SECOND,UTC_TIMESTAMP(),CURRENT_TIMESTAMP)');
+        $offsetLabel=sprintf('%s%02d:%02d',$offset<0?'-':'+',intdiv(abs($offset),3600),intdiv(abs($offset)%3600,60));
+        $zone=$offset===(new \DateTimeImmutable())->getOffset()?date_default_timezone_get():'Database time';
         return [
+            'timezone_label'=>$zone.' (UTC'.$offsetLabel.')',
             'filters' => ['period' => $period, 'from' => $from->format('Y-m-d'), 'to' => $to->format('Y-m-d')],
             'kpis' => $kpis,
-            'daily' => $this->db->select('SELECT DATE(h.created_at) AS period, COUNT(*) AS orders,
-                COALESCE(SUM(CASE WHEN h.payment_status = 1 THEN h.subtotal ELSE 0 END), 0) AS sales
-                FROM order_header h WHERE h.created_at >= ? AND h.created_at < ? ' . $scope . '
-                GROUP BY DATE(h.created_at) ORDER BY period', $dates),
+            'daily' => $daily,
+            'aggregation' => $aggregation,
             'paymentStatuses' => $this->db->select('SELECT h.payment_status AS status, COUNT(*) AS total
                 FROM order_header h WHERE h.created_at >= ? AND h.created_at < ? ' . $scope . '
                 GROUP BY h.payment_status ORDER BY h.payment_status', $dates),
@@ -104,11 +129,12 @@ final class RentalAdminInsights
             array_push($bindings, $category, $category, $item, $item);
         }
         $filters += ['category' => $category, 'item' => $item];
-        $rows = $this->db->select("SELECT h.id, h.order_number, h.customer_name, h.created_at,
+        $pagination = RentalPagination::fetch($this->db,"SELECT h.id, h.order_number, h.customer_name, h.created_at,
             h.payment_status, h.subtotal, h.security_deposit, h.total_amount,
             (SELECT GROUP_CONCAT(CONCAT(d.item_name, ' ×', d.quantity) ORDER BY d.id SEPARATOR ', ')
              FROM order_details d WHERE d.order_header_id = h.id) AS items
-            FROM order_header h WHERE $where ORDER BY h.created_at DESC, h.id DESC LIMIT 200", $bindings);
+            FROM order_header h WHERE $where ORDER BY h.created_at DESC, h.id DESC", $bindings, $request->int('page',1));
+        $rows = $pagination['rows'];
         foreach ($rows as &$row) {
             $row['details'] = $this->db->select(
                 'SELECT item_name, quantity, rental_start_date, rental_end_date, unit_rate, line_total
@@ -120,7 +146,7 @@ final class RentalAdminInsights
         $totals = $this->db->selectOne("SELECT COUNT(*) AS orders,
             COALESCE(SUM(h.subtotal), 0) AS approved_sales
             FROM order_header h WHERE $where", $bindings);
-        return ['rows' => $rows, 'totals' => $totals, 'filters' => $filters,
+        return ['rows' => $rows, 'pagination'=>$pagination, 'totals' => $totals, 'filters' => $filters,
             'categories' => $this->db->select('SELECT id, name FROM rental_categories ORDER BY name'),
             'items' => $this->db->select('SELECT id, name FROM rental_items ORDER BY name')];
     }
@@ -136,19 +162,20 @@ final class RentalAdminInsights
         $method = max(0, $request->int('method'));
         if ($method) { $where .= ' AND h.payment_method_id = ?'; $bindings[] = $method; }
         $filters += ['payment_status' => $status, 'method' => $method];
-        $rows = $this->db->select("SELECT h.id, h.order_number, h.customer_name, h.created_at,
+        $pagination = RentalPagination::fetch($this->db,"SELECT h.id, h.order_number, h.customer_name, h.created_at,
             h.payment_status, h.payment_reference, h.payment_reviewed_at, h.paid_at,
             h.subtotal, h.security_deposit, h.total_amount, reviewer.name AS reviewer,
             p.name AS payment_method FROM order_header h LEFT JOIN payment_methods p ON p.id = h.payment_method_id
             LEFT JOIN users reviewer ON reviewer.id = h.payment_reviewed_by
-            WHERE $where ORDER BY h.created_at DESC, h.id DESC LIMIT 200", $bindings);
+            WHERE $where ORDER BY h.created_at DESC, h.id DESC", $bindings, $request->int('page',1));
+        $rows = $pagination['rows'];
         $totals = $this->db->selectOne("SELECT COUNT(*) AS orders,
             COALESCE(SUM(CASE WHEN h.payment_status = 1 THEN h.subtotal ELSE 0 END), 0) AS rental_amount,
             COALESCE(SUM(CASE WHEN h.payment_status = 1 THEN h.security_deposit ELSE 0 END), 0) AS security_deposits,
             COALESCE(SUM(CASE WHEN h.payment_status = 1 THEN h.total_amount ELSE 0 END), 0) AS total_collected,
             COALESCE(SUM(CASE WHEN h.payment_status = 0 THEN h.total_amount ELSE 0 END), 0) AS pending_amount
             FROM order_header h WHERE $where", $bindings);
-        return ['rows' => $rows, 'totals' => $totals, 'filters' => $filters,
+        return ['rows' => $rows, 'pagination'=>$pagination, 'totals' => $totals, 'filters' => $filters,
             'methods' => $this->db->select('SELECT id, name FROM payment_methods ORDER BY name')];
     }
 

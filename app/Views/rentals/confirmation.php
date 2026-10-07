@@ -1,5 +1,6 @@
 <?php $this->extend('rentals.layouts.base'); ?>
 <?php $this->start('title') ?>Rental Request Received — 3AM<?php $this->end() ?>
+<?php $this->start('head') ?><meta name="referrer" content="no-referrer"><meta name="robots" content="noindex, nofollow"><?php $this->end() ?>
 <?php $this->start('canonical') ?><?= e_attr(absolute_url('rentals/confirmation/' . $status_token)) ?><?php $this->end() ?>
 <?php $this->start('content') ?>
 <?php

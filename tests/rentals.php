@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 // Isolated behavioural tests: no database, emails or application session writes.
+// Preview enabled with a missing optional seed must not cause another fatal error.
+$_ENV['RENTALS_PREVIEW_SAMPLES'] = 'true';
 $container = require dirname(__DIR__) . '/bootstrap.php';
 $check = static function(bool $ok, string $message): void {
     if (!$ok) { throw new RuntimeException($message); }
@@ -32,8 +34,25 @@ $db = new App\Core\Database([]);
 $catalog = new App\Models\RentalCatalog($db);
 $data = $catalog->load();
 $check($data['catalogUnavailable'] === true, 'Failure not surfaced');
-if (!config('rentals.preview_samples')) {
-    $check($data['items'] === [] && $data['services'] === [], 'Failure exposed sample stock');
+$check($data['items'] === [] && $data['services'] === [] && $data['categories'] === []
+    && $data['catalogPreview'] === false, 'Missing optional seed caused fake stock or a preview');
+// Exercise the successful-but-empty query path as well as the failed query path.
+class EmptyRentalStatement extends PDOStatement {
+    public function __construct() {}
+    public function execute(?array $params = null): bool { return true; }
+    public function fetchAll(int $mode = PDO::FETCH_DEFAULT, mixed ...$args): array { return []; }
+}
+class EmptyRentalPDO extends PDO {
+    public function __construct() {}
+    public function prepare(string $query, array $options = []): PDOStatement|false { return new EmptyRentalStatement(); }
+}
+if (!is_readable(BASE_PATH . '/database/seeds/rentals.php')) {
+    $emptyDb = new App\Core\Database([]);
+    (new ReflectionProperty($emptyDb, 'pdo'))->setValue($emptyDb, new EmptyRentalPDO());
+    $empty = (new App\Models\RentalCatalog($emptyDb))->load();
+    $check(!$empty['catalogUnavailable'] && !$empty['catalogPreview'] && $empty['items'] === []
+        && $empty['services'] === [], 'Healthy empty catalogue attempted to load a missing optional seed.');
+    echo "PASS: missing optional seed is safe after both successful empty queries and query failure.\n";
 }
 $container->set(App\Core\Database::class, $db);
 $response = (new App\Controllers\Rentals\RentalCartController($container))->index(App\Core\Request::capture());

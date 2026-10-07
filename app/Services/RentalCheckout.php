@@ -103,8 +103,8 @@ final class RentalCheckout
      */
     public function createOrder(int $userId, array $customer, ?array $proofUpload = null): array
     {
-        $account = $userId > 0 ? $this->db->selectOne('SELECT id, email FROM users WHERE id = ?', [$userId]) : null;
-        if ($account === null) {
+        $account = (new RentalAccount($this->db, $this->cart))->current();
+        if ($account === null || (int) $account['id'] !== $userId) {
             throw new RuntimeException('An authenticated customer account is required.');
         }
         $customer['email'] = (string) $account['email'];
@@ -131,14 +131,8 @@ final class RentalCheckout
             if (!is_string($start) || !is_string($end) || $start === '' || $end === '') {
                 throw new RuntimeException('Rental start and end dates are required.');
             }
-            $startDay = \DateTimeImmutable::createFromFormat('!Y-m-d', $start);
-            $endDay = \DateTimeImmutable::createFromFormat('!Y-m-d', $end);
-            if ($startDay === false || $endDay === false
-                || $startDay->format('Y-m-d') !== $start
-                || $endDay->format('Y-m-d') !== $end
-                || $startDay < new \DateTimeImmutable('today')
-                || $endDay < $startDay) {
-                throw new RuntimeException('Choose valid current or future rental dates.');
+            if (!RentalDateRange::isBookable($start, $end)) {
+                throw new RuntimeException('Choose valid current or future rental dates spanning at most ' . RentalDateRange::MAX_DAYS . ' days.');
             }
 
             $record = $catalog->find((string) $item['item_id']);
@@ -175,6 +169,9 @@ final class RentalCheckout
             }
             $catalog = new RentalCatalog($db);
             foreach ($summary['items'] as $line) {
+                if (!RentalDateRange::isBookable((string) $line['rental_start_date'], (string) $line['rental_end_date'])) {
+                    throw new RuntimeException('Choose valid current or future rental dates spanning at most ' . RentalDateRange::MAX_DAYS . ' days.');
+                }
                 $item = $catalog->find((string) $line['item_id']);
                 if ($item === null) {
                     throw new RuntimeException('A rental item is no longer available.');

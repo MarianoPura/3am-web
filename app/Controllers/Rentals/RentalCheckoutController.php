@@ -14,12 +14,18 @@ use App\Services\RentalNotification;
 use App\Services\RentalPaymentStatus;
 use App\Services\RentalManagedImage;
 use App\Services\RentalAccount;
+use App\Services\RentalDateRange;
 use RuntimeException;
 
 final class RentalCheckoutController extends Controller
 {
     public function show(Request $request): Response
     {
+        $user = (new RentalAccount($this->db(), new RentalCart()))->current();
+        if ($user === null) {
+            $_SESSION['rentals_after_auth'] = 'checkout';
+            return $this->redirect(url('rentals/account'))->noCache();
+        }
         $checkout = new RentalCheckout($this->db(), new RentalCart());
         $summary = $checkout->summary();
         if ($summary['items'] === [] || count($summary['items']) !== count((new RentalCart())->contents())) {
@@ -29,11 +35,7 @@ final class RentalCheckoutController extends Controller
         foreach ($summary['items'] as $line) {
             $start = (string) ($line['rental_start_date'] ?? '');
             $end = (string) ($line['rental_end_date'] ?? '');
-            $startDay = \DateTimeImmutable::createFromFormat('!Y-m-d', $start);
-            $endDay = \DateTimeImmutable::createFromFormat('!Y-m-d', $end);
-            if ($startDay === false || $endDay === false
-                || $startDay->format('Y-m-d') !== $start || $endDay->format('Y-m-d') !== $end
-                || $startDay < new \DateTimeImmutable('today') || $endDay < $startDay) {
+            if (!RentalDateRange::isBookable($start, $end)) {
                 $_SESSION['rentals_notice'] = 'Set valid dates for every item in your cart first.';
                 return $this->redirect(url('rentals/cart'));
             }
@@ -44,14 +46,6 @@ final class RentalCheckoutController extends Controller
                 return $this->redirect(url('rentals/cart'));
             }
         }
-        $userId = (int) ($_SESSION['user_id'] ?? 0);
-        if ($summary['items'] !== [] && $userId < 1 && !$summary['preview']) {
-            $_SESSION['rentals_after_auth'] = 'checkout';
-            return $this->redirect(url('rentals/account'));
-        }
-        $user = $userId > 0 ? $this->db()->selectOne('SELECT name, email FROM users WHERE id = ?', [$userId]) : null;
-        if ($user === null) { return $this->redirect(url('rentals/account')); }
-
         return $this->render('rentals.checkout', [
             'summary' => $summary,
             'paymentMethods' => $checkout->activePaymentMethods(),
@@ -62,11 +56,13 @@ final class RentalCheckoutController extends Controller
 
     public function submit(Request $request): Response
     {
+        $account = (new RentalAccount($this->db(), new RentalCart()))->current();
+        if ($account === null) {
+            $_SESSION['rentals_after_auth'] = 'checkout';
+            return $this->redirect(url('rentals/account'))->noCache();
+        }
         $checkout = new RentalCheckout($this->db(), new RentalCart());
         $summary = $checkout->summary();
-        if ((int) ($_SESSION['user_id'] ?? 0) < 1) {
-            return $this->redirect(url('rentals/account'));
-        }
         $paymentMethod = $request->has('payment_method_id')
             ? $request->int('payment_method_id')
             : null;
@@ -79,8 +75,6 @@ final class RentalCheckoutController extends Controller
             'payment_reference' => substr($request->string('payment_reference'), 0, 190),
             'notes' => $request->string('notes'),
         ];
-        $account = $this->db()->selectOne('SELECT email FROM users WHERE id = ?', [(int) $_SESSION['user_id']]);
-        if ($account === null) { return $this->redirect(url('rentals/account')); }
         $customer['email'] = (string) $account['email'];
 
         $error = null;
@@ -88,7 +82,7 @@ final class RentalCheckoutController extends Controller
             $error = 'Enter your name and a valid email address.';
         } else {
             try {
-                $userId = (int) ($_SESSION['user_id'] ?? 0);
+                $userId = (int) $account['id'];
                 $result = $checkout->createOrder($userId, $customer, $request->file('proof'));
                 $this->container->get(RentalNotification::class)->rentalSubmitted($result['order_id']);
 
@@ -131,15 +125,17 @@ final class RentalCheckoutController extends Controller
         }
         // A token locates the order; it never grants access by itself.
         // Return only status data, not customer details or stored proof paths.
-        $order = $this->db()->selectOne('SELECT order_number, user_id, payment_status,
+        $order = $this->db()->selectOne('SELECT id, order_number, user_id, payment_status,
             CASE WHEN NULLIF(TRIM(payment_proof_path), \'\') IS NULL THEN 0 ELSE 1 END AS has_proof
             FROM order_header WHERE status_token = ?', [$token]);
         if ($order === null) { return Response::notFound()->noCache(); }
-        if ((int) $order['user_id'] !== (int) $user['id']
-            && !in_array(strtolower((string) $user['role']), ['admin', 'superadmin'], true)) {
+        if (in_array(strtolower((string) $user['role']), ['admin', 'superadmin'], true)) {
+            return $this->redirect(url('rentals/admin/orders/' . (int) $order['id']))->noCache();
+        }
+        if ((int) $order['user_id'] !== (int) $user['id']) {
             return Response::forbidden('This rental order is not available to your account.')->noCache();
         }
-        unset($order['user_id']);
+        unset($order['id'], $order['user_id']);
         return $order;
     }
 

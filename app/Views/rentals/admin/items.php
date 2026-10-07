@@ -1,5 +1,6 @@
 <?php $this->extend('rentals.layouts.admin'); ?>
-<?php $this->start('title') ?>Products — Rentals Admin<?php $this->end() ?>
+<?php $this->start('title') ?>Products — Rentals Admin<?= $this->partial('rentals.partials.pagination',['pagination'=>$pagination??null,'pagePath'=>'rentals/admin/items']) ?>
+<?php $this->end() ?>
 <?php $this->start('content') ?>
 <section class="rentals-admin-page">
   <div class="rentals-shell">
@@ -33,9 +34,10 @@
           </td>
         </tr><?php endforeach ?>
       </tbody></table></div>
-      <?php if ($rows === []): ?><p class="rentals-admin__empty">No records match this view.</p><?php elseif (count($rows) === 200): ?><p class="rentals-admin__limit">Showing the latest 200 records.</p><?php endif ?>
+      <?php if ($rows === []): ?><p class="rentals-admin__empty">No records match this view.</p><?php endif ?>
     </div>
     <?php if ($images !== []): ?><datalist id="rental-images"><?php foreach ($images as $image): ?><option value="<?= e_attr($image) ?>"></option><?php endforeach ?></datalist><?php endif ?>
   </div>
 </section>
+<?= $this->partial('rentals.partials.pagination',['pagination'=>$pagination??null,'pagePath'=>'rentals/admin/items']) ?>
 <?php $this->end() ?>

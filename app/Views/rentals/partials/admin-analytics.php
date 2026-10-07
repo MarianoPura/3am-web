@@ -3,14 +3,11 @@ $insights = is_array($insights ?? null) ? $insights : [];
 $filters = $insights['filters'] ?? [];
 $kpis = $insights['kpis'] ?? [];
 $daily = $insights['daily'] ?? [];
-$maxSales = max([1.0, ...array_map(static fn (array $row): float => (float) $row['sales'], $daily)]);
+$chartTimezone=(string)($insights['timezone_label']??'Database time');
+$maxSales = max([0.0, ...array_map(static fn (array $row): float => (float) $row['sales'], $daily)]);
+$aggregation = (string) ($insights['aggregation'] ?? 'day');
+$highestPeriod = $daily === [] ? null : array_values(array_filter($daily, static fn (array $row): bool => (float) $row['sales'] === $maxSales))[0];
 $maxOrders = max([1, ...array_map(static fn (array $row): int => (int) $row['orders'], $daily)]);
-$points = [];
-foreach ($daily as $index => $row) {
-    $x = count($daily) === 1 ? 50 : 5 + 90 * $index / (count($daily) - 1);
-    $y = 95 - 85 * (float) $row['sales'] / $maxSales;
-    $points[] = number_format($x, 2, '.', '') . ',' . number_format($y, 2, '.', '');
-}
 $groups = [
     ['paymentStatuses', 'Payment status distribution', 'status', 'total'],
     ['topItems', 'Most rented equipment', 'name', 'units'],
@@ -19,7 +16,7 @@ $groups = [
     ['types', 'Equipment vs services', 'name', 'units'],
 ];
 ?>
-<form method="get" class="rentals-admin__report-filter rentals-admin__report-filter--analytics" action="<?= e_attr(url('rentals/admin/analytics')) ?>">
+<form method="get" class="rentals-admin__report-filter rentals-admin__report-filter--analytics" action="<?= e_attr(url('rentals/admin'). '#rental-analytics') ?>">
   <label>Period<select name="period"><?php foreach (['7d' => '7 days', '30d' => '30 days', 'month' => 'This month', 'year' => 'This year', 'custom' => 'Custom range'] as $key => $label): ?><option value="<?= e_attr($key) ?>"<?= ($filters['period'] ?? '30d') === $key ? ' selected' : '' ?>><?= e($label) ?></option><?php endforeach ?></select></label>
   <label>From<input type="date" name="from" value="<?= e_attr((string) ($filters['from'] ?? '')) ?>"></label>
   <label>To<input type="date" name="to" value="<?= e_attr((string) ($filters['to'] ?? '')) ?>"></label>
@@ -32,15 +29,16 @@ $groups = [
 </div>
 <div class="rentals-admin__insight-grid">
   <section class="rentals-admin__panel"><p class="rentals-card__meta">Approved payments</p><h2>Rental revenue over time</h2>
-    <?php if ($daily === []): ?><p class="rentals-admin__empty">No transactions in this period.</p><?php else: ?>
-      <svg class="rentals-admin__line-chart" viewBox="0 0 100 100" role="img" aria-label="Revenue trend across the selected dates"><polyline points="<?= e_attr(implode(' ', $points)) ?>" fill="none" stroke="currentColor" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round" /></svg>
-      <p class="rentals-admin__chart-caption"><?= e((string) $daily[0]['period']) ?> – <?= e((string) $daily[count($daily)-1]['period']) ?> · Highest day ₱<?= e(number_format($maxSales, 2)) ?></p>
+    <?php if ((int) ($kpis['approved_orders'] ?? 0) === 0): ?><p class="rentals-admin__empty">No approved rental revenue in this period.</p><?php else: ?>
+      <?php $chartType='sales'; require __DIR__.'/admin-time-chart.php'; ?>
+      <p class="rentals-admin__chart-caption">Highest <?= e($aggregation) ?> <?= e((string)$highestPeriod['period']) ?>: ₱<?= e(number_format($maxSales,2)) ?></p>
+      <p class="rentals-admin__chart-caption">Approved rental subtotals by order submission date; security deposits excluded. Dates without revenue are zero.</p>
     <?php endif ?>
   </section>
   <section class="rentals-admin__panel"><p class="rentals-card__meta">All payment states</p><h2>Transactions over time</h2>
-    <?php if ($daily === []): ?><p class="rentals-admin__empty">No transactions in this period.</p><?php else: ?><div class="rentals-admin__chart-bars">
-      <?php foreach ($daily as $row): ?><div title="<?= e_attr((string) $row['period'] . ': ' . $row['orders'] . ' orders') ?>"><span style="height:<?= e_attr((string) max(5, round(100 * (int) $row['orders'] / $maxOrders))) ?>%"></span><small><?= e((string) $row['period']) ?></small></div><?php endforeach ?>
-    </div><?php endif ?>
+    <?php if ((int) ($kpis['orders'] ?? 0) === 0): ?><p class="rentals-admin__empty">No transactions in this period.</p><?php else: ?>
+      <?php $chartType='orders'; require __DIR__.'/admin-time-chart.php'; ?>
+    <?php endif ?>
   </section>
 </div>
 <div class="rentals-admin__insight-grid">

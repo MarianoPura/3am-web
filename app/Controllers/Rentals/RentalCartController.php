@@ -18,7 +18,7 @@ final class RentalCartController extends Controller
         $month = $request->string('month');
         $first = \DateTimeImmutable::createFromFormat('!Y-m-d', $month . '-01');
         $item = (new RentalCatalog($this->db()))->find($request->string('id'));
-        $quantity = $request->int('quantity', 1);
+        $quantity = $this->requestedQuantity($request);
         $today = new \DateTimeImmutable('today');
         if ($first === false || $first->format('Y-m') !== $month
             || $first < $today->modify('first day of this month')
@@ -28,7 +28,7 @@ final class RentalCartController extends Controller
             return Response::json(['ok' => false, 'message' => 'Availability could not be loaded for that item or month.'], 422)->noCache();
         }
         $last = $first->modify('last day of this month');
-        $remaining = (new RentalCatalog($this->db()))->availabilityByDate($item, $first->format('Y-m-d'), $last->format('Y-m-d'));
+        $remaining = $this->availabilityWithCart($item, new RentalCart(), $first->format('Y-m-d'), $last->format('Y-m-d'), $request->string('line'));
         $stockStatus = strtolower((string) ($item['availability_status'] ?? ''));
         $canRent = $stockStatus === 'available';
         $days = [];
@@ -55,6 +55,8 @@ final class RentalCartController extends Controller
             $record = $catalog->find((string) $item['item_id']);
             $datesValid = $this->validDateRange($start, $end);
             $items[$index]['dates_valid'] = $datesValid;
+            $items[$index]['max_quantity'] = $datesValid && $record !== null && strtolower((string) ($record['availability_status'] ?? '')) === 'available'
+                ? min(999, max(0, $this->minimumRemainingWithCart($record, $cart, $start, $end, (string) $item['line_id']))) : 0;
             $items[$index]['can_checkout'] = $datesValid && $record !== null
                 && $this->canAddToCart($record, $cart, (int) $item['quantity'], $start, $end, (string) $item['line_id']);
             if (!$items[$index]['can_checkout']) {
@@ -90,12 +92,12 @@ final class RentalCartController extends Controller
 
         $start = $request->string('rental_start_date');
         $end = $request->string('rental_end_date');
-        $quantity = $request->int('quantity', 1);
+        $quantity = $this->requestedQuantity($request);
         if ($start === '' || $end === '') {
             return $this->addFailure($request, 'Select your rental dates before adding this item.');
         }
         if (!$this->validDateRange($start, $end) || $quantity < 1 || $quantity > 999) {
-            return $this->addFailure($request, 'Choose current or future dates and a valid quantity.');
+            return $this->addFailure($request, 'Choose current or future dates spanning at most ' . \App\Services\RentalDateRange::MAX_DAYS . ' days and a valid quantity.');
         }
         $cart = new RentalCart();
         if (!$this->canAddToCart($item, $cart, $quantity, $start, $end)) {
@@ -125,7 +127,7 @@ final class RentalCartController extends Controller
     {
         $lineId = $request->string('line', '');
         $itemId = $request->string('id', '');
-        $quantity = max(1, $request->int('quantity', 1));
+        $quantity = $this->requestedQuantity($request);
         $start = $request->string('rental_start_date');
         $end = $request->string('rental_end_date');
 
@@ -137,7 +139,7 @@ final class RentalCartController extends Controller
         $cart = new RentalCart();
         if ($item === null || !$this->validDateRange($start, $end)
             || !$this->canAddToCart($item, $cart, $quantity, $start, $end, $lineId)) {
-            $_SESSION['rentals_notice'] = 'Choose valid dates and an available quantity before updating your cart.';
+            $_SESSION['rentals_notice'] = 'Choose valid dates spanning at most ' . \App\Services\RentalDateRange::MAX_DAYS . ' days and an available quantity before updating your cart.';
             return $this->redirect(url('rentals/cart'));
         }
 
@@ -188,42 +190,38 @@ final class RentalCartController extends Controller
 
     private function minimumRemainingWithCart(array $item, RentalCart $cart, string $start, string $end, ?string $excludeLine = null): int
     {
-        $remaining = (new RentalCatalog($this->db()))->remainingByDate($item, $start, $end);
-        if ($remaining === []) { return 0; }
+        $days = $this->availabilityWithCart($item, $cart, $start, $end, $excludeLine);
+        return $days === [] ? 0 : min(array_column($days, 'remaining'));
+    }
+
+    /** Reuse the shared reservation model; exclude only a line in this customer's own cart. */
+    private function availabilityWithCart(array $item, RentalCart $cart, string $start, string $end, ?string $excludeLine = null): array
+    {
+        $remaining = (new RentalCatalog($this->db()))->availabilityByDate($item, $start, $end);
         $entries = $cart->contents();
-        foreach ($remaining as $date => &$units) {
+        foreach ($remaining as $date => &$day) {
             foreach ($entries as $entry) {
                 if ((string) ($entry['item_id'] ?? '') === (string) $item['id']
                     && (string) ($entry['line_id'] ?? '') !== $excludeLine
                     && (string) ($entry['rental_start_date'] ?? '') <= $date
                     && (string) ($entry['rental_end_date'] ?? '') >= $date) {
-                    $units -= (int) ($entry['quantity'] ?? 0);
+                    $day['remaining'] = max(0, $day['remaining'] - (int) ($entry['quantity'] ?? 0));
                 }
             }
         }
-        unset($units);
-        return min($remaining);
+        unset($day);
+        return $remaining;
+    }
+
+    private function requestedQuantity(Request $request): int
+    {
+        return (int) (filter_var($request->string('quantity', '1'), FILTER_VALIDATE_INT,
+            ['options' => ['min_range' => 1, 'max_range' => 999]]) ?: 0);
     }
 
     private function validDateRange(string $start, string $end): bool
     {
-        if ($start === '' && $end === '') {
-            return false;
-        }
-
-        if ($start === '' || $end === '') {
-            return false;
-        }
-
-        $startDate = \DateTimeImmutable::createFromFormat('!Y-m-d', $start);
-        $endDate = \DateTimeImmutable::createFromFormat('!Y-m-d', $end);
-
-        return $startDate !== false
-            && $endDate !== false
-            && $startDate->format('Y-m-d') === $start
-            && $endDate->format('Y-m-d') === $end
-            && $startDate >= new \DateTimeImmutable('today')
-            && $endDate >= $startDate;
+        return \App\Services\RentalDateRange::isBookable($start, $end);
     }
 
 }
