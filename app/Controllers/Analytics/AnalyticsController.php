@@ -131,31 +131,22 @@ final class AnalyticsController extends Controller
         $db   = $this->db();
         $user = $this->currentUser();
 
-        // Filter analytics strictly to traffic originating from Facebook (fbc IS NOT NULL)
-        $whereFbVisits = "WHERE fbc IS NOT NULL AND TRIM(fbc) != ''";
-
         $totalEvents = (int) $db->selectValue(
-            'SELECT COUNT(*) FROM tracking_events te
-             JOIN landing_page_visits lpv ON lpv.id = te.visit_id
-             WHERE lpv.fbc IS NOT NULL AND TRIM(lpv.fbc) != \'\''
+            'SELECT COUNT(*) FROM tracking_events'
         );
         $totalVisits = (int) $db->selectValue(
-            "SELECT COUNT(*) FROM landing_page_visits {$whereFbVisits}"
+            'SELECT COUNT(*) FROM landing_page_visits'
         );
         $todayEvents = (int) $db->selectValue(
-            'SELECT COUNT(*) FROM tracking_events te
-             JOIN landing_page_visits lpv ON lpv.id = te.visit_id
-             WHERE lpv.fbc IS NOT NULL AND TRIM(lpv.fbc) != \'\' AND DATE(te.occurred_at) = CURDATE()'
+            'SELECT COUNT(*) FROM tracking_events WHERE DATE(occurred_at) = CURDATE()'
         );
         $todayVisits = (int) $db->selectValue(
-            "SELECT COUNT(*) FROM landing_page_visits {$whereFbVisits} AND DATE(first_seen_at) = CURDATE()"
+            'SELECT COUNT(*) FROM landing_page_visits WHERE DATE(first_seen_at) = CURDATE()'
         );
 
         $eventsByType = $db->select(
             'SELECT te.event_name, COUNT(*) AS total
              FROM tracking_events te
-             JOIN landing_page_visits lpv ON lpv.id = te.visit_id
-             WHERE lpv.fbc IS NOT NULL AND TRIM(lpv.fbc) != \'\'
              GROUP BY te.event_name
              ORDER BY total DESC'
         );
@@ -163,38 +154,48 @@ final class AnalyticsController extends Controller
         $eventsOverTime = $db->select(
             'SELECT DATE(te.occurred_at) AS day, COUNT(*) AS total
              FROM tracking_events te
-             JOIN landing_page_visits lpv ON lpv.id = te.visit_id
-             WHERE lpv.fbc IS NOT NULL AND TRIM(lpv.fbc) != \'\'
-               AND te.occurred_at >= DATE_SUB(CURDATE(), INTERVAL 13 DAY)
+             WHERE te.occurred_at >= DATE_SUB(CURDATE(), INTERVAL 13 DAY)
              GROUP BY DATE(te.occurred_at)
              ORDER BY day ASC'
         );
 
         $visitsOverTime = $db->select(
-            "SELECT DATE(first_seen_at) AS day, COUNT(*) AS total
+            'SELECT DATE(first_seen_at) AS day, COUNT(*) AS total
              FROM landing_page_visits
-             {$whereFbVisits}
-               AND first_seen_at >= DATE_SUB(CURDATE(), INTERVAL 13 DAY)
+             WHERE first_seen_at >= DATE_SUB(CURDATE(), INTERVAL 13 DAY)
              GROUP BY DATE(first_seen_at)
-             ORDER BY day ASC"
+             ORDER BY day ASC'
         );
 
-        $utmSources = $db->select(
-            "SELECT COALESCE(utm_source, '(direct)') AS source, COUNT(*) AS total
-             FROM landing_page_visits
-             {$whereFbVisits}
-             GROUP BY utm_source
-             ORDER BY total DESC
-             LIMIT 10"
+        // Aggregate and properly classify traffic sources from visits
+        $rawVisits = $db->select(
+            'SELECT fbc, utm_source, referrer FROM landing_page_visits'
         );
+        $sourceCounts = [];
+        foreach ($rawVisits as $rv) {
+            $src = self::classifyTrafficSource($rv['fbc'] ?? null, $rv['utm_source'] ?? null, $rv['referrer'] ?? null);
+            $sourceCounts[$src] = ($sourceCounts[$src] ?? 0) + 1;
+        }
+        arsort($sourceCounts);
+        $utmSources = [];
+        foreach ($sourceCounts as $source => $total) {
+            $utmSources[] = ['source' => $source, 'total' => $total];
+        }
 
+        // Recent 10 events with visitor identity to match the visitors page
         $recentEvents = $db->select(
-            'SELECT te.id, te.event_name, te.event_source, te.occurred_at,
-                    lpv.ip_address, lpv.utm_source, lpv.utm_campaign
+            'SELECT te.id, te.event_name, te.event_source, te.event_data, te.occurred_at,
+                    lpv.id AS visit_id, lpv.fbc, lpv.fbp,
+                    lpv.email AS lpv_email, lpv.contact AS lpv_contact,
+                    lpv.utm_source, lpv.utm_campaign, lpv.referrer,
+                    MIN(inq.name)  AS inq_name,
+                    MIN(inq.email) AS inq_email,
+                    MIN(inq.phone) AS inq_phone
              FROM tracking_events te
              JOIN landing_page_visits lpv ON lpv.id = te.visit_id
-             WHERE lpv.fbc IS NOT NULL AND TRIM(lpv.fbc) != \'\'
-             ORDER BY te.occurred_at DESC
+             LEFT JOIN inquiries     inq ON inq.visit_id = lpv.id
+             GROUP BY te.id
+             ORDER BY te.occurred_at DESC, te.id DESC
              LIMIT 10'
         );
 
@@ -210,6 +211,54 @@ final class AnalyticsController extends Controller
             'utmSources'     => $utmSources,
             'recentEvents'   => $recentEvents,
         ])->noCache();
+    }
+
+    /**
+     * Classify traffic source based on Facebook click ID, UTM tags, and referrer.
+     */
+    public static function classifyTrafficSource(?string $fbc, ?string $utmSource, ?string $referrer = null): string
+    {
+        $fbc = trim((string) $fbc);
+        $utm = trim((string) $utmSource);
+        $ref = trim((string) $referrer);
+        $utmLower = strtolower($utm);
+        $refLower = strtolower($ref);
+
+        if (
+            $fbc !== ''
+            || str_contains($utmLower, 'site_source_name')
+            || in_array($utmLower, ['fb', 'facebook', 'meta', 'ig', 'instagram', 'an'], true)
+            || str_contains($refLower, 'facebook.com')
+            || str_contains($refLower, 'fb.me')
+            || str_contains($refLower, 'instagram.com')
+        ) {
+            return 'Facebook / Meta';
+        }
+
+        if ($utm !== '') {
+            if (in_array($utmLower, ['google', 'google-ads', 'cpc', 'adwords'], true)) {
+                return 'Google Ads';
+            }
+            return ucfirst($utm);
+        }
+
+        if ($ref !== '') {
+            if (str_contains($refLower, 'google.')) {
+                return 'Google Search';
+            }
+            if (str_contains($refLower, 'bing.')) {
+                return 'Bing Search';
+            }
+            if (str_contains($refLower, 'yahoo.')) {
+                return 'Yahoo Search';
+            }
+            $host = parse_url($ref, PHP_URL_HOST);
+            if ($host && !str_contains($host, '3ammediatech')) {
+                return preg_replace('/^www\./', '', $host);
+            }
+        }
+
+        return 'Direct Visit';
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -231,7 +280,7 @@ final class AnalyticsController extends Controller
         $perPage     = 10;
         $offset      = ($page - 1) * $perPage;
 
-        $conditions = ["lpv.fbc IS NOT NULL AND TRIM(lpv.fbc) != ''"];
+        $conditions = ['1=1'];
         $bindings   = [];
 
         if ($filterEvent !== '') {
@@ -270,8 +319,6 @@ final class AnalyticsController extends Controller
 
         $eventNames = $db->select(
             'SELECT DISTINCT te.event_name FROM tracking_events te
-             JOIN landing_page_visits lpv ON lpv.id = te.visit_id
-             WHERE lpv.fbc IS NOT NULL AND TRIM(lpv.fbc) != \'\'
              ORDER BY te.event_name'
         );
 
