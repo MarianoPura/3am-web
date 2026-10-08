@@ -249,9 +249,6 @@ const chosen = [...filterButtons].find(button => button.dataset.rentalsFilter ==
               return;
             }
             endInput.value = day.date;
-            calendar.hidden = true;
-            dateTrigger.setAttribute('aria-expanded', 'false');
-            dateTrigger.focus();
           }
           updateDateLabel();
           message.textContent = endInput.value ? 'Dates selected. Add to Cart when ready.' : 'Choose an end date.';

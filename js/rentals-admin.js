@@ -155,10 +155,19 @@ document.querySelectorAll('.rentals-admin__metric strong').forEach(value => {
 document.querySelectorAll('[data-rental-product-form]').forEach(form => {
   const type = form.querySelector('[data-rental-type]');
   const category = form.querySelector('[name="category_id"]');
-  const updateType = () => {
-    if (category?.selectedOptions[0]?.dataset.isService !== undefined) {
-      type.value = category.selectedOptions[0].dataset.isService;
+  if (!type || !category) return;
+  // Type is only a category filter; the backend derives classification from the category.
+  const filterCategories = () => {
+    Array.from(category.options).forEach(option => {
+      const matches = option.value === '' || option.dataset.isService === type.value;
+      option.hidden = !matches;
+      option.disabled = !matches;
+    });
+    if (category.selectedOptions[0]?.disabled) {
+      category.value = '';
     }
+  };
+  const updateType = () => {
     const service = type.value === '1';
     const heading = form.closest?.('.rentals-admin__editor')?.querySelector('[data-create-product-heading]');
     if (heading) heading.textContent = service ? 'Add service' : 'Add equipment';
@@ -174,8 +183,12 @@ document.querySelectorAll('[data-rental-product-form]').forEach(form => {
       group.querySelectorAll('input, select, textarea').forEach(input => { input.disabled = service; });
     });
   };
-  type.addEventListener('change', updateType);
-  category?.addEventListener('change', updateType);
+  type.addEventListener('change', () => {
+    filterCategories();
+    updateType();
+  });
+  category.addEventListener('change', updateType);
+  filterCategories();
   updateType();
 });
 

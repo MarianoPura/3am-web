@@ -130,7 +130,7 @@ final class RentalAdminController extends Controller
         return $this->render('rentals.admin.items-create', [
             'section'       => 'items',
             'galleryReady' => (new \App\Services\RentalSchema($this->db()))->hasColumn('rental_items','additional_image_paths'),
-            'categories'    => $db->select('SELECT id, name, is_service, is_active FROM rental_categories ORDER BY name, id'),
+            'categories'    => $db->select('SELECT id, name, is_service, is_active FROM rental_categories WHERE is_active = 1 AND is_service IN (0, 1) ORDER BY name, id'),
             'images'        => $this->localImages(),
             'draft'         => $draft,
             'notice'        => $this->popNotice(),
@@ -149,6 +149,7 @@ final class RentalAdminController extends Controller
         $db   = $this->db();
         $item = $db->selectOne('SELECT i.*, c.is_service AS is_service FROM rental_items i JOIN rental_categories c ON c.id = i.category_id WHERE i.id = ?', [$itemId]);
         if ($item === null) { return Response::notFound(); }
+        $currentCategoryId = (int) $item['category_id'];
 
         if (isset($_SESSION['rentals_admin_product_draft']) && (int) ($_SESSION['rentals_admin_product_draft']['id'] ?? 0) === $itemId) {
             $draft = $_SESSION['rentals_admin_product_draft']['fields'] ?? [];
@@ -165,7 +166,7 @@ final class RentalAdminController extends Controller
             'itemId'        => $itemId,
             'item'          => $item,
             'record'        => $item,
-            'categories'    => $db->select('SELECT id, name, is_service, is_active FROM rental_categories ORDER BY name, id'),
+            'categories'    => $db->select('SELECT id, name, is_service, is_active FROM rental_categories WHERE is_service = ? AND (is_active = 1 OR id = ?) ORDER BY name, id', [(int) $item['is_service'], $currentCategoryId]),
             'blackouts'     => $db->select('SELECT * FROM rental_item_blackouts WHERE rental_item_id = ? ORDER BY start_date DESC, id DESC', [$itemId]),
             'images'        => $this->localImages(),
             'notice'        => $this->popNotice(),
@@ -754,7 +755,7 @@ final class RentalAdminController extends Controller
             throw new \InvalidArgumentException('Category: choose an existing category from the list.');
         }
         $categoryId = (int) $categoryValue;
-        $category = $this->db()->selectOne('SELECT id, is_service FROM rental_categories WHERE id = ?', [$categoryId]);
+        $category = $this->db()->selectOne('SELECT id, is_service, is_active FROM rental_categories WHERE id = ?', [$categoryId]);
         if ($category === null || !in_array((int) $category['is_service'], [0, 1], true)) {
             throw new \InvalidArgumentException('Choose an existing category.');
         }
@@ -811,6 +812,12 @@ final class RentalAdminController extends Controller
         $idealUse = $idealUse !== '' ? $idealUse : null;
 
         $isService = (int) $category['is_service'];
+        if ((int) $category['is_active'] !== 1 && ($existing === null || (int) $existing['category_id'] !== $categoryId)) {
+            throw new \InvalidArgumentException('Category: choose an active category.');
+        }
+        if ($request->has('catalogue_type') && $request->string('catalogue_type') !== (string) $isService) {
+            throw new \InvalidArgumentException('Category: choose a category matching the selected Equipment or Service type.');
+        }
         if ($existing !== null && $isService !== (int) $existing['is_service']) {
             throw new \InvalidArgumentException('Type: existing records keep their Equipment or Service type to protect inventory and bookings. Create a separate record for the other type.');
         }
@@ -977,7 +984,7 @@ final class RentalAdminController extends Controller
     {
         $fields = [];
         foreach ([
-            'category_id', 'name', 'slug', 'sku', 'description', 'ideal_use', 'is_service',
+            'category_id', 'name', 'slug', 'sku', 'description', 'ideal_use', 'is_service', 'catalogue_type',
             'availability_status', 'rental_unit', 'rental_rate', 'security_deposit', 'available_quantity', 'is_active',
         ] as $field) {
             $fields[$field] = substr($request->string($field), 0, 5000);
