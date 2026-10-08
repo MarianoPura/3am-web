@@ -97,7 +97,8 @@ try {
         [$code,$catalog]=$http('guest',$serviceUrl);
         $check($code===200&&str_contains($catalog,'Browse rental type')&&str_contains($catalog,'[TEST] Completion HTTP event crew')&&!str_contains($catalog,'[TEST] Completion HTTP camera'),'Service catalogue mixes equipment records.');
         $check(str_contains($catalog,'/rentals/services/'.$service.'/request')&&str_contains($catalog,'?type=services" aria-current="page"')&&!str_contains($catalog,'data-detail-form'),'Service selection/actions are incorrect.');
-        $check(str_contains($catalog,'data-rentals-filter="http-completion-'.$key.'"'),'Service category filter missing.');
+        $check(str_contains($catalog,'data-rentals-filter="http-services-'.$key.'"')
+            && !str_contains($catalog,'data-rentals-filter="http-completion-'.$key.'"'),'Service category filter missing or includes equipment.');
     }
     [$code,$catalog]=$http('guest','/rentals/items?type=invalid');
     $check($code===200&&str_contains($catalog,'data-detail-form'),'Unknown catalogue type must default to equipment.');

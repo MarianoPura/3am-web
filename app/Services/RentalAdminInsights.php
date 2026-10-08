@@ -197,6 +197,7 @@ final class RentalAdminInsights
 
     private function dateObject(string $value): ?\DateTimeImmutable
     {
+        if (preg_match('/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/D', $value) !== 1) { return null; }
         $date = \DateTimeImmutable::createFromFormat('!Y-m-d', $value);
         return $date !== false && $date->format('Y-m-d') === $value ? $date : null;
     }

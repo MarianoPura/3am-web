@@ -183,10 +183,11 @@ try {
         'action' => 'login', 'email' => $adminEmail, 'password' => $adminPassword]);
     $assert($status === 200 && str_ends_with($finalUrl, '/rentals/admin') && str_contains($dashboard, 'Total rental sales'),
         'Admin login did not redirect straight to dashboard.');
-    $assert(!str_contains($dashboard, 'dashboard-analytics-heading') && str_contains($dashboard, '>Analytics</a>'),
-        'Analytics should be separate from Dashboard.');
-    [$status, $filteredDashboard] = $http('/rentals/admin/analytics?period=7d');
-    $assert($status === 200 && str_contains($filteredDashboard, 'Rental revenue over time'), 'Dedicated analytics filter failed.');
+    $assert(str_contains($dashboard, 'id="rental-analytics"') && str_contains($dashboard, 'Rental revenue over time'),
+        'Dashboard analytics panel missing.');
+    [$status, $filteredDashboard, $analyticsUrl] = $http('/rentals/admin/analytics?period=7d');
+    $assert($status === 200 && str_contains($filteredDashboard, 'Rental revenue over time')
+        && str_contains($analyticsUrl, '/rentals/admin?period=7d'), 'Analytics compatibility redirect lost its filter.');
     foreach (['sales-report', 'payment-report', 'orders', 'items', 'categories', 'payments'] as $section) {
         [$status] = $http('/rentals/admin/' . $section);
         $assert($status === 200, 'Admin section failed: ' . $section);

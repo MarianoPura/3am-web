@@ -582,7 +582,8 @@ final class RentalAdminController extends Controller
         $item = $this->db()->selectOne('SELECT i.*, c.is_service AS is_service FROM rental_items i JOIN rental_categories c ON c.id = i.category_id WHERE i.id = ? AND c.is_service = 0', [(int) $id]);
         if ($item === null) { return Response::notFound(); }
         $month   = $request->string('month');
-        $first   = \DateTimeImmutable::createFromFormat('!Y-m-d', $month . '-01');
+        $first   = preg_match('/^[0-9]{4}-[0-9]{2}$/D', $month) === 1
+            ? \DateTimeImmutable::createFromFormat('!Y-m-d', $month . '-01') : false;
         $current = new \DateTimeImmutable('first day of this month');
         if (!$first || $first->format('Y-m') !== $month || $first < $current->modify('-12 months')
             || $first > $current->modify('+12 months')) {
@@ -613,8 +614,10 @@ final class RentalAdminController extends Controller
         }
         $start  = $request->string('start_date');
         $end    = $request->string('end_date');
-        $first  = \DateTimeImmutable::createFromFormat('!Y-m-d', $start);
-        $last   = \DateTimeImmutable::createFromFormat('!Y-m-d', $end);
+        $first  = preg_match('/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/D', $start) === 1
+            ? \DateTimeImmutable::createFromFormat('!Y-m-d', $start) : false;
+        $last   = preg_match('/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/D', $end) === 1
+            ? \DateTimeImmutable::createFromFormat('!Y-m-d', $end) : false;
         if ($itemId < 1 || !$first || !$last || $first->format('Y-m-d') !== $start
             || $last->format('Y-m-d') !== $end || $first > $last
             || $this->db()->selectOne('SELECT i.id FROM rental_items i JOIN rental_categories c ON c.id = i.category_id WHERE i.id = ? AND c.is_service = 0', [$itemId]) === null) {

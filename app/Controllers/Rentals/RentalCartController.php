@@ -16,7 +16,8 @@ final class RentalCartController extends Controller
     public function availability(Request $request): Response
     {
         $month = $request->string('month');
-        $first = \DateTimeImmutable::createFromFormat('!Y-m-d', $month . '-01');
+        $first = preg_match('/^[0-9]{4}-[0-9]{2}$/D', $month) === 1
+            ? \DateTimeImmutable::createFromFormat('!Y-m-d', $month . '-01') : false;
         $item = (new RentalCatalog($this->db()))->find($request->string('id'));
         $quantity = $this->requestedQuantity($request);
         $today = new \DateTimeImmutable('today');
@@ -135,9 +136,13 @@ final class RentalCartController extends Controller
             return $this->redirect(url('rentals/cart'));
         }
 
-        $item = (new RentalCatalog($this->db()))->find($itemId);
+        $catalog = new RentalCatalog($this->db());
+        $item = $catalog->find($itemId);
         $cart = new RentalCart();
-        if ($item === null || !$this->validDateRange($start, $end)
+        $line = $cart->contents()[$lineId] ?? null;
+        $lineItem = $line !== null ? $catalog->find((string) $line['item_id']) : null;
+        if ($item === null || $lineItem === null || (int) $item['db_id'] !== (int) $lineItem['db_id']
+            || !$this->validDateRange($start, $end)
             || !$this->canAddToCart($item, $cart, $quantity, $start, $end, $lineId)) {
             $_SESSION['rentals_notice'] = 'Choose valid dates spanning at most ' . \App\Services\RentalDateRange::MAX_DAYS . ' days and an available quantity before updating your cart.';
             return $this->redirect(url('rentals/cart'));
