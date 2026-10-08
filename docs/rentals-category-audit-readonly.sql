@@ -3,7 +3,7 @@
 SELECT c.id, c.name, c.slug, c.is_active, COUNT(i.id) AS active_items
 FROM rental_categories c
 LEFT JOIN rental_items i ON i.category_id = c.id
-    AND i.is_active = 1 AND i.is_service = 0
+    AND i.is_active = 1 AND c.is_service = 0
 GROUP BY c.id, c.name, c.slug, c.is_active
 ORDER BY c.id;
 
@@ -18,7 +18,7 @@ HAVING COUNT(*) > 1;
 -- This does not assume that similarly named records can safely be merged.
 SELECT c.id AS category_id, c.name, c.slug, c.is_active,
     i.id AS item_id, i.name AS item_name, i.slug AS item_slug,
-    i.is_active AS item_active, i.is_service
+    i.is_active AS item_active, c.is_service
 FROM rental_categories c
 LEFT JOIN rental_items i ON i.category_id = c.id
 WHERE c.is_active = 1 AND EXISTS (

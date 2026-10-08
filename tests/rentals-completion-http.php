@@ -24,6 +24,7 @@ $cleanup=static function(array $data)use($db):void {
     }
     foreach($data['items'] as $id) { if($id) {$db->delete("DELETE FROM rental_items WHERE id=? AND name LIKE '[TEST] Completion HTTP %'",[$id]);} }
     if($data['method']) {$db->delete("DELETE FROM payment_methods WHERE id=? AND name LIKE '[TEST] Completion HTTP %'",[$data['method']]);}
+    if(!empty($data['serviceCategory'])) {$db->delete("DELETE FROM rental_categories WHERE id=? AND name LIKE '[TEST] Completion HTTP %'",[$data['serviceCategory']]);}
     if($data['category']) {$db->delete("DELETE FROM rental_categories WHERE id=? AND name LIKE '[TEST] Completion HTTP %'",[$data['category']]);}
     foreach($data['files'] as $path) {
         if(str_starts_with($path,'micro/payment/qr/')) { App\Services\RentalManagedImage::remove($path,'qr'); }
@@ -87,7 +88,8 @@ try {
     $unchanged=$db->selectOne('SELECT image_path,additional_image_paths FROM rental_items WHERE id=?',[$equipment]);
     $check($unchanged['image_path']===$item['image_path']&&$unchanged['additional_image_paths']===$item['additional_image_paths'],'Invalid upload changed saved images.');
     // Separate service payment using the same encrypted file service, never order_header.
-    $service=$db->insert("INSERT INTO rental_items(category_id,name,slug,is_service,availability_status) VALUES (?,?,?,1,'inquire')",[$category,'[TEST] Completion HTTP event crew','http-service-'.$key]);
+    $serviceCategory=$db->insert('INSERT INTO rental_categories(name,slug,is_service) VALUES (?,?,1)',['[TEST] Completion HTTP services','http-services-'.$key]);
+    $service=$db->insert("INSERT INTO rental_items(category_id,name,slug,availability_status) VALUES (?,?,?,'inquire')",[$serviceCategory,'[TEST] Completion HTTP event crew','http-service-'.$key]);
     [$code,$catalog]=$http('guest','/rentals/items');
     $check($code===200&&str_contains($catalog,'Browse rental type')&&str_contains($catalog,'[TEST] Completion HTTP camera')&&!str_contains($catalog,'[TEST] Completion HTTP event crew'),'Equipment catalogue mixes service records.');
     $check(str_contains($catalog,'data-detail-form')&&str_contains($catalog,'loading="lazy"')&&str_contains($catalog,'decoding="async"'),'Equipment actions or image loading changed.');
@@ -185,8 +187,8 @@ try {
         [$code]=$http('customer','/rentals/checkout');$check($code===200,'Freshly authenticated Checkout failed.');
     }
     echo "PASS: unified Equipment/Services catalogue; managed product/gallery uploads and caching; stale/missing/current quotation versions; encrypted image/PDF proof uploads and replacement; ownership/CSRF; repeated POST/review deduplication; stale Checkout GET/POST and independent Cart sessions; valid re-login; extreme date rejection; pagination/dashboard/public pages. No real emails.\n";
-    if($keep) { file_put_contents($metadata,json_encode(['users'=>$users,'items'=>[$equipment,$service,$sharedItem],'category'=>$category,'method'=>$method,'files'=>$ownedFiles,'base'=>$base,'key'=>$key,'password'=>$password,'requestId'=>$requestId],JSON_THROW_ON_ERROR));@chmod($metadata,0600);echo "Visual fixtures retained temporarily; run --cleanup-visual after browser checks.\n"; }
+    if($keep) { file_put_contents($metadata,json_encode(['users'=>$users,'items'=>[$equipment,$service,$sharedItem],'category'=>$category,'serviceCategory'=>$serviceCategory??0,'method'=>$method,'files'=>$ownedFiles,'base'=>$base,'key'=>$key,'password'=>$password,'requestId'=>$requestId],JSON_THROW_ON_ERROR));@chmod($metadata,0600);echo "Visual fixtures retained temporarily; run --cleanup-visual after browser checks.\n"; }
 } finally {
-    if(!$keep || !is_file($metadata)) { $cleanup(['users'=>$users,'items'=>[$equipment,$service,$sharedItem],'category'=>$category,'method'=>$method,'files'=>$ownedFiles]); }
+    if(!$keep || !is_file($metadata)) { $cleanup(['users'=>$users,'items'=>[$equipment,$service,$sharedItem],'category'=>$category,'serviceCategory'=>$serviceCategory??0,'method'=>$method,'files'=>$ownedFiles]); }
     foreach($jars as $jar) { @unlink($jar); }
 }

@@ -165,7 +165,7 @@ try {
     foreach ([
         ['category_id', '', 'Category:'], ['category_id', $categoryId . '.5', 'Category:'], ['category_id', '999999999999999999', 'Choose an existing category'],
         ['name', '  ', 'Name:'], ['name', str_repeat('é', 191), 'Name:'],
-        ['is_service', 'camera', 'Type:'], ['availability_status', 'unknown', 'availability status'],
+        ['availability_status', 'unknown', 'availability status'],
         ['rental_unit', str_repeat('x', 31), 'Rental unit:'], ['ideal_use', str_repeat('x', 501), 'Ideal use:'],
         ['description', str_repeat('x', 5001), 'Description:'], ['slug', str_repeat('x', 191), 'Slug:'],
         ['available_quantity', '', 'Available quantity:'], ['available_quantity', '1.5', 'Available quantity:'],
@@ -190,28 +190,29 @@ try {
     foreach (['0'] as $type) {
         foreach (['available', 'unavailable', 'out_of_stock', 'reserved', 'inquire'] as $availability) {
             $http('/rentals/admin/items', array_replace($autoProduct, ['id' => $autoId, 'is_service' => $type, 'availability_status' => $availability, 'rental_unit' => 'event']));
-            $actual = $db->selectOne('SELECT is_service, availability_status, rental_unit FROM rental_items WHERE id = ?', [$autoId]);
+            $actual = $db->selectOne('SELECT c.is_service, i.availability_status, i.rental_unit FROM rental_items i JOIN rental_categories c ON c.id=i.category_id WHERE i.id = ?', [$autoId]);
             $assert((string) $actual['is_service'] === $type && $actual['availability_status'] === $availability && $actual['rental_unit'] === 'event', 'Valid product type/availability/unit was rejected.');
         }
     }
+    $serviceCategoryId = $db->insert('INSERT INTO rental_categories(name,slug,is_service) VALUES (?,?,1)', ['QA Services ' . $key, 'qa-services-' . $key]);
     [, $serviceSaved] = $http('/rentals/admin/items', array_replace($autoProduct, [
-        'name' => 'QA Service ' . $key, 'slug' => 'qa-service-' . $key, 'sku' => '', 'is_service' => '1',
+        'category_id' => (string) $serviceCategoryId, 'name' => 'QA Service ' . $key, 'slug' => 'qa-service-' . $key, 'sku' => '', 'is_service' => '1',
         'available_quantity' => 'invalid stale stock', 'security_deposit' => 'invalid stale deposit', 'availability_status' => 'invalid stale availability',
     ]));
-    $service = $db->selectOne('SELECT * FROM rental_items WHERE slug = ?', ['qa-service-' . $key]);
+    $service = $db->selectOne('SELECT i.*, c.is_service FROM rental_items i JOIN rental_categories c ON c.id=i.category_id WHERE i.slug = ?', ['qa-service-' . $key]);
     if ($service) { $extraItemIds[] = (int) $service['id']; }
     $assert($service && (int) $service['is_service'] === 1 && (int) $service['available_quantity'] === 0
         && (float) $service['security_deposit'] === 0.0 && $service['availability_status'] === 'inquire', 'Service creation used stale equipment controls.');
     $db->update('UPDATE rental_items SET available_quantity=7, security_deposit=35, availability_status=? WHERE id=?', ['unavailable', $service['id']]);
-    $serviceFields = array_replace($autoProduct, ['id' => $service['id'], 'is_service' => '1', 'name' => 'QA Service edited ' . $key,
+    $serviceFields = array_replace($autoProduct, ['id' => $service['id'], 'category_id' => (string) $serviceCategoryId, 'is_service' => '1', 'name' => 'QA Service edited ' . $key,
         'slug' => $service['slug'], 'available_quantity' => '999999', 'security_deposit' => '999', 'availability_status' => 'available']);
     $http('/rentals/admin/items', $serviceFields);
     $serviceAfter = $db->selectOne('SELECT * FROM rental_items WHERE id=?', [$service['id']]);
     $assert($serviceAfter['name'] === $serviceFields['name'] && (int) $serviceAfter['available_quantity'] === 7
         && (float) $serviceAfter['security_deposit'] === 35.0 && $serviceAfter['availability_status'] === 'unavailable', 'Service edit overwrote hidden existing equipment data.');
-    [, $typeRejected] = $http('/rentals/admin/items', array_replace($autoProduct, ['id' => $autoId, 'is_service' => '1']));
+    [, $typeRejected] = $http('/rentals/admin/items', array_replace($autoProduct, ['id' => $autoId, 'category_id' => (string) $serviceCategoryId, 'is_service' => '0']));
     $assert(str_contains($typeRejected, 'protect inventory and bookings')
-        && (int) $db->selectValue('SELECT is_service FROM rental_items WHERE id=?', [$autoId]) === 0, 'Editing converted an existing equipment record.');
+        && (int) $db->selectValue('SELECT c.is_service FROM rental_items i JOIN rental_categories c ON c.id=i.category_id WHERE i.id=?', [$autoId]) === 0, 'Editing converted an existing equipment record.');
     $assert(strpos($editor, 'data-rental-type') < strpos($editor, 'name="category_id"')
         && strpos($editor, 'name="available_quantity"') < strpos($editor, 'name="name"'), 'Rental type/capacity are not at the top.');
     echo "PASS: equipment validation; service create/edit ignores stale inventory fields; existing type protected.\n";
@@ -493,6 +494,7 @@ try {
         App\Services\RentalManagedImage::remove($path, 'product');
         $db->delete('DELETE FROM rental_items WHERE id = ?', [$itemId]);
     }
+    if (!empty($serviceCategoryId)) { $db->delete('DELETE FROM rental_categories WHERE id = ?', [$serviceCategoryId]); }
     if ($categoryId) {
         App\Services\RentalManagedImage::remove($db->selectValue('SELECT image_path FROM rental_categories WHERE id=?', [$categoryId]), 'product');
         $db->delete('DELETE FROM rental_categories WHERE id = ?', [$categoryId]);

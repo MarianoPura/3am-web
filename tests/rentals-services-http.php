@@ -39,8 +39,8 @@ try {
         $users[] = $db->insert('INSERT INTO users(name,email,password,role) VALUES (?,?,?,?)',
             ['[TEST] Services HTTP ' . $key, 'service-http-' . $key . '-' . $index . '@example.test', password_hash($password, PASSWORD_DEFAULT), $role]);
     }
-    $category = $db->insert('INSERT INTO rental_categories(name,slug) VALUES (?,?)', ['[TEST] Services HTTP ' . $key, 'service-http-' . $key]);
-    $service = $db->insert('INSERT INTO rental_items(category_id,name,slug,is_service,availability_status,available_quantity) VALUES (?,?,?,1,?,0)',
+    $category = $db->insert('INSERT INTO rental_categories(name,slug,is_service) VALUES (?,?,1)', ['[TEST] Services HTTP ' . $key, 'service-http-' . $key]);
+    $service = $db->insert('INSERT INTO rental_items(category_id,name,slug,availability_status,available_quantity) VALUES (?,?,?,?,0)',
         [$category, '[TEST] Production crew ' . $key, 'service-http-' . $key, 'inquire']);
     [$code, $page] = $http('/rentals/services');
     $mount = (string) parse_url($base, PHP_URL_PATH);

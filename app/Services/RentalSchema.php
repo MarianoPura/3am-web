@@ -9,8 +9,8 @@ final class RentalSchema
 {
     public const COLUMNS = [
         'users' => 'id name email password role last_login created_at updated_at',
-        'rental_categories' => 'id name slug description image_path is_active created_at updated_at',
-        'rental_items' => 'id category_id name slug sku description ideal_use image_path additional_image_paths is_service availability_status rental_unit rental_rate security_deposit available_quantity is_active created_at updated_at',
+        'rental_categories' => 'id name slug description image_path is_service is_active created_at updated_at',
+        'rental_items' => 'id category_id name slug sku description ideal_use image_path additional_image_paths availability_status rental_unit rental_rate security_deposit available_quantity is_active created_at updated_at',
         'rental_item_blackouts' => 'id rental_item_id start_date end_date note is_active created_at updated_at',
         'carts' => 'id user_id created_at updated_at',
         'cart_items' => 'id cart_id rental_item_id quantity rental_start_date rental_end_date created_at updated_at',

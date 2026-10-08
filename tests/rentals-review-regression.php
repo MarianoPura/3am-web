@@ -91,7 +91,8 @@ try {
     $account->login($email, $password);
     $check($cart->count() === 1, 'Fresh login failed or changed saved Cart.');
 
-    $service = $db->insert('INSERT INTO rental_items(category_id,name,slug,is_service,availability_status) VALUES (?,?,?,?,?)', [$category, '[TEST] Review service', 'review-service-' . $key, 1, 'inquire']);
+    $serviceCategory = $db->insert('INSERT INTO rental_categories(name,slug,is_service) VALUES (?,?,1)', ['[TEST] Review services', 'review-services-' . $key]);
+    $service = $db->insert('INSERT INTO rental_items(category_id,name,slug,availability_status) VALUES (?,?,?,?)', [$serviceCategory, '[TEST] Review service', 'review-service-' . $key, 'inquire']);
     $store = new App\Services\RentalServiceRequests($db);
     $record = $store->submit($user, $service, hash('sha256', $key . '-service'), ['phone'=>'QA phone', 'start_date'=>$start, 'end_date'=>$start, 'location'=>'QA venue', 'details'=>'Camera and crew']);
     $id = (int)$record['id'];

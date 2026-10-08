@@ -45,10 +45,11 @@ try {
         $users[] = $db->insert('INSERT INTO users(name,email,password,role) VALUES (?,?,?,?)',
             ['[TEST] Services ' . $key, 'service-' . $key . '-' . $i . '@example.test', password_hash($key, PASSWORD_DEFAULT), $role]);
     }
-    $category = $db->insert('INSERT INTO rental_categories(name,slug) VALUES (?,?)', ['[TEST] Services ' . $key, 'services-' . $key]);
-    $service = $db->insert('INSERT INTO rental_items(category_id,name,slug,is_service,availability_status,available_quantity) VALUES (?,?,?,1,?,0)',
+    $category = $db->insert('INSERT INTO rental_categories(name,slug,is_service) VALUES (?,?,1)', ['[TEST] Services ' . $key, 'services-' . $key]);
+    $service = $db->insert('INSERT INTO rental_items(category_id,name,slug,availability_status,available_quantity) VALUES (?,?,?,?,0)',
         [$category, '[TEST] Event coverage ' . $key, 'service-' . $key, 'inquire']);
-    $equipment = $db->insert('INSERT INTO rental_items(category_id,name,slug,is_service) VALUES (?,?,?,0)', [$category, '[TEST] Equipment ' . $key, 'equipment-' . $key]);
+    $equipmentCategory = $db->insert('INSERT INTO rental_categories(name,slug) VALUES (?,?)', ['[TEST] Equipment ' . $key, 'equipment-category-' . $key]);
+    $equipment = $db->insert('INSERT INTO rental_items(category_id,name,slug) VALUES (?,?,?)', [$equipmentCategory, '[TEST] Equipment ' . $key, 'equipment-' . $key]);
     $assert($store->service($service) !== null && $store->service($equipment) === null, 'Equipment accepted as a service.');
     foreach ([['phone', ''], ['location', ''], ['details', ''], ['start_date', '2026-02-30'],
               ['end_date', date('Y-m-d', strtotime('-1 day'))], ['details', str_repeat('x', 5001)]] as [$field, $value]) {
@@ -124,6 +125,7 @@ try {
     foreach ($users as $id) { $db->delete('DELETE FROM rental_service_requests WHERE user_id=?', [$id]); }
     if ($service) { $db->delete('DELETE FROM rental_items WHERE id=?', [$service]); }
     if ($equipment) { $db->delete('DELETE FROM rental_items WHERE id=?', [$equipment]); }
+    if (!empty($equipmentCategory)) { $db->delete('DELETE FROM rental_categories WHERE id=?', [$equipmentCategory]); }
     if ($category) { $db->delete('DELETE FROM rental_categories WHERE id=?', [$category]); }
     foreach ($users as $id) { $db->delete('DELETE FROM rental_notification_deliveries WHERE service_request_id IN (SELECT id FROM rental_service_requests WHERE user_id=?)',[$id]); $db->delete('DELETE FROM users WHERE id=?', [$id]); }
     if (is_file($dir . '/inquiries.jsonl')) { unlink($dir . '/inquiries.jsonl'); }

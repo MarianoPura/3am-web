@@ -27,7 +27,7 @@ final class RentalAdminInsights
                 'Total rental sales' => (float) $status['sales'],
                 'Total orders' => (int) $status['orders'],
                 'Pending payments' => (int) $status['pending'],
-                'Active equipment' => (int) $this->db->selectValue('SELECT COUNT(*) FROM rental_items WHERE is_service = 0 AND is_active = 1'),
+                'Active equipment' => (int) $this->db->selectValue('SELECT COUNT(*) FROM rental_items i JOIN rental_categories c ON c.id = i.category_id WHERE c.is_service = 0 AND i.is_active = 1 AND c.is_active = 1'),
             ],
             'recentOrders' => $this->db->select('SELECT h.id, h.order_number, h.customer_name, h.payment_status,
                 h.total_amount, h.created_at, p.name AS payment_method FROM order_header h
@@ -95,19 +95,19 @@ final class RentalAdminInsights
                 GROUP BY h.payment_status ORDER BY h.payment_status', $dates),
             'topItems' => $this->db->select('SELECT d.item_name AS name, SUM(d.quantity) AS units
                 FROM order_details d JOIN order_header h ON h.id = d.order_header_id
-                JOIN rental_items i ON i.id = d.rental_item_id
-                WHERE h.created_at >= ? AND h.created_at < ? AND h.payment_status = 1 AND i.is_service = 0 ' . $scope . '
+                JOIN rental_items i ON i.id = d.rental_item_id JOIN rental_categories c ON c.id = i.category_id
+                WHERE h.created_at >= ? AND h.created_at < ? AND h.payment_status = 1 AND c.is_service = 0 ' . $scope . '
                 GROUP BY d.rental_item_id, d.item_name ORDER BY units DESC LIMIT 8', $dates),
             'categories' => $this->db->select('SELECT c.name, SUM(d.quantity) AS units
                 FROM order_details d JOIN order_header h ON h.id = d.order_header_id
                 JOIN rental_items i ON i.id = d.rental_item_id JOIN rental_categories c ON c.id = i.category_id
                 WHERE h.created_at >= ? AND h.created_at < ? AND h.payment_status = 1 ' . $scope . '
                 GROUP BY c.id, c.name ORDER BY units DESC LIMIT 8', $dates),
-            'types' => $this->db->select("SELECT CASE WHEN i.is_service = 1 THEN 'Service' ELSE 'Equipment' END AS name,
+            'types' => $this->db->select("SELECT CASE WHEN c.is_service = 1 THEN 'Service' ELSE 'Equipment' END AS name,
                 SUM(d.quantity) AS units FROM order_details d JOIN rental_items i ON i.id = d.rental_item_id
-                JOIN order_header h ON h.id = d.order_header_id
+                JOIN order_header h ON h.id = d.order_header_id JOIN rental_categories c ON c.id = i.category_id
                 WHERE h.created_at >= ? AND h.created_at < ? AND h.payment_status = 1 $scope
-                GROUP BY i.is_service ORDER BY units DESC", $dates),
+                GROUP BY c.is_service ORDER BY units DESC", $dates),
             'methods' => $this->db->select("SELECT COALESCE(p.name, 'Unassigned') AS name, COUNT(*) AS orders
                 FROM order_header h LEFT JOIN payment_methods p ON p.id = h.payment_method_id
                 WHERE h.created_at >= ? AND h.created_at < ? $scope

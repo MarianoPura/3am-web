@@ -4,7 +4,7 @@
 
 Equipment and Services now share `/rentals/items`, with clickable choices at the top. Services uses `?type=services`. The existing `/rentals/services` URL remains valid and renders the same shared catalogue in Services mode. Both choices are ordinary links, so navigation works without JavaScript.
 
-The existing `rental_items.is_service` boolean remains authoritative: `0` selects equipment and `1` selects services. No new schema, classification, or duplicate booking implementation was introduced. Only the selected type's cards are rendered. The existing catalogue model still loads the active records and excludes inactive categories/items.
+The existing `rental_categories.is_service` boolean remains authoritative: `0` selects equipment and `1` selects services. No new schema, classification, or duplicate booking implementation was introduced. Only the selected type's cards are rendered. The existing catalogue model still loads the active records and excludes inactive categories/items.
 
 - Equipment uses a wrapping grid within each category: four cards per desktop row, two on tablet and one on mobile. Horizontal scrolling and carousel arrows were removed from the equipment catalogue. The detail/gallery dialog, stock, rental dates, quantity and Add to Cart flow remain intact.
 - Services shows production support descriptions, ideal use, listed rates/quotation guidance, Request service and service request history. It does not show equipment stock, deposits or Add to Cart. The existing service request/quotation/payment workflow remains separate.
