@@ -77,6 +77,20 @@ try {
     }
     $rejects(fn () => $saveItem->invoke($controller, $request(array_replace($base, ['category_id' => (string) $categories[1]])), $ids[0]), 'protect inventory');
     $rejects(fn () => $saveItem->invoke($controller, $request(array_replace($base, ['category_id' => '999999999999999999'])), 0), 'existing category');
+    $rejects(fn () => $saveItem->invoke($controller, $request(array_replace($base, ['category_id' => (string) $categories[0], 'catalogue_type' => '1'])), 0), 'matching');
+    $rejects(fn () => $saveItem->invoke($controller, $request(array_replace($base, ['category_id' => (string) $categories[0], 'catalogue_type' => 'invalid'])), 0), 'matching');
+    $db->update('UPDATE rental_categories SET is_active=0 WHERE id=?', [$categories[0]]);
+    $rejects(fn () => $saveItem->invoke($controller, $request(array_replace($base, ['category_id' => (string) $categories[0]])), 0), 'active category');
+    // Existing products in inactive categories remain editable without moving category.
+    $saveItem->invoke($controller, $request(array_replace($base, ['category_id' => (string) $categories[0], 'catalogue_type' => '0'])), $ids[0]);
+    $db->update('UPDATE rental_categories SET is_active=1 WHERE id=?', [$categories[0]]);
+    $newForm = $controller->itemsNew($request())->body();
+    $check((bool) preg_match('/<select name="catalogue_type" data-rental-type>/', $newForm), 'New product type selector must be enabled.');
+    $editForm = $controller->itemsEdit($request(), (string) $ids[0])->body();
+    $check(!str_contains($editForm, 'value="' . $categories[1] . '"'), 'Edit offered a category of the other type.');
+    $requestController = new App\Controllers\Rentals\RentalServiceRequestController($container);
+    $emptyRequests = $requestController->adminList($request([], ['q' => 'no-matching-request-' . $key, 'status' => 'all']));
+    $check($emptyRequests->status() === 200 && str_contains($emptyRequests->body(), 'No service requests match this view.'), 'Empty Admin request list returned an error.');
     $catalog = new App\Models\RentalCatalog($db);
     $data = $catalog->load();
     $check(!$data['catalogUnavailable'], 'Catalogue failed.');

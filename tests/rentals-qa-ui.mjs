@@ -27,11 +27,13 @@ console.log('PASS: Admin past/today/partial/full/blocked labels; historical manu
 const formInit=adminSource.slice(adminSource.indexOf("document.querySelectorAll('[data-rental-product-form]')"));
 for(const initial of ['0','1']){
  const listeners=[];const type={value:initial,addEventListener:(event,fn)=>listeners.push({event,fn})};
+ const category={value:'',options:[{value:'',dataset:{}},{value:'equipment',dataset:{isService:'0'}},{value:'service',dataset:{isService:'1'}}],
+  get selectedOptions(){return this.options.filter(option=>option.value===this.value);},addEventListener(){}};
  const groups=Array.from({length:3},()=>({hidden:false,input:{disabled:false,value:'retain value'},querySelectorAll(){return [this.input];}}));
  const labels=[{dataset:{equipmentText:'Name',serviceText:'Service name'},textContent:''}];
  const placeholders=[{dataset:{equipmentPlaceholder:'Sony camera',servicePlaceholder:'Event camera crew'},value:'Preserve entered name',placeholder:''}];
  const guidance={hidden:true};const heading={textContent:''};
- const form={querySelector:()=>type,closest:()=>({querySelector:()=>heading}),querySelectorAll:selector=>({
+ const form={querySelector:selector=>selector==='[data-rental-type]'?type:category,closest:()=>({querySelector:()=>heading}),querySelectorAll:selector=>({
   '[data-equipment-field]':groups,'[data-product-label]':labels,'[data-product-placeholder]':placeholders,'[data-service-field]':[guidance]
  }[selector]??[])};
  vm.runInNewContext(formInit,{document:{querySelectorAll:selector=>selector==='[data-rental-product-form]'?[form]:[]}});

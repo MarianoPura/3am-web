@@ -1,5 +1,12 @@
 <?php
 $draft = $draft ?? [];
+$selectedType = in_array($draft['catalogue_type'] ?? '', ['0', '1'], true) ? $draft['catalogue_type'] : '0';
+foreach ($categories as $category) {
+    if ((string) ($draft['category_id'] ?? '') === (string) $category['id']) {
+        $selectedType = (string) (int) $category['is_service'];
+        break;
+    }
+}
 ?>
 <?php $this->extend('rentals.layouts.admin'); ?>
 <?php $this->start('title') ?>Add Product — Rentals Admin<?php $this->end() ?>
@@ -26,11 +33,11 @@ $draft = $draft ?? [];
           <legend><span data-product-label data-equipment-text="Rental type and capacity" data-service-text="Service type">Rental type and capacity</span></legend>
           <div class="rentals-admin__two">
             <label>Rental type
-              <select data-rental-type disabled>
-                <option value="0"<?= ($draft['is_service'] ?? '0') === '0' ? ' selected' : '' ?>>Equipment</option>
-                <option value="1"<?= ($draft['is_service'] ?? '') === '1' ? ' selected' : '' ?>>Service</option>
+              <select name="catalogue_type" data-rental-type>
+                <option value="0"<?= $selectedType === '0' ? ' selected' : '' ?>>Equipment</option>
+                <option value="1"<?= $selectedType === '1' ? ' selected' : '' ?>>Service</option>
               </select>
-              <small>Type is determined by the selected category.</small>
+              <small>Choose a type, then a matching category. The category determines the saved type.</small>
             </label>
             <label class="rentals-admin__quantity" data-equipment-field>Available quantity
               <input type="number" min="0" max="999999" step="1" name="available_quantity" required value="<?= e_attr((string) ($draft['available_quantity'] ?? '1')) ?>">

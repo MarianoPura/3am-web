@@ -42,7 +42,7 @@ $this->extend('rentals.layouts.base');
       <div class="rentals-catalogue-layout__content">
         <?php if($activeRecords!==[]): ?><p class="rentals-results" data-rentals-results data-rentals-result-noun="<?= $isServiceCatalogue?'service':'item' ?>" role="status" aria-live="polite"></p><?php endif ?>
         <?php if($isServiceCatalogue): ?>
-          <?= $this->partial('rentals.partials.service-catalogue',['services'=>$servicesList]) ?>
+          <?= $this->partial('rentals.partials.service-catalogue',['services'=>$servicesList,'catalogUnavailable'=>!empty($catalogUnavailable)]) ?>
         <?php else: ?>
           <?= $this->partial('rentals.partials.equipment-catalogue',['items'=>$itemsList,'categories'=>$categoriesList]) ?>
         <?php endif ?>
