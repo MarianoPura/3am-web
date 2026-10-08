@@ -2,7 +2,7 @@
 
 The module uses nine tables: `users`, `rental_categories`,
 `rental_items`, `carts`, `cart_items`, `payment_methods`, `order_header`, and
-`order_details`, plus `rental_item_blackouts` for Admin-blocked dates. Services are `rental_items.is_service = 1`. One checkout writes
+`order_details`, plus `rental_item_blackouts` for Admin-blocked dates. Services are `rental_categories.is_service = 1`. One checkout writes
 one header and one detail row per cart line. Analytics has its own Admin page
 after Dashboard. Sales Report includes only Approved rental subtotals, while
 Payment Report tracks all payment statuses. Both query those tables directly.

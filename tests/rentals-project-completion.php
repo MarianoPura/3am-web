@@ -57,8 +57,8 @@ try {
     $check(!$throttle->attempt('login','192.0.2.2',strtoupper($email)),'Cross-IP account throttle bypassed.');
     for($n=0;$n<3;$n++) { $check($throttle->attempt('reset','192.0.2.1',$email),'Early reset throttle rejection.'); }
     $check(!$throttle->attempt('reset','192.0.2.3',$email),'Reset throttle bypassed.');
-    $category=$db->insert('INSERT INTO rental_categories(name,slug) VALUES (?,?)',['[TEST] Completion','completion-'.$key]);
-    $item=$db->insert("INSERT INTO rental_items(category_id,name,slug,is_service,availability_status) VALUES (?,?,?,1,'inquire')",[$category,'[TEST] Event service','service-'.$key]);
+    $category=$db->insert('INSERT INTO rental_categories(name,slug,is_service) VALUES (?,?,1)',['[TEST] Completion','completion-'.$key]);
+    $item=$db->insert("INSERT INTO rental_items(category_id,name,slug,availability_status) VALUES (?,?,?,'inquire')",[$category,'[TEST] Event service','service-'.$key]);
     $store=new App\Services\RentalServiceRequests($db);
     $fields=['phone'=>'QA phone','start_date'=>date('Y-m-d',strtotime('+5 days')),'end_date'=>date('Y-m-d',strtotime('+6 days')),'location'=>'QA venue','details'=>'Cameras and crew <script>unsafe</script>'];
     for($n=0;$n<27;$n++) { $record=$store->submit($users[0],$item,hash('sha256',$key.'-'.$n),$fields);$ids[]=(int)$record['id']; }

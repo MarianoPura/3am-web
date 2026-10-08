@@ -58,9 +58,9 @@ try {
             : $db->insert(
                 'INSERT INTO rental_items
                     (category_id, name, slug, sku, description, ideal_use, image_path,
-                     is_service, availability_status, rental_unit, rental_rate,
+                     availability_status, rental_unit, rental_rate,
                      security_deposit, available_quantity, is_active)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, 1)',
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)',
                 [
                     $categoryId,
                     '[TEST] Camera Item',
@@ -83,9 +83,9 @@ try {
             $db->insert(
                 'INSERT INTO rental_items
                     (category_id, name, slug, sku, description, ideal_use, image_path,
-                     is_service, availability_status, rental_unit, rental_rate,
+                     availability_status, rental_unit, rental_rate,
                      security_deposit, available_quantity, is_active)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, 1)',
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)',
                 [
                     $categoryId,
                     '[TEST] Lighting Item',

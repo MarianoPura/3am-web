@@ -27,7 +27,7 @@ final class RentalCatalog
                     AND EXISTS (
                         SELECT 1 FROM rental_items equipment
                         WHERE equipment.category_id = rental_categories.id
-                            AND equipment.is_active = 1 AND equipment.is_service = 0
+                            AND equipment.is_active = 1 AND rental_categories.is_service = 0
                     )
                 ORDER BY name ASC, id ASC
                 "
@@ -45,7 +45,7 @@ final class RentalCatalog
                     i.description,
                     i.ideal_use AS ideal_for,
                     i.image_path,
-                    i.is_service,
+                    c.is_service AS is_service,
                     i.availability_status,
                     i.rental_unit,
                     i.rental_rate,
@@ -58,6 +58,7 @@ final class RentalCatalog
                 WHERE
                     i.is_active = 1
                     AND c.is_active = 1
+                    AND c.is_service IN (0, 1)
                 ORDER BY i.name ASC, i.id ASC
                 "
             );

@@ -154,7 +154,11 @@ document.querySelectorAll('.rentals-admin__metric strong').forEach(value => {
 // One handler for Add/Edit; disabled equipment controls never submit stale values.
 document.querySelectorAll('[data-rental-product-form]').forEach(form => {
   const type = form.querySelector('[data-rental-type]');
+  const category = form.querySelector('[name="category_id"]');
   const updateType = () => {
+    if (category?.selectedOptions[0]?.dataset.isService !== undefined) {
+      type.value = category.selectedOptions[0].dataset.isService;
+    }
     const service = type.value === '1';
     const heading = form.closest?.('.rentals-admin__editor')?.querySelector('[data-create-product-heading]');
     if (heading) heading.textContent = service ? 'Add service' : 'Add equipment';
@@ -171,6 +175,7 @@ document.querySelectorAll('[data-rental-product-form]').forEach(form => {
     });
   };
   type.addEventListener('change', updateType);
+  category?.addEventListener('change', updateType);
   updateType();
 });
 

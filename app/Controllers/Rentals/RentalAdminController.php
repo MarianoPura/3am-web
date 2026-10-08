@@ -94,11 +94,11 @@ final class RentalAdminController extends Controller
         $categoryId = max(0, $request->int('category'));
         $type       = in_array($request->string('type'), ['equipment', 'service'], true) ? $request->string('type') : 'all';
         $typeValue  = $type === 'equipment' ? 0 : ($type === 'service' ? 1 : -1);
-        $categories = $db->select('SELECT id, name, is_active FROM rental_categories ORDER BY name, id');
+        $categories = $db->select('SELECT id, name, is_service, is_active FROM rental_categories ORDER BY name, id');
         $pagination = \App\Services\RentalPagination::fetch($db,
-            'SELECT i.*, c.name AS category_name FROM rental_items i JOIN rental_categories c ON c.id = i.category_id
+            'SELECT i.*, c.is_service AS is_service, c.name AS category_name FROM rental_items i JOIN rental_categories c ON c.id = i.category_id
              WHERE (? = 0 OR i.category_id = ?) AND (? = \'\' OR i.name LIKE ? OR i.sku LIKE ?)
-               AND (? = -1 OR i.is_service = ?)
+               AND (? = -1 OR c.is_service = ?)
              ORDER BY i.updated_at DESC, i.id DESC',
             [$categoryId, $categoryId, $term, '%' . $term . '%', '%' . $term . '%', $typeValue, $typeValue]
         , $request->int('page',1));
@@ -130,7 +130,7 @@ final class RentalAdminController extends Controller
         return $this->render('rentals.admin.items-create', [
             'section'       => 'items',
             'galleryReady' => (new \App\Services\RentalSchema($this->db()))->hasColumn('rental_items','additional_image_paths'),
-            'categories'    => $db->select('SELECT id, name, is_active FROM rental_categories ORDER BY name, id'),
+            'categories'    => $db->select('SELECT id, name, is_service, is_active FROM rental_categories ORDER BY name, id'),
             'images'        => $this->localImages(),
             'draft'         => $draft,
             'notice'        => $this->popNotice(),
@@ -147,7 +147,7 @@ final class RentalAdminController extends Controller
         if ($itemId < 1) { return Response::notFound(); }
 
         $db   = $this->db();
-        $item = $db->selectOne('SELECT * FROM rental_items WHERE id = ?', [$itemId]);
+        $item = $db->selectOne('SELECT i.*, c.is_service AS is_service FROM rental_items i JOIN rental_categories c ON c.id = i.category_id WHERE i.id = ?', [$itemId]);
         if ($item === null) { return Response::notFound(); }
 
         if (isset($_SESSION['rentals_admin_product_draft']) && (int) ($_SESSION['rentals_admin_product_draft']['id'] ?? 0) === $itemId) {
@@ -165,7 +165,7 @@ final class RentalAdminController extends Controller
             'itemId'        => $itemId,
             'item'          => $item,
             'record'        => $item,
-            'categories'    => $db->select('SELECT id, name, is_active FROM rental_categories ORDER BY name, id'),
+            'categories'    => $db->select('SELECT id, name, is_service, is_active FROM rental_categories ORDER BY name, id'),
             'blackouts'     => $db->select('SELECT * FROM rental_item_blackouts WHERE rental_item_id = ? ORDER BY start_date DESC, id DESC', [$itemId]),
             'images'        => $this->localImages(),
             'notice'        => $this->popNotice(),
@@ -578,7 +578,7 @@ final class RentalAdminController extends Controller
     public function availability(Request $request, string $id): Response
     {
         if ($denial = $this->deny()) { return $denial; }
-        $item = $this->db()->selectOne('SELECT * FROM rental_items WHERE id = ? AND is_service = 0', [(int) $id]);
+        $item = $this->db()->selectOne('SELECT i.*, c.is_service AS is_service FROM rental_items i JOIN rental_categories c ON c.id = i.category_id WHERE i.id = ? AND c.is_service = 0', [(int) $id]);
         if ($item === null) { return Response::notFound(); }
         $month   = $request->string('month');
         $first   = \DateTimeImmutable::createFromFormat('!Y-m-d', $month . '-01');
@@ -616,7 +616,7 @@ final class RentalAdminController extends Controller
         $last   = \DateTimeImmutable::createFromFormat('!Y-m-d', $end);
         if ($itemId < 1 || !$first || !$last || $first->format('Y-m-d') !== $start
             || $last->format('Y-m-d') !== $end || $first > $last
-            || $this->db()->selectOne('SELECT id FROM rental_items WHERE id = ? AND is_service = 0', [$itemId]) === null) {
+            || $this->db()->selectOne('SELECT i.id FROM rental_items i JOIN rental_categories c ON c.id = i.category_id WHERE i.id = ? AND c.is_service = 0', [$itemId]) === null) {
             $_SESSION['rentals_admin_notice'] = 'Choose a valid equipment item and date range.';
             return $this->redirect($return);
         }
@@ -754,7 +754,8 @@ final class RentalAdminController extends Controller
             throw new \InvalidArgumentException('Category: choose an existing category from the list.');
         }
         $categoryId = (int) $categoryValue;
-        if ($this->db()->selectOne('SELECT id FROM rental_categories WHERE id = ?', [$categoryId]) === null) {
+        $category = $this->db()->selectOne('SELECT id, is_service FROM rental_categories WHERE id = ?', [$categoryId]);
+        if ($category === null || !in_array((int) $category['is_service'], [0, 1], true)) {
             throw new \InvalidArgumentException('Choose an existing category.');
         }
 
@@ -766,7 +767,7 @@ final class RentalAdminController extends Controller
             throw new \InvalidArgumentException('Name: use valid text with 190 characters or fewer.');
         }
 
-        $existing = $id > 0 ? $this->db()->selectOne('SELECT * FROM rental_items WHERE id = ?', [$id]) : null;
+        $existing = $id > 0 ? $this->db()->selectOne('SELECT i.*, c.is_service AS is_service FROM rental_items i JOIN rental_categories c ON c.id = i.category_id WHERE i.id = ?', [$id]) : null;
         if ($id > 0 && $existing === null) {
             throw new \InvalidArgumentException('That product no longer exists.');
         }
@@ -809,11 +810,7 @@ final class RentalAdminController extends Controller
         }
         $idealUse = $idealUse !== '' ? $idealUse : null;
 
-        $type = $request->string('is_service');
-        if (!in_array($type, ['0', '1'], true)) {
-            throw new \InvalidArgumentException('Type: choose Equipment or Service.');
-        }
-        $isService = (int) $type;
+        $isService = (int) $category['is_service'];
         if ($existing !== null && $isService !== (int) $existing['is_service']) {
             throw new \InvalidArgumentException('Type: existing records keep their Equipment or Service type to protect inventory and bookings. Create a separate record for the other type.');
         }
@@ -890,7 +887,6 @@ final class RentalAdminController extends Controller
             $description !== '' ? $description : null,
             $idealUse,
             $imagePath,
-            $isService,
             $status,
             $rentalUnit,
             $rate,
@@ -911,7 +907,6 @@ final class RentalAdminController extends Controller
                         description = ?,
                         ideal_use = ?,
                         image_path = ?,
-                        is_service = ?,
                         availability_status = ?,
                         rental_unit = ?,
                         rental_rate = ?,
@@ -931,14 +926,13 @@ final class RentalAdminController extends Controller
                         description,
                         ideal_use,
                         image_path,
-                        is_service,
                         availability_status,
                         rental_unit,
                         rental_rate,
                         security_deposit,
                         available_quantity,
                         is_active
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
                     $params
                 );
             }
@@ -997,9 +991,18 @@ final class RentalAdminController extends Controller
         if ($name === '' || mb_strlen($name, 'UTF-8') > 120) {
             throw new \InvalidArgumentException('Enter a valid name.');
         }
-        $existing = $id > 0 ? $this->db()->selectOne('SELECT id, name, slug, image_path, is_active FROM rental_categories WHERE id = ?', [$id]) : null;
+        $existing = $id > 0 ? $this->db()->selectOne('SELECT id, name, slug, image_path, is_service, is_active FROM rental_categories WHERE id = ?', [$id]) : null;
         if ($id > 0 && $existing === null) {
             throw new \InvalidArgumentException('That category no longer exists.');
+        }
+
+        $type = $request->string('is_service', (string) ($existing['is_service'] ?? 0));
+        if (!in_array($type, ['0', '1'], true)) {
+            throw new \InvalidArgumentException('Type: choose Equipment or Service.');
+        }
+        if ($existing !== null && (int) $type !== (int) $existing['is_service']
+            && $this->db()->selectValue('SELECT id FROM rental_items WHERE category_id = ? LIMIT 1', [$id]) !== null) {
+            throw new \InvalidArgumentException('Type: categories with products keep their type to protect inventory and bookings.');
         }
 
         // Existing duplicate names must not block status/image edits that keep the name.
@@ -1054,13 +1057,13 @@ final class RentalAdminController extends Controller
         try {
             if ($id > 0) {
                 $this->db()->update(
-                    'UPDATE rental_categories SET name = ?, slug = ?, description = ?, image_path = ?, is_active = ? WHERE id = ?',
-                    [$name, $slug, $description, $imagePath, $isActive, $id]
+                    'UPDATE rental_categories SET name = ?, slug = ?, description = ?, image_path = ?, is_service = ?, is_active = ? WHERE id = ?',
+                    [$name, $slug, $description, $imagePath, (int) $type, $isActive, $id]
                 );
             } else {
                 $this->db()->insert(
-                    'INSERT INTO rental_categories (name, slug, description, image_path, is_active) VALUES (?, ?, ?, ?, ?)',
-                    [$name, $slug, $description, $imagePath, $isActive]
+                    'INSERT INTO rental_categories (name, slug, description, image_path, is_service, is_active) VALUES (?, ?, ?, ?, ?, ?)',
+                    [$name, $slug, $description, $imagePath, (int) $type, $isActive]
                 );
             }
         } catch (Throwable $e) {

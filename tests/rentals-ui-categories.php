@@ -8,12 +8,12 @@ $fullName='[TEST] UI '.$key.' Cameras & Optics';
 $assert=static function(bool $ok,string $why):void{if(!$ok){throw new RuntimeException($why);}};
 try{
  foreach(['full','empty','inactive-items','service-only','inactive-category','duplicate-name'] as $kind){
-  $categories[$kind]=$db->insert('INSERT INTO rental_categories(name,slug,is_active) VALUES (?,?,?)',
-   [in_array($kind,['full','duplicate-name'],true)?$fullName:'[TEST] UI '.$key.' '.$kind,'ui-'.$key.'-'.$kind,$kind==='inactive-category'?0:1]);
+  $categories[$kind]=$db->insert('INSERT INTO rental_categories(name,slug,is_active,is_service) VALUES (?,?,?,?)',
+   [in_array($kind,['full','duplicate-name'],true)?$fullName:'[TEST] UI '.$key.' '.$kind,'ui-'.$key.'-'.$kind,$kind==='inactive-category'?0:1,$kind==='service-only'?1:0]);
  }
  foreach(['full','inactive-items','service-only','inactive-category','duplicate-name'] as $kind){
-  $items[$kind]=$db->insert('INSERT INTO rental_items(category_id,name,slug,is_active,is_service) VALUES (?,?,?,?,?)',
-   [$categories[$kind],'[TEST] UI '.$kind,'ui-item-'.$key.'-'.$kind,$kind==='inactive-items'?0:1,$kind==='service-only'?1:0]);
+  $items[$kind]=$db->insert('INSERT INTO rental_items(category_id,name,slug,is_active) VALUES (?,?,?,?)',
+   [$categories[$kind],'[TEST] UI '.$kind,'ui-item-'.$key.'-'.$kind,$kind==='inactive-items'?0:1]);
  }
  $catalog=(new App\Models\RentalCatalog($db))->load();
  $ids=array_map('intval',array_column($catalog['categories'],'db_id'));

@@ -26,7 +26,7 @@ final class RentalServiceRequests
         return $this->db->selectOne(
             "SELECT i.id, i.name, i.description, i.ideal_use, i.rental_rate, i.rental_unit
              FROM rental_items i JOIN rental_categories c ON c.id = i.category_id
-             WHERE i.id = ? AND i.is_service = 1 AND i.is_active = 1 AND c.is_active = 1
+             WHERE i.id = ? AND c.is_service = 1 AND i.is_active = 1 AND c.is_active = 1
                AND i.availability_status IN ('available', 'inquire')", [$id]
         );
     }

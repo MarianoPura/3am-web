@@ -21,6 +21,13 @@
         <?= csrf_field() ?>
         <fieldset>
           <legend>Basic information</legend>
+          <label>Rental type
+            <select name="is_service">
+              <option value="0"<?= (int) ($category['is_service'] ?? 0) === 0 ? ' selected' : '' ?>>Equipment</option>
+              <option value="1"<?= (int) ($category['is_service'] ?? 0) === 1 ? ' selected' : '' ?>>Service</option>
+            </select>
+            <small>Categories with products keep their type to protect bookings.</small>
+          </label>
           <label>Name
             <input name="name" maxlength="120" required placeholder="e.g. Cameras & Optics">
           </label>

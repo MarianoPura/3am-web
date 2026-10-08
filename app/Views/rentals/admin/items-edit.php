@@ -32,7 +32,7 @@ $itemId = (int) ($item['id'] ?? 0);
                 <option value="0"<?= (int) ($item['is_service'] ?? 0) === 0 ? ' selected' : '' ?>>Equipment</option>
                 <option value="1"<?= (int) ($item['is_service'] ?? 0) === 1 ? ' selected' : '' ?>>Service</option>
               </select>
-              <small>Type is preserved on existing records to protect inventory and bookings.</small>
+              <small>Type comes from the category. Choose a category of the same type to protect inventory and bookings.</small>
             </label>
             <input type="hidden" name="is_service" value="<?= e_attr((string) (int) ($item['is_service'] ?? 0)) ?>">
             <label class="rentals-admin__quantity" data-equipment-field>Available quantity
@@ -48,7 +48,7 @@ $itemId = (int) ($item['id'] ?? 0);
             <select name="category_id" required>
               <option value="">Choose category</option>
               <?php foreach ($categories as $category): ?>
-                <option value="<?= e_attr((string) $category['id']) ?>"<?= (int) ($item['category_id'] ?? 0) === (int) $category['id'] ? ' selected' : '' ?>><?= e((string) $category['name']) ?></option>
+                <option data-is-service="<?= (int) $category['is_service'] ?>" value="<?= e_attr((string) $category['id']) ?>"<?= (int) ($item['category_id'] ?? 0) === (int) $category['id'] ? ' selected' : '' ?>><?= e((string) $category['name']) ?></option>
               <?php endforeach ?>
             </select>
           </label>

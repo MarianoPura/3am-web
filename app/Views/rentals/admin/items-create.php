@@ -26,11 +26,11 @@ $draft = $draft ?? [];
           <legend><span data-product-label data-equipment-text="Rental type and capacity" data-service-text="Service type">Rental type and capacity</span></legend>
           <div class="rentals-admin__two">
             <label>Rental type
-              <select name="is_service" data-rental-type>
+              <select data-rental-type disabled>
                 <option value="0"<?= ($draft['is_service'] ?? '0') === '0' ? ' selected' : '' ?>>Equipment</option>
                 <option value="1"<?= ($draft['is_service'] ?? '') === '1' ? ' selected' : '' ?>>Service</option>
               </select>
-              <small>Choose equipment stock or a production service.</small>
+              <small>Type is determined by the selected category.</small>
             </label>
             <label class="rentals-admin__quantity" data-equipment-field>Available quantity
               <input type="number" min="0" max="999999" step="1" name="available_quantity" required value="<?= e_attr((string) ($draft['available_quantity'] ?? '1')) ?>">
@@ -45,7 +45,7 @@ $draft = $draft ?? [];
             <select name="category_id" required>
               <option value="">Choose category</option>
               <?php foreach ($categories as $category): ?>
-                <option value="<?= e_attr((string) $category['id']) ?>"<?= (string) ($draft['category_id'] ?? '') === (string) $category['id'] ? ' selected' : '' ?>><?= e((string) $category['name']) ?></option>
+                <option data-is-service="<?= (int) $category['is_service'] ?>" value="<?= e_attr((string) $category['id']) ?>"<?= (string) ($draft['category_id'] ?? '') === (string) $category['id'] ? ' selected' : '' ?>><?= e((string) $category['name']) ?></option>
               <?php endforeach ?>
             </select>
           </label>
