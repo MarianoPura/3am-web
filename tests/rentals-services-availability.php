@@ -42,6 +42,10 @@ foreach ([false, true] as $missing) {
     $response = (new App\Controllers\Rentals\RentalServiceRequestController($container))->adminList($request);
     $check($response->status() === ($missing ? 503 : 200), 'Empty rows were confused with an unavailable table.');
     $check(str_contains($response->body(), $missing ? 'temporarily unavailable' : 'No service requests match this view.'), 'Incorrect empty/unavailable state.');
+    if ($missing) {
+        $form = (new App\Controllers\Rentals\RentalServiceRequestController($container))->show($request, '10');
+        $check($form->status() === 503 && str_contains($form->body(), 'temporarily unavailable'), 'Missing dependency must produce the same safe customer 503.');
+    }
 }
 $container->set(App\Core\Database::class, $database(false, true));
 $_SESSION = ['user_id' => 1, 'rentals_password_stamp' => hash('sha256', 'fixture')];

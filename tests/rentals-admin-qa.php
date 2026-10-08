@@ -56,7 +56,7 @@ $adminId = $categoryId = $itemId = $methodId = 0;
 $orderIds = [];
 $extraItemIds = [];
 try {
-    foreach (['/rentals/admin' => '/rentals/account', '/rentals/orders' => '/rentals/account', '/rentals/checkout' => '/rentals/cart'] as $path => $destination) {
+    foreach (['/rentals/admin' => '/rentals/account', '/rentals/orders' => '/rentals/account', '/rentals/checkout' => '/rentals/account'] as $path => $destination) {
         [$code, , $final] = $http($path);
         $assert($code === 200 && $final === $base . $destination, 'Guest redirect failed: ' . $path);
     }

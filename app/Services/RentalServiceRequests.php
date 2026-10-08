@@ -15,10 +15,14 @@ final class RentalServiceRequests
 
     public function ready(): bool
     {
-        return (int) $this->db->selectValue(
+        $ready = (int) $this->db->selectValue(
             'SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?',
             ['rental_service_requests']
         ) === 1;
+        if (!$ready && (!defined('RENTALS_DIAGNOSTIC_READ_ONLY') || RENTALS_DIAGNOSTIC_READ_ONLY !== true)) {
+            error_log('Rentals service requests unavailable: rental_service_requests table is absent or not visible to the database user. Run bin/rentals-services-check.php.');
+        }
+        return $ready;
     }
 
     public function service(int $id): ?array
@@ -71,7 +75,9 @@ final class RentalServiceRequests
         }
         foreach (['start_date', 'end_date'] as $key) {
             $value = (string) ($fields[$key] ?? '');
-            $date = \DateTimeImmutable::createFromFormat('!Y-m-d', $value);
+            // Reject malformed input before PHP's date parser (null bytes throw ValueError).
+            $date = preg_match('/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/D', $value) === 1
+                ? \DateTimeImmutable::createFromFormat('!Y-m-d', $value) : false;
             if (!$date || $date->format('Y-m-d') !== $value) { $errors[$key] = 'Choose a valid event date.'; }
             elseif ($value < (new \DateTimeImmutable('today'))->format('Y-m-d')) { $errors[$key] = 'Choose today or a future date.'; }
         }
