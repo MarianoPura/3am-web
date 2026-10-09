@@ -1,6 +1,5 @@
 <?php $this->extend('rentals.layouts.admin'); ?>
-<?php $this->start('title') ?>Products — Rentals Admin<?= $this->partial('rentals.partials.pagination',['pagination'=>$pagination??null,'pagePath'=>'rentals/admin/items']) ?>
-<?php $this->end() ?>
+<?php $this->start('title') ?>Products — Rentals Admin<?php $this->end() ?>
 <?php $this->start('content') ?>
 <section class="rentals-admin-page">
   <div class="rentals-shell">

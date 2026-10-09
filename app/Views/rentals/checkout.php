@@ -88,7 +88,7 @@ $customer = is_array($customer ?? null) ? $customer : [];
             <label class="rentals-date-field" style="margin-top:1rem;">Payment reference (optional)<input name="payment_reference" maxlength="190" value="<?= e_attr((string) ($customer['payment_reference'] ?? '')) ?>"></label>
             <label class="rentals-date-field" style="margin-top:1rem;">Proof of payment · JPG, PNG, WebP or PDF (<?= e(number_format(\App\Services\RentalPaymentProof::maxUploadBytes() / 1048576, 2)) ?> MB max)<input type="file" name="proof" accept="image/jpeg,image/png,image/webp,application/pdf" required></label>
           <?php else: ?>
-            <p role="status" style="margin-top:1rem;">No payment method is currently available. Please <a href="<?= e_attr(url('rentals/support')) ?>">contact Rental Support</a>; requests cannot be submitted yet.</p>
+            <p role="status" style="margin-top:1rem;">No payment method is currently available. Please <a href="<?= e_attr(url('start?type=rentals')) ?>">contact Rental Support</a>; requests cannot be submitted yet.</p>
           <?php endif ?>
           <label class="rentals-date-field" style="margin-top:1rem;">Notes<textarea name="notes" rows="4"><?= e($customer['notes'] ?? '') ?></textarea></label>
           <button type="submit" class="rentals-btn rentals-btn--primary" style="margin-top:1rem;"<?= $paymentMethods === [] || $summary['preview'] ? ' disabled' : '' ?>><span class="rentals-submit-spinner" data-rental-submit-spinner aria-hidden="true" hidden></span><span data-rental-submit-label>Submit rental request</span></button>

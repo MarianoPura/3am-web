@@ -67,7 +67,7 @@ if ($uncategorized !== []) { $groups[] = ['name' => 'Equipment', 'items' => $unc
       </section>
       <?php endforeach ?>
     <?php else: ?>
-      <div class="rentals-support-panel"><p class="rentals-card__meta">Rental inventory</p><h3>Equipment information is being updated.</h3><p>Contact the 3AM team for current availability.</p><a class="rentals-btn rentals-btn--dark" href="<?= e_attr(url('rentals/support')) ?>">Contact Rental Support</a></div>
+      <div class="rentals-support-panel"><p class="rentals-card__meta">Rental inventory</p><h3><?= !empty($catalogUnavailable)?'Equipment is temporarily unavailable.':(!empty($filteredEmpty)?'No matching equipment.':'Equipment information is being updated.') ?></h3><p><?= !empty($filteredEmpty)?'Try another search or category.':'Contact the 3AM team for current availability.' ?></p><a class="rentals-btn rentals-btn--dark" href="<?= e_attr(url('start?type=rentals')) ?>">Contact Rental Support</a></div>
     <?php endif ?>
 <dialog class="rentals-detail" data-rentals-dialog aria-labelledby="rentals-detail-title">
   <button class="rentals-detail__close" type="button" data-rentals-close aria-label="Close equipment details">×</button>

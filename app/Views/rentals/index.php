@@ -113,13 +113,6 @@ $featuredServices = array_slice($servicesList, 0, 4);
         </p>
       </div>
 
-      <a
-        class="rentals-text-link"
-        href="<?= e_attr(url('rentals/categories')) ?>"
-      >
-        All categories <span aria-hidden="true">↗</span>
-      </a>
-
     </div>
 
     <?php if ($categoriesList !== []): ?>
@@ -140,15 +133,7 @@ $featuredServices = array_slice($servicesList, 0, 4);
               (string) ($category['image_path'] ?? '')
           );
 
-          $itemCount = 0;
-
-          foreach ($itemsList as $item) {
-              if (
-                  (string) ($item['category'] ?? '') === $categoryId
-              ) {
-                  $itemCount++;
-              }
-          }
+          $itemCount = (int)($category['item_count'] ?? count(array_filter($itemsList, static fn(array $item):bool => (string)($item['category']??'')===$categoryId)));
           ?>
 
           <article class="rentals-card">
@@ -233,13 +218,6 @@ $featuredServices = array_slice($servicesList, 0, 4);
         <p class="rentals-kicker">Featured rentals</p>
         <h2>Available equipment and resources.</h2>
       </div>
-
-      <a
-        class="rentals-text-link"
-        href="<?= e_attr(url('rentals/items')) ?>"
-      >
-        Browse inventory <span aria-hidden="true">↗</span>
-      </a>
 
     </div>
 
@@ -666,7 +644,7 @@ $featuredServices = array_slice($servicesList, 0, 4);
 
         <a
           class="rentals-btn rentals-btn--primary"
-          href="<?= e_attr(url('rentals/support')) ?>"
+          href="<?= e_attr(url('start?type=rentals')) ?>"
         >
           Contact Rental Support
         </a>

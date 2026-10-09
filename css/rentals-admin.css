@@ -36,7 +36,9 @@
 .rentals-admin-module .rentals-admin-header__brand small { display: block; line-height: 1.1; }
 .rentals-admin-module .rentals-admin-header__brand strong { font: 800 1rem/1 var(--f-display); letter-spacing: .08em; }
 .rentals-admin-module .rentals-admin-header__brand small { margin-top: .3rem; color: var(--c-mist); font: 700 .6rem/1 var(--f-mono); letter-spacing: .1em; text-transform: uppercase; }
-.rentals-admin-module .rentals-admin-header__account { gap: 1rem; font-size: .8rem; }
+.rentals-admin-module .rentals-admin-header__account { min-width: 0; gap: 1rem; font-size: .8rem; }
+.rentals-admin-module .rentals-admin-header__account > span { min-width: 0; overflow-wrap: anywhere; }
+.rentals-admin-module .rentals-admin-header__brand { flex: 0 0 auto; }
 .rentals-admin-module .rentals-admin-header__account form { margin: 0; }
 .rentals-admin-module .rentals-admin-header__account button {
   padding: .55rem .75rem;
@@ -140,7 +142,8 @@
 .rentals-admin-module .rentals-admin__filter :is(input,select):focus-visible,
 .rentals-admin-module .rentals-admin__form :is(input,select,textarea):focus-visible { border-color: var(--c-tally); }
 .rentals-admin-module .rentals-admin__form textarea { resize: vertical; }
-.rentals-admin-module .rentals-admin__table-wrap { max-width: 100%; overflow-x: auto; }
+.rentals-admin-module .rentals-admin__table-wrap { min-width: 0; max-width: 100%; overflow-x: auto; overscroll-behavior-inline: contain; }
+.rentals-admin-module .rentals-admin__table-wrap:focus-visible { outline: 2px solid var(--c-tally); outline-offset: 2px; }
 .rentals-admin-module .rentals-admin__table { width: 100%; min-width: 660px; border-collapse: collapse; font-size: .86rem; }
 .rentals-admin-module .rentals-admin__table :is(th,td) { padding: .95rem .8rem; border-bottom: 1px solid var(--c-blue-line); text-align: left; vertical-align: top; }
 .rentals-admin-module .rentals-admin__table th { color: var(--fg-muted); font: 700 .66rem/1.3 var(--f-mono); letter-spacing: .08em; text-transform: uppercase; }
@@ -267,6 +270,7 @@
   .rentals-admin-module .rentals-admin-header__nav-row { flex-wrap: wrap; padding-block: .5rem; gap: 0; }
   .rentals-admin-module .rentals-admin-header__nav { width: 100%; }
   .rentals-admin-module .rentals-admin-header__back { margin-left: auto; }
+  .rentals-admin-module .rentals-admin__report-filter { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 @media (max-width: 900px) {
   .rentals-admin-module .rentals-admin__overview-grid { grid-template-columns: 1fr; }
@@ -349,4 +353,21 @@
 @media(max-width:1000px) {
   .rentals-admin-module .rentals-time-chart__label { font-size:20px; }
   .rentals-admin-module .rentals-time-chart__label--minor { display:none; }
+}
+
+/* Compact Admin controls wrap instead of stretching narrow pages. */
+@media (max-width: 780px) {
+  .rentals-admin-module :is(.rentals-admin__filter, .rentals-admin__report-filter, .rentals-admin__form, .rentals-admin__blackout-form) :is(input, select, textarea) { font-size: 1rem; }
+  .rentals-admin-module .rentals-admin__order-facts,
+  .rentals-admin-module .rentals-admin__editor-head,
+  .rentals-admin-module .rentals-admin__rank-list dt { min-width: 0; overflow-wrap: anywhere; }
+  .rentals-admin-module .rentals-admin__rank-list dd { flex: 0 0 auto; }
+  .rentals-admin-module .rentals-time-chart__inspect label { min-width: 0; max-width: 100%; }
+  .rentals-admin-module .rentals-time-chart__inspect select { min-height: 44px; }
+  .rentals-admin-module .rentals-admin-header__account button,
+  .rentals-admin-module .rentals-admin-header__nav a,
+  .rentals-admin-module .rentals-admin__blackout-row button { min-height: 44px; }
+  .rentals-admin-module .rentals-admin__proof-detail summary,
+  .rentals-admin-module .rentals-admin__proof-detail a { overflow-wrap: anywhere; }
+  .rentals-admin-module .rentals-admin__proof-actions .rentals-btn { min-width: 0; white-space: normal; }
 }

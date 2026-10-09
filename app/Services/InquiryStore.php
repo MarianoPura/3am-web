@@ -132,11 +132,11 @@ final class InquiryStore
     }
 
     /**
-     * Unique inquiry reference code: 3AM-2026-A7F3
+     * Collision-resistant inquiry reference; existing references remain valid.
      */
     private function reference(): string
     {
-        return sprintf('3AM-%s-%s', date('Y'), strtoupper(bin2hex(random_bytes(2))));
+        return sprintf('3AM-%s-%s', date('Y'), strtoupper(bin2hex(random_bytes(6))));
     }
 
     /**
@@ -218,13 +218,18 @@ final class InquiryStore
                     html: $this->clientConfirmationHtml($record),
                 );
                 return;
+            } catch (SmtpDeliveryUncertain $e) {
+                // The customer and CC mailboxes may already have received it.
+                // Preserve the lead, but do not send another company copy blindly.
+                error_log(sprintf('[inquiry %s] confirmation acceptance uncertain; verify with the provider before recovery', $record['reference']));
+                return;
             } catch (Throwable $e) {
                 error_log(sprintf('[inquiry %s] confirmation email to client failed: %s', $record['reference'], $e->getMessage()));
             }
         }
 
         // 2. If client email failed or was skipped, ensure internal notifyTo receives the lead
-        if (filter_var($notifyTo, FILTER_VALIDATE_EMAIL) && !in_array($notifyTo, $ccList, true)) {
+        if (filter_var($notifyTo, FILTER_VALIDATE_EMAIL)) {
             try {
                 $this->mailer->send(
                     to: [$notifyTo],
@@ -309,7 +314,7 @@ final class InquiryStore
             'Hi ' . trim((string) $record['name']) . ',',
             '',
             'Thank you for reaching out to ' . $this->siteName . ' We have received your',
-            'inquiry and our production team will review your requirements.',
+            'inquiry and our team will review your requirements.',
             'We usually get back to you within one business day.',
             '',
             'Your Reference: ' . $record['reference'],
@@ -325,7 +330,7 @@ final class InquiryStore
 
         if (trim((string) $record['details']) !== '') {
             $lines[] = '';
-            $lines[] = 'Event Details:';
+            $lines[] = 'Project Details:';
             $lines[] = trim((string) $record['details']);
         }
 

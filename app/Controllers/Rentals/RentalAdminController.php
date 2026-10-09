@@ -95,13 +95,13 @@ final class RentalAdminController extends Controller
         $type       = in_array($request->string('type'), ['equipment', 'service'], true) ? $request->string('type') : 'all';
         $typeValue  = $type === 'equipment' ? 0 : ($type === 'service' ? 1 : -1);
         $categories = $db->select('SELECT id, name, is_service, is_active FROM rental_categories ORDER BY name, id');
-        $pagination = \App\Services\RentalPagination::fetch($db,
-            'SELECT i.*, c.is_service AS is_service, c.name AS category_name FROM rental_items i JOIN rental_categories c ON c.id = i.category_id
+        $productFrom = ' FROM rental_items i JOIN rental_categories c ON c.id = i.category_id
              WHERE (? = 0 OR i.category_id = ?) AND (? = \'\' OR i.name LIKE ? OR i.sku LIKE ?)
-               AND (? = -1 OR c.is_service = ?)
-             ORDER BY i.updated_at DESC, i.id DESC',
+               AND (? = -1 OR c.is_service = ?)';
+        $pagination = \App\Services\RentalPagination::fetch($db,
+            'SELECT i.id, i.name, i.sku, i.rental_rate, i.is_active, c.is_service, c.name AS category_name'.$productFrom.' ORDER BY i.updated_at DESC, i.id DESC',
             [$categoryId, $categoryId, $term, '%' . $term . '%', '%' . $term . '%', $typeValue, $typeValue]
-        , $request->int('page',1));
+        , \App\Services\RentalPagination::pageNumber($request->query('page',1)), 25, 'SELECT COUNT(*)'.$productFrom);
         $rows = $pagination['rows'];
 
         return $this->render('rentals.admin.items', [
@@ -187,9 +187,15 @@ final class RentalAdminController extends Controller
             return $this->redirect(url('rentals/admin/categories/' . $editId . '/edit'));
         }
 
-        $rows = $this->db()->select('SELECT * FROM rental_categories ORDER BY name, id');
+        $term = mb_substr($request->string('q'),0,100);
+        $categoryFrom = ' FROM rental_categories WHERE (? = \'\' OR name LIKE ? OR slug LIKE ?)';
+        $pagination = \App\Services\RentalPagination::fetch($this->db(), 'SELECT id, name, slug, is_active'.$categoryFrom.' ORDER BY name, id',
+            [$term,'%'.$term.'%','%'.$term.'%'], \App\Services\RentalPagination::pageNumber($request->query('page',1)),25,'SELECT COUNT(*)'.$categoryFrom);
+        $rows = $pagination['rows'];
         return $this->render('rentals.admin.categories', [
             'section'       => 'categories',
+            'pagination'    => $pagination,
+            'term'          => $term,
             'rows'          => $rows,
             'notice'        => $this->popNotice(),
             'noticeIsError' => $this->popNoticeError(),
@@ -341,10 +347,36 @@ final class RentalAdminController extends Controller
     public function customers(Request $request): Response
     {
         if ($denial = $this->deny()) { return $denial; }
-        $pagination = \App\Services\RentalPagination::fetch($this->db(),'SELECT id, name, email, role, last_login FROM users ORDER BY created_at DESC, id DESC', [], $request->int('page',1));
+        $term = mb_substr(trim($request->string('q')), 0, 100, 'UTF-8');
+        $role = strtolower(trim($request->string('role', 'all')));
+        $role = in_array($role, ['all', 'admin', 'customer'], true) ? $role : 'all';
+        $where = [];
+        $bindings = [];
+        if ($term !== '') {
+            $where[] = '(name LIKE ? OR email LIKE ?)';
+            $bindings = ['%' . $term . '%', '%' . $term . '%'];
+        }
+        if ($role === 'admin') {
+            // Superadmins are administrative accounts under the existing access rules.
+            $where[] = "LOWER(role) IN ('admin', 'superadmin')";
+        } elseif ($role === 'customer') {
+            $where[] = 'LOWER(role) = ?';
+            $bindings[] = 'customer';
+        }
+        $clause = $where === [] ? '' : ' WHERE ' . implode(' AND ', $where);
+        $pagination = \App\Services\RentalPagination::fetch(
+            $this->db(),
+            'SELECT id, name, email, role, last_login FROM users' . $clause . ' ORDER BY created_at DESC, id DESC',
+            $bindings,
+            \App\Services\RentalPagination::pageNumber($request->input('page')),
+            25,
+            'SELECT COUNT(*) FROM users' . $clause
+        );
         $rows = $pagination['rows'];
         return $this->render('rentals.admin.customers', [
             'pagination'=>$pagination,
+            'term'          => $term,
+            'roleFilter'    => $role,
             'section'       => 'customers',
             'rows'          => $rows,
             'notice'        => $this->popNotice(),

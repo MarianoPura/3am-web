@@ -77,6 +77,9 @@ final class RentalNotification
                 'order_items'=>$r['service_name'],'rejection_reason'=>'','proof_receipt_text'=>'',
                 'order_status_url'=>absolute_url('rentals/service-requests/'.$id), 'admin_order_url'=>absolute_url('rentals/admin/service-requests/'.$id)];
             [$subject,$body]=$events[$event];
+            $body .= "\n\nReference: {{order_number}}\nService: {{order_items}}\nRequest status: {{order_status}}"
+                . "\nPayment status: {{payment_status}}\nQuotation: {{total_amount}}"
+                . "\nEvent dates: {{rental_start_date}} – {{rental_end_date}}\n\nView your request: {{order_status_url}}";
             $this->deliver($delivery,(array)config('rentals-mail.cc',[]),$values,['subject'=>$subject.' — {{order_number}}','body'=>$body]);
         } catch(\Throwable $e) { $this->log('service_'.$event,$id,'system','notification_unavailable'); }
     }

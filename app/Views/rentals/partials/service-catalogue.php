@@ -29,5 +29,5 @@
     <?php endforeach ?>
   </div>
 <?php else: ?>
-  <div class="rentals-support-panel"><p class="rentals-card__meta">Services</p><h3><?= !empty($catalogUnavailable) ? 'Services are temporarily unavailable.' : 'No services are currently listed.' ?></h3><p>Contact the 3AM team to discuss production and technical support requirements.</p><a class="rentals-btn rentals-btn--dark" href="<?= e_attr(url('rentals/support')) ?>">Discuss support needs</a></div>
+  <div class="rentals-support-panel"><p class="rentals-card__meta">Services</p><h3><?= !empty($catalogUnavailable) ? 'Services are temporarily unavailable.' : (!empty($filteredEmpty)?'No matching services.':'No services are currently listed.') ?></h3><p><?= !empty($filteredEmpty)?'Try another search or category.':'Contact the 3AM team to discuss production and technical support requirements.' ?></p><a class="rentals-btn rentals-btn--dark" href="<?= e_attr(url('rentals/support')) ?>">Discuss support needs</a></div>
 <?php endif ?>

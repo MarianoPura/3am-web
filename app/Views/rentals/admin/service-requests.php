@@ -1,6 +1,5 @@
 <?php $this->extend('rentals.layouts.admin'); ?>
-<?php $this->start('title') ?>Service Requests — Rentals Admin<?= $this->partial('rentals.partials.pagination',['pagination'=>$pagination??null,'pagePath'=>'rentals/admin/service-requests']) ?>
-<?php $this->end() ?>
+<?php $this->start('title') ?>Service Requests — Rentals Admin<?php $this->end() ?>
 <?php $this->start('content') ?>
 <section class="rentals-admin-page"><div class="rentals-shell">
   <div class="rentals-admin-page__heading"><div><p class="rentals-kicker">3AM Rentals / Administration</p><h1>Service requests</h1></div><p>Review event scope, crew and technical requirements. Quotations are separate from equipment/payment orders.</p></div>

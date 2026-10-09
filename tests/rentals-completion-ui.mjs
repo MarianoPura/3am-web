@@ -32,16 +32,16 @@ console.log('PASS: chart date selection updates exact values without timezone/da
 const catalogueCode=source.slice(source.indexOf('const initRentalsCatalogue ='),source.indexOf('  const createRentalGallery ='))
   +source.slice(source.indexOf('const chosen ='),source.indexOf("  const dialog = document.querySelector('[data-rentals-dialog]');"))
   +'\n}; initRentalsCatalogue();';
-const categoryFixture=(query='')=>{
+const categoryFixture=(query='',server=false)=>{
  const buttons=['all','camera','lighting','audio','all','camera','lighting','audio'].map(category=>{
   const classes=new Set(category==='all'?['is-active']:[]);
   return {dataset:{rentalsFilter:category},listeners:{},attrs:{},classList:{contains:c=>classes.has(c),toggle(c,active){active?classes.add(c):classes.delete(c);}},addEventListener(e,fn){this.listeners[e]=fn;},setAttribute(k,v){this.attrs[k]=v;}};
  });
  const cards=[['camera','Camera'],['lighting','Event lights'],['audio','Event microphone']].map(([category,textContent])=>({dataset:{category},textContent,hidden:false}));
  const search={value:'',listeners:{},addEventListener(e,fn){this.listeners[e]=fn;}};
- const results={dataset:{rentalsResultNoun:'item'},textContent:''};
+ const results={dataset:{rentalsResultNoun:'item'},textContent:server?'1000 items found':''};
  const more={open:false,querySelector:()=>buttons[7].classList.contains('is-active')?buttons[7]:null};
- const document={documentElement:{dataset:{}},querySelector:s=>s==='[data-rentals-search]'?search:s==='[data-rentals-results]'?results:s==='[data-rentals-filter].is-active'?buttons.find(b=>b.classList.contains('is-active')):null,
+ const document={documentElement:{dataset:{}},querySelector:s=>s==='[data-rentals-server-search]'?(server?{}:null):s==='[data-rentals-search]'?search:s==='[data-rentals-results]'?results:s==='[data-rentals-filter].is-active'?buttons.find(b=>b.classList.contains('is-active')):null,
   querySelectorAll:s=>s==='[data-rentals-filter]'?buttons:s==='[data-rentals-item]'?cards:s==='[data-rentals-category-more]'?[more]:[]};
  vm.runInNewContext(catalogueCode,{document,window:{location:{search:query}},URLSearchParams});
  return {buttons,cards,search,results,more};
@@ -57,4 +57,10 @@ categories.buttons[3].listeners.click();assert.equal(categories.more.open,true);
 categories.buttons[4].listeners.click();assert.equal(categories.results.textContent,'3 items found');assert.equal(categories.buttons[0].attrs['aria-pressed'],'true');
 const linkedCategory=categoryFixture('?category=audio');assert.equal(linkedCategory.more.open,true);assert.equal(linkedCategory.buttons[3].attrs['aria-pressed'],'true');assert.equal(linkedCategory.buttons[7].attrs['aria-pressed'],'true');
 assert.equal(categoryFixture('?category=unknown').results.textContent,'3 items found');
+const pagedCatalogue=categoryFixture('?category=audio',true);
+assert.equal(pagedCatalogue.results.textContent,'1000 items found','Backend result total must survive initialization.');
+assert.equal(pagedCatalogue.search.listeners.input,undefined,'Server search must submit GET rather than filter only current cards.');
+assert.equal(pagedCatalogue.buttons[0].listeners.click,undefined,'Category links must retain native server navigation.');
+assert.equal(pagedCatalogue.cards.some(card=>card.hidden),false,'Server-selected page must not be hidden by duplicate client filtering.');
 console.log('PASS: sidebar/toolbar category synchronization, search intersection, All reset, expanded-category reveal and deep links.');
+console.log('PASS: paginated catalogue preserves backend totals, native search/category requests and server-selected cards.');
