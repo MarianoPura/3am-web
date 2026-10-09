@@ -31,4 +31,4 @@ $upcomingRentals = is_array($upcomingRentals ?? null) ? $upcomingRentals : [];
     <?php endif ?>
   </section>
 </div>
-<div class="rentals-admin__quick-actions"><a href="<?= e_attr(url('rentals/admin/items')) ?>">Manage products <span aria-hidden="true">↗</span></a><a href="<?= e_attr(url('rentals/admin/orders')) ?>">Review orders <span aria-hidden="true">↗</span></a></div>
+<div class="rentals-admin__quick-actions"><a href="<?= e_attr(url('rentals/admin/items')) ?>">Manage products <span aria-hidden="true">↗</span></a></div>

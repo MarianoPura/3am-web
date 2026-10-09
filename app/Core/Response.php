@@ -219,7 +219,10 @@ final class Response
             );
         }
 
-        if ($this->status === 422) {
+        if ($this->status === 419) {
+            // Apache's PHP handler needs an explicit line for this custom code.
+            header('HTTP/1.1 419 Page Expired', true, 419);
+        } elseif ($this->status === 422) {
             header('HTTP/1.1 422 Unprocessable Content', true, 422);
         } else {
             http_response_code($this->status);

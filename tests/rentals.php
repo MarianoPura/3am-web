@@ -39,8 +39,10 @@ $check($data['items'] === [] && $data['services'] === [] && $data['categories'] 
 // Exercise the successful-but-empty query path as well as the failed query path.
 class EmptyRentalStatement extends PDOStatement {
     public function __construct() {}
+    public function bindValue(string|int $param, mixed $value, int $type = PDO::PARAM_STR): bool { return true; }
     public function execute(?array $params = null): bool { return true; }
     public function fetchAll(int $mode = PDO::FETCH_DEFAULT, mixed ...$args): array { return []; }
+    public function fetchColumn(int $column = 0): mixed { return 0; }
 }
 class EmptyRentalPDO extends PDO {
     public function __construct() {}

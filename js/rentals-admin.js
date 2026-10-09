@@ -1,3 +1,9 @@
+document.querySelectorAll('.rentals-admin__table-wrap').forEach(wrapper => {
+  wrapper.tabIndex = 0;
+  wrapper.setAttribute('role', 'region');
+  wrapper.setAttribute('aria-label', wrapper.querySelector('caption')?.textContent.trim() || 'Admin records');
+});
+
 // Manual blocks are separate from reservations. This calendar never releases an order.
 document.querySelectorAll('[data-admin-availability]').forEach((panel) => {
   const form = panel.querySelector('.rentals-admin__blackout-form');

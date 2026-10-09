@@ -54,32 +54,39 @@ final class RentalsController extends Controller
 
     public function categories(Request $request): Response
     {
-        return $this->render('rentals.categories', $this->catalog())->noCache();
+        return $this->render('rentals.categories', (new RentalCatalog($this->db()))->categoryPage($request->query('page', 1), $request->query('per_page', 12)))->noCache();
     }
 
     public function items(Request $request): Response
     {
-        return $this->render('rentals.items', $this->catalog()+['isServiceCatalogue'=>$request->string('type')==='services'])->noCache();
+        return $this->listing($request, $request->string('type')==='services');
     }
 
     public function services(Request $request): Response
     {
         // Preserve existing Services URLs while using the shared catalogue.
-        return $this->render('rentals.items', $this->catalog()+['isServiceCatalogue'=>true])->noCache();
+        return $this->listing($request, true);
     }
 
     public function howToRent(Request $request): Response
     {
-        return $this->render('rentals.how-to-rent', $this->catalog())->noCache();
+        return $this->render('rentals.how-to-rent')->noCache();
     }
 
     public function support(Request $request): Response
     {
-        return $this->render('rentals.support', $this->catalog())->noCache();
+        return $this->render('rentals.support')->noCache();
     }
 
     private function catalog(): array
     {
         return (new RentalCatalog($this->db()))->load();
+    }
+
+    private function listing(Request $request, bool $services): Response
+    {
+        $data = (new RentalCatalog($this->db()))->page($services, $request->string('q'), $request->string('category'),
+            $request->query('page', 1), $request->query('per_page', 12));
+        return $this->render('rentals.items', $data+['isServiceCatalogue'=>$services, 'serverCatalogue'=>true, 'cataloguePath'=>ltrim($request->path(), '/')])->noCache();
     }
 }

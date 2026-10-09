@@ -1,6 +1,5 @@
 <?php $this->extend('rentals.layouts.base'); ?>
-<?php $this->start('title') ?>My Service Requests — 3AM Rentals<?= $this->partial('rentals.partials.pagination',['pagination'=>$pagination??null,'pagePath'=>'rentals/service-requests']) ?>
-<?php $this->end() ?>
+<?php $this->start('title') ?>My Service Requests — 3AM Rentals<?php $this->end() ?>
 <?php $this->start('content') ?>
 <?php $notice = $_SESSION['rentals_service_notice'] ?? null; unset($_SESSION['rentals_service_notice']); ?>
 <section class="rentals-page-hero"><div class="rentals-shell rentals-page-hero__inner"><div><p class="rentals-kicker">Customer account</p><h1>Service requests.</h1></div><p>Your service enquiries, event requirements and team updates in one place.</p></div></section>

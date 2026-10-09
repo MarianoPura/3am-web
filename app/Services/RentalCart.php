@@ -272,10 +272,11 @@ final class RentalCart
      */
     public function items(): array
     {
-        $catalog = $this->catalog();
+        $entries = $this->contents();
+        $catalog = (new RentalCatalog($this->db()))->findMany(array_map(static fn(array $entry):string => (string)($entry['item_id']??''), $entries), true);
         $records = [];
 
-        foreach ($this->contents() as $entryKey => $entry) {
+        foreach ($entries as $entryKey => $entry) {
             $itemId = (string) ($entry['item_id'] ?? '');
             if ($itemId === '') {
                 continue;
@@ -283,17 +284,7 @@ final class RentalCart
 
             $item = $catalog[$itemId] ?? null;
             if ($item === null) {
-                // Keep deactivated equipment visible so a customer can remove it.
-                $row = $this->db()->selectOne(
-                    'SELECT i.*, c.name AS category_name, COALESCE(NULLIF(c.slug, \'\'), CONCAT(\'category-\', c.id)) AS category_slug
-                     FROM rental_items i JOIN rental_categories c ON c.id = i.category_id
-                     WHERE i.slug = ? OR i.id = ? LIMIT 1',
-                    [$itemId, ctype_digit($itemId) ? (int) $itemId : 0]
-                );
-                if ($row === null) { continue; }
-                $item = $row;
-                $item['category'] = $row['category_slug'];
-                $item['is_unavailable'] = true;
+                continue;
             }
 
             $records[] = [
@@ -385,23 +376,6 @@ final class RentalCart
         }
 
         return $this->db()->insert('INSERT INTO carts (user_id) VALUES (?)', [$userId]);
-    }
-
-    /**
-     * @return array<string, array<string, mixed>>
-     */
-    private function catalog(): array
-    {
-        $db = app(Database::class);
-        $catalog = new RentalCatalog($db);
-        $items = [];
-
-        $data = $catalog->load();
-        foreach (array_merge($data['items'] ?? [], $data['services'] ?? []) as $item) {
-            $items[(string) ($item['id'] ?? '')] = $item;
-        }
-
-        return $items;
     }
 
     private function normalizeDate(?string $value): ?string

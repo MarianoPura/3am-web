@@ -6,81 +6,23 @@ namespace App\Models;
 
 use App\Core\Database;
 use App\Services\RentalPaymentStatus;
+use App\Services\RentalPagination;
+use App\Services\RentalSchema;
 
 final class RentalCatalog
 {
     public function __construct(private readonly Database $db) {}
+    private ?bool $hasGallery = null;
 
     public function load(): array
     {
         try {
-            $categories = $this->db->select(
-                "
-                SELECT
-                    id AS db_id,
-                    COALESCE(NULLIF(slug, ''), CONCAT('category-', id)) AS id,
-                    name,
-                    description,
-                    image_path
-                FROM rental_categories
-                WHERE is_active = 1
-                    AND EXISTS (
-                        SELECT 1 FROM rental_items equipment
-                        WHERE equipment.category_id = rental_categories.id
-                            AND equipment.is_active = 1 AND rental_categories.is_service = 0
-                    )
-                ORDER BY name ASC, id ASC
-                "
-            );
-
-            $rows = $this->db->select(
-                "
-                SELECT
-                    i.*,
-                    i.id AS db_id,
-                    COALESCE(NULLIF(i.slug, ''), CONCAT('item-', i.id)) AS id,
-                    i.name,
-                    c.name AS category_name,
-                    COALESCE(NULLIF(c.slug, ''), CONCAT('category-', c.id)) AS category,
-                    i.description,
-                    i.ideal_use AS ideal_for,
-                    i.image_path,
-                    c.is_service AS is_service,
-                    i.availability_status,
-                    i.rental_unit,
-                    i.rental_rate,
-                    i.security_deposit,
-                    i.available_quantity,
-                    i.sku
-                FROM rental_items i
-                INNER JOIN rental_categories c
-                    ON c.id = i.category_id
-                WHERE
-                    i.is_active = 1
-                    AND c.is_active = 1
-                    AND c.is_service IN (0, 1)
-                ORDER BY i.name ASC, i.id ASC
-                "
-            );
-
-            $items = [];
-            $services = [];
-
-            foreach ($rows as $row) {
-                /*
-                 * Temporary compatibility fields for the existing Rentals views.
-                 * These do NOT represent separate database columns/tables.
-                 */
-                $row['slot'] = '';
-                $row['includes'] = '';
-                $row['is_sample'] = false;
-
-                if ((int) ($row['is_service'] ?? 0) === 1) {
-                    $services[] = $row;
-                } else {
-                    $items[] = $row;
-                }
-            }
+            // The homepage is a preview, not an inventory export. Cart/checkout
+            // use keyed lookups below and never depend on this preview's limits.
+            $categories = $this->db->select($this->categorySql().' LIMIT 6', [0]);
+            $items = $this->records(0, 12);
+            $services = $this->records(1, 12);
+            $rows = array_merge($items, $services);
 
             $preview = config('rentals.preview_samples', false)
                 && $categories === []
@@ -153,23 +95,128 @@ final class RentalCatalog
             return null;
         }
 
-        $catalog = $this->load();
-        $records = array_merge(
-            $catalog['items'] ?? [],
-            $catalog['services'] ?? []
-        );
+        return $this->findMany([$slug])[$slug] ?? null;
+    }
 
-        foreach ($records as $item) {
-            if (
-                (string) ($item['id'] ?? '') === $slug ||
-                (string) ($item['name'] ?? '') === $slug ||
-                (string) ($item['db_id'] ?? '') === $slug
-            ) {
-                return $item;
-            }
+    /** Database-filtered public listing; classification belongs to the category. */
+    public function page(bool $services = false, string $search = '', string $category = '', mixed $page = 1, mixed $perPage = 12): array
+    {
+        $type = $services ? 1 : 0;
+        $search = mb_substr(trim($search), 0, 190);
+        $category = mb_substr(trim($category), 0, 190);
+        $bindings = [$type];
+        $where = 'i.is_active = 1 AND c.is_active = 1 AND c.is_service = ?';
+        if ($search !== '') {
+            // Treat wildcard characters as text. '!' avoids sql_mode-dependent
+            // backslash escaping; all browser values remain bound parameters.
+            $term = '%'.strtr($search, ['!'=>'!!', '%'=>'!%', '_'=>'!_']).'%';
+            $where .= " AND (i.name LIKE ? ESCAPE '!' OR i.description LIKE ? ESCAPE '!' OR i.sku LIKE ? ESCAPE '!')";
+            array_push($bindings, $term, $term, $term);
         }
+        if ($category !== '' && $category !== 'all') {
+            $where .= " AND COALESCE(NULLIF(c.slug, ''), CONCAT('category-', c.id)) = ?";
+            $bindings[] = $category;
+        }
+        $from = ' FROM rental_items i INNER JOIN rental_categories c ON c.id = i.category_id WHERE '.$where;
+        try {
+            $pagination = RentalPagination::fetch($this->db, $this->itemSelect().$from.' ORDER BY i.name ASC, i.id ASC', $bindings,
+                RentalPagination::pageNumber($page), RentalPagination::catalogueSize($perPage), 'SELECT COUNT(*)'.$from);
+            $records = array_map($this->normalize(...), $pagination['rows']);
+            unset($pagination['rows']);
+            $totals = [0=>0, 1=>0];
+            foreach ($this->db->select('SELECT c.is_service, COUNT(*) AS total FROM rental_items i JOIN rental_categories c ON c.id=i.category_id WHERE i.is_active=1 AND c.is_active=1 AND c.is_service IN (0,1) GROUP BY c.is_service') as $row) {
+                $totals[(int)$row['is_service']] = (int)$row['total'];
+            }
+            return ['categories'=>$this->db->select($this->categorySql(), [$type]),
+                'items'=>$services?[]:$records, 'services'=>$services?$records:[],
+                'catalogueTotals'=>$totals, 'pagination'=>$pagination, 'search'=>$search,
+                'selectedCategory'=>$category, 'catalogUnavailable'=>false, 'catalogPreview'=>false];
+        } catch (\Throwable $e) {
+            error_log('Rental catalogue unavailable; check database setup.');
+            return ['categories'=>[], 'items'=>[], 'services'=>[], 'catalogueTotals'=>[0=>0,1=>0],
+                'pagination'=>null, 'search'=>$search, 'selectedCategory'=>$category,
+                'catalogUnavailable'=>true, 'catalogPreview'=>false];
+        }
+    }
 
-        return null;
+    public function categoryPage(mixed $page = 1, mixed $perPage = 12): array
+    {
+        try {
+            $pagination = RentalPagination::fetch($this->db, $this->categorySql(), [0], RentalPagination::pageNumber($page), RentalPagination::catalogueSize($perPage));
+            $categories = $pagination['rows'];
+            unset($pagination['rows']);
+            return ['categories'=>$categories, 'items'=>[], 'services'=>[], 'pagination'=>$pagination, 'catalogUnavailable'=>false];
+        } catch (\Throwable $e) {
+            error_log('Rental catalogue unavailable; check database setup.');
+            return ['categories'=>[], 'items'=>[], 'services'=>[], 'pagination'=>null, 'catalogUnavailable'=>true];
+        }
+    }
+
+    /** Fetch only cart/checkout keys. Include inactive records only for removal UI. */
+    public function findMany(array $keys, bool $includeInactive = false): array
+    {
+        $keys = array_values(array_unique(array_filter($keys, static fn($key):bool => is_string($key) && $key!=='' && strlen($key)<=190)));
+        $records = [];
+        foreach (array_chunk($keys, 100) as $chunk) {
+            $marks = implode(',', array_fill(0, count($chunk), '?'));
+            $ids = array_map(static function(string $key):int {
+                if (preg_match('/^(?:item-)?([1-9][0-9]*)$/D', $key, $match)) { return (int)$match[1]; }
+                return 0;
+            }, $chunk);
+            $where = "(i.slug IN ($marks) OR i.id IN ($marks)) AND c.is_service IN (0,1)";
+            if (!$includeInactive) { $where .= ' AND i.is_active=1 AND c.is_active=1'; }
+            try {
+                $rows = $this->db->select($this->itemSelect().' FROM rental_items i JOIN rental_categories c ON c.id=i.category_id WHERE '.$where.' ORDER BY i.name ASC, i.id ASC', [...$chunk, ...$ids]);
+                foreach ($rows as $row) {
+                    $row = $this->normalize($row);
+                    $row['is_unavailable'] = !(bool)$row['is_active'] || !(bool)$row['category_active'];
+                    foreach ([(string)$row['id'], (string)$row['db_id'], (string)$row['name']] as $key) { $records[$key] ??= $row; }
+                }
+                // Preserve older name-based links without making every keyed
+                // lookup scan the name column or retrieve duplicate names.
+                foreach ($chunk as $key) {
+                    if (isset($records[$key])) { continue; }
+                    $fallback = $this->db->selectOne($this->itemSelect().' FROM rental_items i JOIN rental_categories c ON c.id=i.category_id WHERE i.name=? AND c.is_service IN (0,1)'.($includeInactive?'':' AND i.is_active=1 AND c.is_active=1').' ORDER BY i.id ASC LIMIT 1', [$key]);
+                    if ($fallback !== null) {
+                        $fallback = $this->normalize($fallback);
+                        $fallback['is_unavailable'] = !(bool)$fallback['is_active'] || !(bool)$fallback['category_active'];
+                        $records[$key] = $fallback;
+                    }
+                }
+            } catch (\Throwable $e) { error_log('Rental item unavailable; check database setup.'); }
+        }
+        return $records;
+    }
+
+    private function categorySql(): string
+    {
+        return "SELECT c.id AS db_id, COALESCE(NULLIF(c.slug, ''), CONCAT('category-', c.id)) AS id,
+            c.name, c.description, c.image_path, COUNT(i.id) AS item_count
+            FROM rental_categories c JOIN rental_items i ON i.category_id=c.id AND i.is_active=1
+            WHERE c.is_active=1 AND c.is_service=?
+            GROUP BY c.id, c.slug, c.name, c.description, c.image_path ORDER BY c.name ASC, c.id ASC";
+    }
+
+    private function itemSelect(): string
+    {
+        $this->hasGallery ??= (new RentalSchema($this->db))->hasColumn('rental_items', 'additional_image_paths');
+        $gallery = $this->hasGallery ? 'i.additional_image_paths' : 'NULL AS additional_image_paths';
+        return "SELECT i.id AS db_id, COALESCE(NULLIF(i.slug, ''), CONCAT('item-', i.id)) AS id,
+            i.category_id, i.name, i.slug, c.name AS category_name,
+            COALESCE(NULLIF(c.slug, ''), CONCAT('category-', c.id)) AS category,
+            i.description, i.ideal_use AS ideal_for, i.image_path, $gallery, c.is_service,
+            i.availability_status, i.rental_unit, i.rental_rate, i.security_deposit,
+            i.available_quantity, i.sku, i.is_active, c.is_active AS category_active";
+    }
+
+    private function records(int $type, int $limit): array
+    {
+        return array_map($this->normalize(...), $this->db->select($this->itemSelect().' FROM rental_items i JOIN rental_categories c ON c.id=i.category_id WHERE i.is_active=1 AND c.is_active=1 AND c.is_service=? ORDER BY i.name ASC, i.id ASC LIMIT '.max(1,min(12,$limit)), [$type]));
+    }
+
+    private function normalize(array $row): array
+    {
+        return $row + ['slot'=>'', 'includes'=>'', 'is_sample'=>false];
     }
 
     public function isAvailable(array $item, int $quantity, ?string $startDate, ?string $endDate): bool

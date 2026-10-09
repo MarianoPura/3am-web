@@ -26,9 +26,11 @@ final class RentalCheckout
         $subtotal = 0.0;
         $securityDeposit = 0.0;
         $preview = false;
+        $entries = $this->cart->items();
+        $products = $catalog->findMany(array_map(static fn(array $entry):string => (string)($entry['item_id']??''), $entries));
 
-        foreach ($this->cart->items() as $entry) {
-            $item = $catalog->find((string) ($entry['item_id'] ?? ''));
+        foreach ($entries as $entry) {
+            $item = $products[(string)($entry['item_id']??'')] ?? null;
             if ($item === null) {
                 continue;
             }
@@ -125,6 +127,7 @@ final class RentalCheckout
         }
 
         $catalog = new RentalCatalog($this->db);
+        $products = $catalog->findMany(array_column($summary['items'], 'item_id'));
         foreach ($summary['items'] as $item) {
             $start = $item['rental_start_date'];
             $end = $item['rental_end_date'];
@@ -135,7 +138,7 @@ final class RentalCheckout
                 throw new RuntimeException('Choose valid current or future rental dates spanning at most ' . RentalDateRange::MAX_DAYS . ' days.');
             }
 
-            $record = $catalog->find((string) $item['item_id']);
+            $record = $products[(string)$item['item_id']] ?? null;
             if ($record === null || !$catalog->isAvailable($record, (int) $item['quantity'], $start, $end)) {
                 throw new RuntimeException('One or more rental items are no longer available for those dates.');
             }
@@ -168,11 +171,12 @@ final class RentalCheckout
                 throw new RuntimeException('The selected payment method is unavailable.');
             }
             $catalog = new RentalCatalog($db);
+            $products = $catalog->findMany(array_column($summary['items'], 'item_id'));
             foreach ($summary['items'] as $line) {
                 if (!RentalDateRange::isBookable((string) $line['rental_start_date'], (string) $line['rental_end_date'])) {
                     throw new RuntimeException('Choose valid current or future rental dates spanning at most ' . RentalDateRange::MAX_DAYS . ' days.');
                 }
-                $item = $catalog->find((string) $line['item_id']);
+                $item = $products[(string)$line['item_id']] ?? null;
                 if ($item === null) {
                     throw new RuntimeException('A rental item is no longer available.');
                 }

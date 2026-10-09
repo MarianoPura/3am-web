@@ -30,12 +30,16 @@ const initRentalsCatalogue = () => {
   const searchInput = document.querySelector('[data-rentals-search]');
   const filterButtons = document.querySelectorAll('[data-rentals-filter]');
   const itemCards = document.querySelectorAll('[data-rentals-item]');
+  const serverCatalogue = Boolean(document.querySelector('[data-rentals-server-search]'));
 
   if (!searchInput && filterButtons.length === 0 && itemCards.length === 0) {
     return;
   }
 
   const applyFilters = () => {
+    // SQL already selected the complete matching page. Filtering these cards
+    // again would hide records and falsely report a page count as a total.
+    if (serverCatalogue) return;
     const term = (searchInput ? searchInput.value.trim().toLowerCase() : '');
     const activeFilter = document.querySelector('[data-rentals-filter].is-active');
     const selected = activeFilter ? activeFilter.dataset.rentalsFilter : 'all';
@@ -62,7 +66,7 @@ const initRentalsCatalogue = () => {
     }
   };
 
-  if (searchInput) {
+  if (searchInput && !serverCatalogue) {
     searchInput.addEventListener('input', applyFilters);
   }
 
@@ -72,7 +76,7 @@ const initRentalsCatalogue = () => {
     });
   };
   filterButtons.forEach((button) => {
-    button.addEventListener('click', () => {
+    if (!serverCatalogue) button.addEventListener('click', () => {
       filterButtons.forEach((el) => {
         const active = el.dataset.rentalsFilter === button.dataset.rentalsFilter;
         el.classList.toggle('is-active', active);
@@ -82,7 +86,7 @@ const initRentalsCatalogue = () => {
       applyFilters();
     });
   });
-  const requested = new URLSearchParams(window.location.search).get('category');
+  const requested = serverCatalogue ? null : new URLSearchParams(window.location.search).get('category');
   const createRentalGallery = (dialog) => {
   const visual = dialog.querySelector('.rentals-detail__visual');
   const picture = dialog.querySelector('[data-detail-image]');
@@ -119,7 +123,7 @@ const initRentalsCatalogue = () => {
 const chosen = [...filterButtons].find(button => button.dataset.rentalsFilter === requested);
   filterButtons.forEach(button => {
     if (chosen) button.classList.toggle('is-active', button.dataset.rentalsFilter === chosen.dataset.rentalsFilter);
-    button.setAttribute('aria-pressed', String(button.classList.contains('is-active')));
+    if (!serverCatalogue) button.setAttribute('aria-pressed', String(button.classList.contains('is-active')));
   });
   revealSelectedCategory();
   applyFilters();
@@ -665,7 +669,15 @@ const initServicePayment = () => {
   document.querySelectorAll('[data-service-proof-image]').forEach(image => image.addEventListener('error', () => { image.hidden = true; image.parentElement.querySelector('[data-service-proof-error]').hidden = false; }));
 };
 
-const initRentals = () => { initRentalImages(); initRentalHeader(); initRentalCarousels(); initRentalsCatalogue(); initRentalCart(); initRentalCheckout(); initRentalServiceRequest();
+const initRentalTableRegions = () => {
+  document.querySelectorAll('.rentals-order__table-wrap').forEach(wrapper => {
+    wrapper.tabIndex = 0;
+    wrapper.setAttribute('role', 'region');
+    wrapper.setAttribute('aria-label', wrapper.querySelector('caption')?.textContent.trim() || 'Rental records');
+  });
+};
+
+const initRentals = () => { initRentalTableRegions(); initRentalImages(); initRentalHeader(); initRentalCarousels(); initRentalsCatalogue(); initRentalCart(); initRentalCheckout(); initRentalServiceRequest();
     initServicePayment(); };
 
 if (document.readyState === 'loading') {

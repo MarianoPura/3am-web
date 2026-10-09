@@ -12,7 +12,7 @@ $submittedEmail = (string) ($submittedEmail ?? '');
 <section class="rentals-page-hero">
   <div class="rentals-shell rentals-page-hero__inner">
     <div>
-      <p class="rentals-kicker">Customer account</p>
+      <p class="rentals-kicker">Rental account</p>
       <h1>Welcome back.</h1>
     </div>
     <p>Keep your cart and rental requests connected to your customer record.</p>
@@ -23,7 +23,12 @@ $submittedEmail = (string) ($submittedEmail ?? '');
       <div class="rentals-support-panel rentals-account__signed-in">
         <p class="rentals-card__meta">Signed in</p>
         <h2><?= e($user['name']) ?></h2>
-        <p><?= e($user['email']) ?></p>
+        <dl class="rentals-account__facts">
+          <div><dt>Email</dt><dd><?= e((string) $user['email']) ?></dd></div>
+          <div><dt>Account type</dt><dd><?= e(match (strtolower((string) ($user['role'] ?? ''))) { 'admin' => 'Admin', 'superadmin' => 'Superadmin', 'customer' => 'Customer', default => 'Account' }) ?></dd></div>
+          <div><dt>Member since</dt><dd><?= e((string) ($user['created_at'] ?? 'Not recorded')) ?></dd></div>
+          <div><dt>Last sign in</dt><dd><?= e((string) ($user['last_login'] ?? 'Not recorded')) ?></dd></div>
+        </dl>
         <div class="rentals-inline-actions">
           <a class="rentals-btn rentals-btn--primary" href="<?= e_attr(url('rentals/cart')) ?>">View cart</a>
           <a class="rentals-btn rentals-btn--dark" href="<?= e_attr(url('rentals/orders')) ?>">Rental orders</a>

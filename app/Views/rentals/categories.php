@@ -80,15 +80,7 @@ $itemsList = is_array($items ?? null)
               (string) ($category['image_path'] ?? '')
           );
 
-          $itemCount = 0;
-
-          foreach ($itemsList as $item) {
-              if (
-                  (string) ($item['category'] ?? '') === $categoryId
-              ) {
-                  $itemCount++;
-              }
-          }
+          $itemCount = (int)($category['item_count'] ?? count(array_filter($itemsList, static fn(array $item):bool => (string)($item['category']??'')===$categoryId)));
           ?>
 
           <article class="rentals-card">
@@ -169,7 +161,7 @@ $itemsList = is_array($items ?? null)
 
           <a
             class="rentals-btn rentals-btn--dark"
-            href="<?= e_attr(url('rentals/support')) ?>"
+            href="<?= e_attr(url('start?type=rentals')) ?>"
           >
             Contact Rental Support
           </a>
@@ -180,6 +172,7 @@ $itemsList = is_array($items ?? null)
 
     <?php endif ?>
 
+    <?= $this->partial('rentals.partials.pagination',['pagination'=>$pagination??null,'pagePath'=>'rentals/categories']) ?>
   </div>
 </section>
 

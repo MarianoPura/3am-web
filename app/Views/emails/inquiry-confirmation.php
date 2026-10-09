@@ -69,7 +69,7 @@
 
   <!-- Preheader text (visible in inbox preview, hidden in email body) -->
   <div style="display: none; max-height: 0; overflow: hidden; mso-hide: all; font-size: 1px; line-height: 1px; color: #F0F4F8;">
-    We have received your quote inquiry (Ref: <?= e($record['reference']) ?>). Our production team will review your requirements.
+    We have received your quote inquiry (Ref: <?= e($record['reference']) ?>). Our team will review your requirements.
     &#847; &zwnj; &nbsp; &#8199; &shy; &#847; &zwnj; &nbsp; &#8199; &shy; &#847; &zwnj; &nbsp; &#8199; &shy;
   </div>
 
@@ -129,7 +129,7 @@
 
               <!-- Message Lead -->
               <p style="margin: 0 0 12px 0; font-family: 'Inter', Arial, sans-serif; font-size: 15px; line-height: 1.6; color: #152B45;">
-                Thank you for reaching out to <strong><?= e($siteName) ?></strong> We have received your inquiry and our production team will review your requirements.
+                Thank you for reaching out to <strong><?= e($siteName) ?></strong> We have received your inquiry and our team will review your requirements.
               </p>
               <p style="margin: 0 0 24px 0; font-family: 'Inter', Arial, sans-serif; font-size: 15px; line-height: 1.6; color: #4B5F73;">
                 We usually get back to you within <strong>one business day</strong>.
@@ -196,7 +196,7 @@
                 <?php endforeach ?>
               </table>
 
-              <!-- Event Details (Optional section, shown only if present) -->
+              <!-- Project Details (Optional section, shown only if present) -->
               <?php if (trim((string) $record['details']) !== ''): ?>
                 <?php
                 $cleanDetails = trim((string) $record['details']);
@@ -205,7 +205,7 @@
                 <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 24px;">
                   <tr>
                     <td align="left" style="background-color: #F8FAFC; border: 1px solid #D7E3EE; border-left: 4px solid #FFB300; border-radius: 4px; padding: 16px 20px; text-align: left;">
-                      <div style="font-family: 'JetBrains Mono', Consolas, monospace; font-size: 11px; font-weight: 700; color: #152B45; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; text-align: left; font-weight:bold;">Event Details:</div>
+                      <div style="font-family: 'JetBrains Mono', Consolas, monospace; font-size: 11px; font-weight: 700; color: #152B45; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; text-align: left; font-weight:bold;">Project Details:</div>
                       <div style="font-family: 'Inter', Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #2E4763; text-align: left; margin: 0; padding: 0;"><?= nl2br(e($cleanDetails)) ?></div>
                     </td>
                   </tr>

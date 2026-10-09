@@ -46,6 +46,8 @@ $http = static function (string $path, ?array $post = null, array $headers = [])
     $result = [(int) curl_getinfo($h, CURLINFO_RESPONSE_CODE), (string) $body,
         (string) curl_getinfo($h, CURLINFO_EFFECTIVE_URL), $received];
     curl_close($h);
+    // Uploads/replacements happen in another PHP process, outside CLI stat cache.
+    clearstatcache(true);
     return $result;
 };
 $token = static function (string $html): string {

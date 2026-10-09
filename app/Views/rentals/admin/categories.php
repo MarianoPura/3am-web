@@ -13,6 +13,7 @@
         <div><p class="rentals-card__meta">Records</p><h2>Category list</h2></div>
         <a class="rentals-btn rentals-btn--primary" href="<?= e_attr(url('rentals/admin/categories/new')) ?>">+ Add category</a>
       </div>
+      <form class="rentals-admin__filter" method="get" action="<?= e_attr(url('rentals/admin/categories')) ?>"><label><span class="sr-only">Search categories</span><input type="search" name="q" maxlength="100" value="<?= e_attr((string)($term??'')) ?>" placeholder="Search name or slug"></label><button class="rentals-btn rentals-btn--dark" type="submit">Search</button></form>
       <div class="rentals-admin__table-wrap"><table class="rentals-admin__table"><thead><tr>
         <th scope="col">Category</th><th scope="col">Slug</th><th scope="col">Status</th><th scope="col">Action</th>
       </tr></thead><tbody>
@@ -23,7 +24,8 @@
           <td><a href="<?= e_attr(url('rentals/admin/categories/' . (int) $row['id'] . '/edit')) ?>">Edit →</a></td>
         </tr><?php endforeach ?>
       </tbody></table></div>
-      <?php if ($rows === []): ?><p class="rentals-admin__empty">No records match this view.</p><?php elseif (count($rows) === 200): ?><p class="rentals-admin__limit">Showing the latest 200 records.</p><?php endif ?>
+      <?php if ($rows === []): ?><p class="rentals-admin__empty">No records match this view.</p><?php endif ?>
+      <?= $this->partial('rentals.partials.pagination',['pagination'=>$pagination??null,'pagePath'=>'rentals/admin/categories']) ?>
     </div>
   </div>
 </section>
